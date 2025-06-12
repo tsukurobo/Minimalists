@@ -31,6 +31,6 @@ In this project, we follow the Raspberry Pi Pico SDK (pico-sdk) naming conventio
 - **Global variables**  
   Use lower_snake_case with a `g_` prefix to avoid conflicts (e.g., `g_robot_state`).
 -->
-<!-- for GitHub Copilot review  rule-->
+<!-- for GitHub Copilot review rule -->
 
 <!-- I want to review in Japanese. -->
