@@ -14,18 +14,18 @@ typedef struct
 } robot_state_t;
 
 // 共有状態とミューテックス
-robot_state_t robot_state;
-mutex_t state_mutex;
+static robot_state_t g_robot_state;
+static mutex_t g_state_mutex;
 
 // Core 1: 通信・デバッグ出力担当
-void core1_entry() {
+void core1_entry(void) {
     while (1) {
         absolute_time_t next_time = make_timeout_time_ms(250);
 
-        mutex_enter_blocking(&state_mutex);
-        int speed = robot_state.motor_speed;
-        int sensor = robot_state.sensor_value;
-        mutex_exit(&state_mutex);
+        mutex_enter_blocking(&g_state_mutex);
+        int speed = g_robot_state.motor_speed;
+        int sensor = g_robot_state.sensor_value;
+        mutex_exit(&g_state_mutex);
 
         // デバッグ出力
         printf("[DEBUG] speed=%d, sensor=%d\n", speed, sensor);
@@ -36,7 +36,7 @@ void core1_entry() {
     }
 }
 
-int main() {
+int main(void) {
     stdio_init_all();  // UARTなど初期化
     sleep_ms(2000);    // シリアル接続待ち
 
@@ -44,14 +44,14 @@ int main() {
     gpio_init(PICO_DEFAULT_LED_PIN);
     gpio_set_dir(PICO_DEFAULT_LED_PIN, GPIO_OUT);
     // ミューテックス初期化
-    mutex_init(&state_mutex);
-    robot_state.motor_speed = 0;
-    robot_state.sensor_value = 0;
+    mutex_init(&g_state_mutex);
+    g_robot_state.motor_speed = 0;
+    g_robot_state.sensor_value = 0;
 
     // Core1で実行する関数を起動
     multicore_launch_core1(core1_entry);
 
-    while (true) {
+    while (1) {
         absolute_time_t next_time = make_timeout_time_ms(500);  // 今から500ms後
 
         // LEDを点滅させる
@@ -65,10 +65,10 @@ int main() {
         int new_speed = new_sensor * 2;
 
         // 状態を更新（排他制御あり）
-        mutex_enter_blocking(&state_mutex);
-        robot_state.motor_speed = new_speed;
-        robot_state.sensor_value = new_sensor;
-        mutex_exit(&state_mutex);
+        mutex_enter_blocking(&g_state_mutex);
+        g_robot_state.motor_speed = new_speed;
+        g_robot_state.sensor_value = new_sensor;
+        mutex_exit(&g_state_mutex);
 
         // 実際のモータ制御などをここで行う（PWM制御など）
         // motor_set_speed(new_speed);
