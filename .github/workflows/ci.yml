@@ -8,7 +8,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Install dependencies
-        run: sudo apt-get install -y cmake ninja-build clang-tidy python3-pip
+        run: sudo apt-get install -y cmake ninja-build clang-tidy python3-pip gcc-arm-none-eabi
       - name: Configure
         run: cmake -S . -B build -G Ninja -DPICO_SDK_FETCH_FROM_GIT=1
       - name: Build
