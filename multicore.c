@@ -14,7 +14,7 @@ typedef struct
 } robot_state_t;
 
 // 共有状態とミューテックス
-static robot_state_t g_robot_state;
+static robot_state_t robot_state;
 static mutex_t g_state_mutex;
 
 // Core 1: 通信・デバッグ出力担当
