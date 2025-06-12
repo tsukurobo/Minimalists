@@ -28,27 +28,27 @@ set(PICO_BOARD pico2 CACHE STRING "Board type")
 # Pull in Raspberry Pi Pico SDK (must be before project)
 include(pico_sdk_import.cmake)
 
-project(hello_multicore C CXX ASM)
+project(minimalists C CXX ASM)
 
 # Initialise the Raspberry Pi Pico SDK
 pico_sdk_init()
 
 # Add executable. Default name is the project name, version 0.1
 
-add_executable(hello_multicore
-        multicore.c
+add_executable(minimalists
+        main.c
         )
 
 # Add pico_multicore which is required for multicore functionality
-target_link_libraries(hello_multicore
+target_link_libraries(minimalists
         pico_stdlib
         pico_multicore)
 
 # USBシリアルを有効化
-pico_enable_stdio_usb(hello_multicore 1)
-pico_enable_stdio_uart(hello_multicore 0)
+pico_enable_stdio_usb(minimalists 1)
+pico_enable_stdio_uart(minimalists 0)
 
 # create map/bin/hex file etc.
-pico_add_extra_outputs(hello_multicore)
+pico_add_extra_outputs(minimalists)
 
 # add url via pico_set_program_url
