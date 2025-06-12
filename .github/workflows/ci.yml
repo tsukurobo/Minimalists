@@ -14,4 +14,4 @@ jobs:
       - name: Build
         run: cmake --build build
       - name: Run clang-tidy
-        run: clang-tidy multicore.c --warnings-as-errors=* --quiet || exit 1
+        run: clang-tidy multicore.c -p build --warnings-as-errors=* --quiet || exit 1
