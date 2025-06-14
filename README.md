@@ -6,6 +6,10 @@
 1. vscode に `Raspberry Pi Pico Project` 拡張機能をインストールしてください
 2. 新たに増えた`Raspberry Pi Pico Project`拡張機能メニューから`Project -> Configure CMake`を選択するとbuildディレクトリが生成されます
 
+## 機能説明
+### 動作フローチャート
+![flowchart](img/FlowChart.drawio.pdf)
+
 ## 命名規則
 
 本プロジェクトでは、Raspberry Pi Pico SDK（pico-sdk）の命名規則に準拠し、以下のように統一しています。
