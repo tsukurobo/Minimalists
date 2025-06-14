@@ -6,6 +6,16 @@
 1. vscode に `Raspberry Pi Pico Project` 拡張機能をインストールしてください
 2. 新たに増えた`Raspberry Pi Pico Project`拡張機能メニューから`Project -> Configure CMake`を選択するとbuildディレクトリが生成されます
 
+## 機能説明
+### 動作フローチャート
+![flowchart](img/FlowChart.drawio.png)
+### マルチコア処理
+Raspberry Pi Picoは2つのコアを持ち、マルチコア処理が可能です。
+#### Core 0
+RoboMaster M3508 P19 (ベース回転)，RoboMaster M2006 P36 (アーム並進)の制御を行います。
+#### Core 1
+シーケンス管理、センサーデータの取得、ハンドの制御を行います。
+
 ## 命名規則
 
 本プロジェクトでは、Raspberry Pi Pico SDK（pico-sdk）の命名規則に準拠し、以下のように統一しています。

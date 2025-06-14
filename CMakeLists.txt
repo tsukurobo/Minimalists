@@ -36,13 +36,19 @@ pico_sdk_init()
 # Add executable. Default name is the project name, version 0.1
 
 add_executable(minimalists
-        main.c
+        src/main.cpp
         )
 
 # Add pico_multicore which is required for multicore functionality
 target_link_libraries(minimalists
         pico_stdlib
-        pico_multicore)
+        pico_multicore
+)
+
+target_include_directories(minimalists
+		PRIVATE
+		${CMAKE_CURRENT_LIST_DIR}/include
+)
 
 # USBシリアルを有効化
 pico_enable_stdio_usb(minimalists 1)

@@ -1,10 +1,11 @@
-#include "pico/multicore.h"
-
 #include <stdio.h>
 #include <stdlib.h>
 
+#include "dynamics.hpp"
+#include "pico/multicore.h"
 #include "pico/mutex.h"
 #include "pico/stdlib.h"
+#include "trajectory.hpp"
 
 // 共有データ構造体
 typedef struct
