@@ -8,7 +8,13 @@
 
 ## 機能説明
 ### 動作フローチャート
-![flowchart](img/FlowChart.drawio.pdf)
+![flowchart](img/FlowChart.drawio.png)
+### マルチコア処理
+Raspberry Pi Picoは2つのコアを持ち、マルチコア処理が可能です。
+#### Core 0
+RoboMaster M3508 P19 (ベース回転)，RoboMaster M2006 P36 (アーム並進)の制御を行います。
+#### Core 1
+シーケンス管理、センサーデータの取得、ハンドの制御を行います。
 
 ## 命名規則
 
