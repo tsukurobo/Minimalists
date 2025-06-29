@@ -24,6 +24,9 @@ RoboMaster M3508 P19 (ベース回転)，RoboMaster M2006 P36 (アーム並進)�
     小文字スネークケース（例: `motor_speed`, `core1_entry`, `robot_state_t`）  
     構造体名など型名は末尾に `_t` を付けます。
 
+- **クラス名**  
+    小文字スネークケースで、末尾に `_t` を付けます（例: `dynamics_t`, `pid_controller_t`）
+	メンバ変数は末尾に `_`を付けます（例: `pid_controller_t::kp_`, `pid_controller_t::ki_`）
 - **マクロ・定数**  
     全大文字スネークケース（例: `MAX_SPEED`, `PICO_DEFAULT_LED_PIN`）
 
