@@ -37,12 +37,15 @@ pico_sdk_init()
 
 add_executable(minimalists
         src/main.cpp
+        src/dynamixel.cpp
+        src/hand.cpp
         )
 
 # Add pico_multicore which is required for multicore functionality
 target_link_libraries(minimalists
         pico_stdlib
         pico_multicore
+        hardware_pwm
 )
 
 target_include_directories(minimalists
