@@ -57,26 +57,22 @@ trajectory_t trajectory_P(
     0.3 / gear_radius_P   // 目標位置 (rad) - 300mm移動
 );
 
-// R軸速度制御用PIDコントローラ
-pid_controller_t pid_R_vel(
-    1,    // Kp
-    0.2,  // Ki
-    0.0,  // Kd
-    1,    // integral_max 積分値の上限
-    -1,   // integral_min
-    20,   // output_max 最大電流指令値
-    -20   // output_min
+// R軸速度制御用速度型PIDコントローラ
+velocity_pid_controller_t pid_R_vel(
+    10.0,  // Kp
+    1.0,   // Ki
+    0.1,   // Kd
+    20.0,  // output_max 最大電流指令値
+    -20.0  // output_min
 );
 
-// P軸速度制御用PIDコントローラ
-pid_controller_t pid_P_vel(
+// P軸速度制御用速度型PIDコントローラ
+velocity_pid_controller_t pid_P_vel(
     0.1,   // Kp - 直動軸なので少し高めに設定
     0.01,  // Ki
     0.0,   // Kd
-    5,     // integral_max 積分値の上限
-    -5,    // integral_min
-    10,    // output_max 最大電流指令値（M2006は小型なので低めに設定）
-    -10    // output_min
+    10.0,  // output_max 最大電流指令値（M2006は小型なので低めに設定）
+    -10.0  // output_min
 );
 
 void setup() {
@@ -99,31 +95,38 @@ void loop() {
     static bool is_started_R = false, is_started_P = false;
     static bool auto_repeat_R = false, auto_repeat_P = false;    // 自動往復フラグ
     static bool target_is_180_R = true, target_is_out_P = true;  // 現在の目標状態
+    static bool manual_mode_R = false, manual_mode_P = false;    // 手動制御フラグ
     double total_current_R = 0.0, total_current_P = 0.0;         // 総電流制御量
     // 軌道生成による目標値の計算
     static double target_pos_R = 0, target_vel_R = 0, target_accel_R = 0;
     static double target_pos_P = 0, target_vel_P = 0, target_accel_P = 0;
+    static char mode = '\0';  // 現在のコマンドモードを保持
+
     if (Serial.available() > 0) {
-        char mode = Serial.read();
+        mode = Serial.read();
         double val = Serial.readStringUntil('\n').toDouble();
 
         if (mode == 'r') {   // R軸：回転軸コマンド（角度指定）
             if (val == 0) {  // r0: R軸往復動作開始
                 is_started_R = true;
                 auto_repeat_R = true;
+                manual_mode_R = false;  // 手動制御モードを解除
                 target_is_180_R = true;
                 g_start_time = millis() / 1000.0;
                 trajectory_R.set_start_pos(0.0);
                 trajectory_R.set_end_pos(M_PI);
                 trajectory_R.calculate_trapezoidal_params();
+                pid_R_vel.reset();  // 速度型PIDをリセット
                 Serial.println("R-axis: Starting reciprocating motion: 0° <-> 180°");
             } else {  // r<角度>: R軸単発動作
                 is_started_R = true;
                 auto_repeat_R = false;
+                manual_mode_R = false;  // 手動制御モードを解除
                 g_start_time = millis() / 1000.0;
                 trajectory_R.set_start_pos(0.0);
                 trajectory_R.set_end_pos(val * (M_PI / 180.0));
                 trajectory_R.calculate_trapezoidal_params();
+                pid_R_vel.reset();  // 速度型PIDをリセット
                 Serial.print("R-axis: Single move to ");
                 Serial.print(val);
                 Serial.println(" degrees");
@@ -132,19 +135,23 @@ void loop() {
             if (val == 0) {        // p0: P軸往復動作開始
                 is_started_P = true;
                 auto_repeat_P = true;
+                manual_mode_P = false;  // 手動制御モードを解除
                 target_is_out_P = true;
                 g_start_time = millis() / 1000.0;
                 trajectory_P.set_start_pos(0.0);
                 trajectory_P.set_end_pos(0.3 / gear_radius_P);  // 300mm伸縮
                 trajectory_P.calculate_trapezoidal_params();
+                pid_P_vel.reset();  // 速度型PIDをリセット
                 Serial.println("P-axis: Starting reciprocating motion: 0mm <-> 300mm");
             } else {  // p<距離>: P軸単発動作（mm単位）
                 is_started_P = true;
                 auto_repeat_P = false;
+                manual_mode_P = false;  // 手動制御モードを解除
                 g_start_time = millis() / 1000.0;
                 trajectory_P.set_start_pos(0.0);
                 trajectory_P.set_end_pos(val / 1000.0 / gear_radius_P);  // mmをmに変換
                 trajectory_P.calculate_trapezoidal_params();
+                pid_P_vel.reset();  // 速度型PIDをリセット
                 Serial.print("P-axis: Single move to ");
                 Serial.print(val);
                 Serial.println(" mm");
@@ -154,25 +161,76 @@ void loop() {
             is_started_P = false;
             auto_repeat_R = false;
             auto_repeat_P = false;
+            manual_mode_R = false;
+            manual_mode_P = false;
             target_vel_R = 0;
             target_vel_P = 0;
+            // 速度型PIDコントローラをリセット
+            pid_R_vel.reset();
+            pid_P_vel.reset();
             Serial.println("All axes stopped");
         } else if (mode == 'a') {  // 手動電流指令（デバッグ用）
+            is_started_R = false;  // 軌道制御を停止
+            manual_mode_R = true;  // 手動制御モードに設定
             total_current_R = val;
+            // 手動制御時は速度型PIDに現在の出力値を設定
+            pid_R_vel.set_current_output(val);
             Serial.print("Manual current R: ");
             Serial.println(val);
         } else if (mode == 'v') {  // 手動速度指令（デバッグ用）
+            is_started_R = false;  // 軌道制御を停止
+            manual_mode_R = true;  // 手動制御モードに設定
             target_vel_R = val;
             Serial.print("Manual velocity R: ");
             Serial.println(val);
         } else if (mode == 'A') {  // 手動電流指令（P軸デバッグ用）
+            is_started_P = false;  // 軌道制御を停止
+            manual_mode_P = true;  // 手動制御モードに設定
             total_current_P = val;
+            // 手動制御時は速度型PIDに現在の出力値を設定
+            pid_P_vel.set_current_output(val);
             Serial.print("Manual current P: ");
             Serial.println(val);
         } else if (mode == 'V') {  // 手動速度指令（P軸デバッグ用）
+            is_started_P = false;  // 軌道制御を停止
+            manual_mode_P = true;  // 手動制御モードに設定
             target_vel_P = val;
             Serial.print("Manual velocity P: ");
             Serial.println(val);
+        } else if (mode == 'g') {  // PIDゲイン変更コマンド
+            // gR,Kp,Ki,Kd でR軸、gP,Kp,Ki,Kd でP軸
+            String param = Serial.readStringUntil('\n');
+            char axis = param.charAt(0);
+            param = param.substring(1);  // "R,3.0,0.5,0.0" など
+            double kp = param.substring(1, param.indexOf(',', 1)).toDouble();
+            int idx2 = param.indexOf(',', 1);
+            double ki = param.substring(idx2 + 1, param.indexOf(',', idx2 + 1)).toDouble();
+            int idx3 = param.indexOf(',', idx2 + 1);
+            double kd = param.substring(idx3 + 1).toDouble();
+
+            if (axis == 'R') {
+                pid_R_vel.set_kp(kp);
+                pid_R_vel.set_ki(ki);
+                pid_R_vel.set_kd(kd);
+                Serial.print("R-axis PID gains set: Kp=");
+                Serial.print(kp);
+                Serial.print(", Ki=");
+                Serial.print(ki);
+                Serial.print(", Kd=");
+                Serial.println(kd);
+            } else if (axis == 'P') {
+                pid_P_vel.set_kp(kp);
+                pid_P_vel.set_ki(ki);
+                pid_P_vel.set_kd(kd);
+                Serial.print("P-axis PID gains set: Kp=");
+                Serial.print(kp);
+                Serial.print(", Ki=");
+                Serial.print(ki);
+                Serial.print(", Kd=");
+                Serial.println(kd);
+            } else {
+                Serial.println("Invalid axis for PID gain setting.");
+            }
         }
     }
 
@@ -222,6 +280,7 @@ void loop() {
                     Serial.println("R-axis: Moving to 180 degrees...");
                 }
                 trajectory_R.calculate_trapezoidal_params();
+                pid_R_vel.reset();  // 軌道切り替え時にPIDリセット
                 g_start_time = millis() / 1000.0;
             } else {
                 is_started_R = false;
@@ -255,6 +314,7 @@ void loop() {
                     Serial.println("P-axis: Extending to 300mm...");
                 }
                 trajectory_P.calculate_trapezoidal_params();
+                pid_P_vel.reset();  // 軌道切り替え時にPIDリセット
                 g_start_time = millis() / 1000.0;
             } else {
                 is_started_P = false;
@@ -263,13 +323,64 @@ void loop() {
         }
     }
 
-    // PIDフィードバック制御量の計算
-    double fb_current_R = pid_R_vel.calculate(target_vel_R, motor_R.get_angular_velocity(), 0.02);
-    double fb_current_P = pid_P_vel.calculate(target_vel_P, motor_P.get_angular_velocity(), 0.02);
+    // PIDフィードバック制御量の計算（速度型PID使用）
+    double fb_current_R = 0.0, fb_current_P = 0.0;
 
-    // 総制御量（フィードフォワード + フィードバック）
-    total_current_R = ff_current_R + fb_current_R;
-    total_current_P = ff_current_P + fb_current_P;
+    // R軸の制御量計算
+    if (is_started_R) {
+        // 自動軌道制御
+        // 速度型PIDでフィードバック制御量を計算
+        double pid_output_R = pid_R_vel.calculate(target_vel_R, motor_R.get_angular_velocity(), 0.02);
+
+        // フィードフォワード制御量を追加（PIDの出力制限内で）
+        double combined_current = pid_output_R + ff_current_R;
+        if (combined_current > 20.0) {
+            total_current_R = 20.0;
+        } else if (combined_current < -20.0) {
+            total_current_R = -20.0;
+        } else {
+            total_current_R = combined_current;
+        }
+    } else if (manual_mode_R) {
+        // 手動制御モード
+        if (mode == 'v') {
+            // 手動速度制御
+            total_current_R = pid_R_vel.calculate(target_vel_R, motor_R.get_angular_velocity(), 0.02);
+        }
+        // 手動電流制御（mode == 'a'）の場合はtotal_current_Rは既に設定済み
+    } else {
+        // 停止状態
+        total_current_R = 0.0;
+        pid_R_vel.set_current_output(0.0);
+    }
+
+    // P軸の制御量計算
+    if (is_started_P) {
+        // 自動軌道制御
+        // 速度型PIDでフィードバック制御量を計算
+        double pid_output_P = pid_P_vel.calculate(target_vel_P, motor_P.get_angular_velocity(), 0.02);
+
+        // フィードフォワード制御量を追加（PIDの出力制限内で）
+        double combined_current = pid_output_P + ff_current_P;
+        if (combined_current > 10.0) {
+            total_current_P = 10.0;
+        } else if (combined_current < -10.0) {
+            total_current_P = -10.0;
+        } else {
+            total_current_P = combined_current;
+        }
+    } else if (manual_mode_P) {
+        // 手動制御モード
+        if (mode == 'V') {
+            // 手動速度制御
+            total_current_P = pid_P_vel.calculate(target_vel_P, motor_P.get_angular_velocity(), 0.02);
+        }
+        // 手動電流制御（mode == 'A'）の場合はtotal_current_Pは既に設定済み
+    } else {
+        // 停止状態
+        total_current_P = 0.0;
+        pid_P_vel.set_current_output(0.0);
+    }
 
     // 電流値を制限（安全のため）
     total_current_R = constrain(total_current_R, -MAX_CURRENT, MAX_CURRENT);
@@ -296,27 +407,43 @@ void loop() {
     }
 
     // デバッグ出力
-    Serial.print("R-axis: Angle(raw)=");
-    Serial.print(angle_raw_R);
-    Serial.print(", Turns=");
-    Serial.print(motor_R.get_encoder_turns());
-    Serial.print(", Current(A)=");
-    Serial.print(motor_R.raw_to_current(current_raw_R), 2);
-    Serial.print(", Omega(rad/s)=");
-    Serial.print(motor_R.get_angular_velocity(), 3);
-    Serial.print(", TotalCurrent=");
-    Serial.print(total_current_R, 3);
+    // Serial.print("R-axis: Angle(raw)=");
+    // Serial.print(angle_raw_R);
+    // Serial.print(", Turns=");
+    // Serial.print(motor_R.get_encoder_turns());
+    // Serial.print(", Current(A)=");
+    // Serial.print(motor_R.raw_to_current(current_raw_R), 2);
+    // Serial.print(", Omega(rad/s)=");
+    // Serial.print(motor_R.get_angular_velocity(), 3);
+    // Serial.print(", TotalCurrent=");
+    // Serial.print(total_current_R, 3);
 
-    Serial.print(" | P-axis: Angle(raw)=");
-    Serial.print(angle_raw_P);
-    Serial.print(", Turns=");
-    Serial.print(motor_P.get_encoder_turns());
-    Serial.print(", Current(A)=");
-    Serial.print(motor_P.raw_to_current(current_raw_P), 2);
-    Serial.print(", Omega(rad/s)=");
-    Serial.print(motor_P.get_angular_velocity(), 3);
-    Serial.print(", TotalCurrent=");
-    Serial.println(total_current_P, 3);
+    // Serial.print(" | P-axis: Angle(raw)=");
+    // Serial.print(angle_raw_P);
+    // Serial.print(", Turns=");
+    // Serial.print(motor_P.get_encoder_turns());
+    // Serial.print(", Current(A)=");
+    // Serial.print(motor_P.raw_to_current(current_raw_P), 2);
+    // Serial.print(", Omega(rad/s)=");
+    // Serial.print(motor_P.get_angular_velocity(), 3);
+    // Serial.print(", TotalCurrent=");
+    // Serial.println(total_current_P, 3);
+
+    // Serial.print("R-axis: TargetVel=");
+    Serial.print(target_vel_R, 3);
+    // Serial.print(", Omega=");
+    Serial.print(", ");
+    Serial.print(motor_R.get_angular_velocity(), 3);
+    // Serial.print(", Error=");
+    Serial.print(", ");
+    Serial.println(target_vel_R - motor_R.get_angular_velocity(), 3);
+
+    // Serial.print("P-axis: TargetVel=");
+    // Serial.print(target_vel_P, 3);
+    // Serial.print(", Omega=");
+    // Serial.print(motor_P.get_angular_velocity(), 3);
+    // Serial.print(", Error=");
+    // Serial.println(target_vel_P - motor_P.get_angular_velocity(), 3);
 
     static long prevTime = 0;
     unsigned long nowTime;
