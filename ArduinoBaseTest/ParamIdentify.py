@@ -89,11 +89,17 @@ def load_log_data(file_path):
         print(f"エラー: {e}")
         return None, None, None
 
-Kt=0.3 # トルク定数 [N*m/A]
-G= 3591.0 / 187.0 * 3.0 # ギア比
-eta=0.7 # 効率
+# R
+# Kt=0.3 # トルク定数 [N*m/A]
+# G= 3591.0 / 187.0 * 3.0 # ギア比
+# eta=0.5 # 効率
+
+# P
+Kt = 0.18  # トルク定数 [N*m/A]
+G = 36.0  # ギア比
+eta = 0.66  # 効率
 # K_eq は事前に計算または仮定した値
-K_eq = Kt * G * eta # 例: 0.1 * 50 * 0.8 = 4.0
+K_eq = Kt * G * eta
 
 # 測定データの読み込み
 print("=== ログファイルの選択 ===")
@@ -128,7 +134,7 @@ initial_params = [0.001, 0.01]
 # 慣性モーメントも摩擦係数も正の値なので、下限は0にする
 result = least_squares(residuals, initial_params,
                        args=(omega_out_data, current_data, d_omega_dt_data, K_eq),
-                       bounds=([1e-6, 1e-6], [np.inf, np.inf]))
+                       bounds=([1e-6, 1e-6], [1, 1]))
 
 J_eq_identified, D_eq_identified = result.x
 

@@ -7,7 +7,7 @@ dynamics_t::dynamics_t(double inertia_mass, double viscous_friction_coeff, doubl
 }
 
 double dynamics_t::calculate_feedforward_control(double target_vel, double target_accel) const {
-    double ff_torque_force;  // フィードフォワードとして計算されるトルクまたは力
+    double ff_torque_force;  // フィードフォワードとして計算されるトルク
 
     // 慣性項
     ff_torque_force = inertia_mass_ * target_accel;

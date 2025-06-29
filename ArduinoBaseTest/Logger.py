@@ -6,7 +6,7 @@ import datetime
 # --- 設定 ---
 SERIAL_PORT = 'COM4'  # Arduinoが接続されているCOMポート名に合わせて変更 (例: 'COM3'や'/dev/ttyUSB0')
 BAUD_RATE = 115200      # Arduinoのスケッチと合わせる
-LOG_FILE_BASE = 'sensor_log' # ログファイルのベース名（タイムスタンプが自動追加される）
+LOG_FILE_BASE = 'P_log' # ログファイルのベース名（タイムスタンプが自動追加される）
 LOG_INTERVAL_SEC = 0.002  # 何秒ごとにログを保存するか (Arduinoのdelayと合わせると良い)
 START_COMMAND = "c"    # Arduinoに送信する動作開始コマンド
 STOP_COMMAND = "a0"     # Arduinoに送信する動作停止コマンド
@@ -62,7 +62,7 @@ def extract_rpm_value(data_line):
     try:
         # データがカンマ区切りの場合、RPMは2番目（index 1）と仮定
         parts = data_line.split(',')
-        if len(parts) >= 3:
+        if len(parts) >= 2:
             rpm_value = float(parts[1].strip())
             return rpm_value
     except (ValueError, IndexError):

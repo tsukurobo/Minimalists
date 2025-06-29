@@ -8,33 +8,32 @@
  */
 class dynamics_t {
    private:
-    double inertia_mass_;            // 慣性モーメント (R軸) または質量 (P軸)(kg*m^2 または kg)
-    double viscous_friction_coeff_;  // 粘性摩擦係数
-    double torque_constant_;         // モーターのトルク定数 (Nm/A または Nmm/A)
-                                     // P軸の場合、力に変換するための係数 (N/A または N/電流値単位)
+    double inertia_mass_;            // 慣性モーメント (kg*m^2)
+    double viscous_friction_coeff_;  // 粘性摩擦係数 (N*m*s/rad)
+    double torque_constant_;         // モーターのトルク定数 (Nm/A)
 
    public:
     /**
      * コンストラクタ
-     * @param inertia_mass 慣性モーメント (R軸) または質量 (P軸)
+     * @param inertia_mass 慣性モーメント
      * @param viscous_friction_coeff 粘性摩擦係数
      * @param torque_constant モーターのトルク定数
      */
     dynamics_t(double inertia_mass, double viscous_friction_coeff, double torque_constant);
 
     /**
-     * 動力学計算に基づき、フィードフォワード制御量（トルク/力）を計算する関数。
+     * 動力学計算に基づき、フィードフォワード制御量（トルク）を計算する関数。
      * 最終的な電流指令値への変換は呼び出し元で行う。
      * 実際にモーターに送る値は、この戻り値をトルク定数で割った電流値になります。
-     * @param target_vel 目標速度 (単位: rad/s または m/s)
-     * @param target_accel 目標加速度 (単位: rad/s^2 または m/s^2)
-     * @return フィードフォワード制御量（トルク/力）
+     * @param target_vel 目標速度 (単位: rad/s)
+     * @param target_accel 目標加速度 (単位: rad/s^2)
+     * @return フィードフォワード制御量（トルク）
      */
     double calculate_feedforward_control(double target_vel, double target_accel) const;
 
     /**
      * フィードフォワード制御量を電流値に変換する関数
-     * @param feedforward_torque_force フィードフォワード制御量（トルク/力）
+     * @param feedforward_torque_force フィードフォワード制御量（トルク）
      * @return 電流値 (A)
      */
     double convert_to_current_command(double feedforward_torque_force) const;
