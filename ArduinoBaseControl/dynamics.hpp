@@ -1,5 +1,4 @@
-#ifndef DYNAMICS_H
-#define DYNAMICS_H
+#pragma once
 
 /**
  * 動力学制御クラス
@@ -48,5 +47,3 @@ class dynamics_t {
     void set_viscous_friction_coeff(double viscous_friction_coeff) { viscous_friction_coeff_ = viscous_friction_coeff; }
     void set_torque_constant(double torque_constant) { torque_constant_ = torque_constant; }
 };
-
-#endif
