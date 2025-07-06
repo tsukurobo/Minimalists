@@ -1,5 +1,5 @@
-#ifndef TRAJECTORY_H
-#define TRAJECTORY_H
+#ifndef TRAJECTORY_HPP
+#define TRAJECTORY_HPP
 
 #include <stdbool.h>  // bool型を使用するために必要
 
