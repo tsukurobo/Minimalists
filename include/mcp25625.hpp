@@ -1,5 +1,4 @@
-#ifndef MCP25625_H
-#define MCP25625_H
+#pragma once
 
 #include <cstdint>
 
@@ -141,5 +140,3 @@ class MCP25625 {
     uint8_t _cs_pin;   ///< チップセレクトピン
     uint8_t _rst_pin;  ///< リセットピン
 };
-
-#endif  // MCP25625_H

@@ -1,5 +1,4 @@
-#ifndef ROBOMASTER_CAN_H
-#define ROBOMASTER_CAN_H
+#pragma once
 
 #include "mcp25625.hpp"  // MCP25625ライブラリをインクルード
 
@@ -37,5 +36,3 @@ bool send_motor_currents(MCP25625& can, int16_t motor1, int16_t motor2, int16_t 
  * @return 解釈に成功すればtrue、フィードバックフレームでなければfalse
  */
 bool parse_motor_feedback(const struct can_frame& frame, RoboMotorFeedback& feedback_data);
-
-#endif  // ROBOMASTER_CAN_H
