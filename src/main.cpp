@@ -1,8 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#include <iostream>
-
 #include "dynamics.hpp"
 #include "mcp25625.hpp"
 #include "pico/multicore.h"
