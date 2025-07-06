@@ -37,12 +37,17 @@ pico_sdk_init()
 
 add_executable(minimalists
         src/main.cpp
+        src/mcp25625.cpp
+        src/trajectory.cpp
+        src/dynamics.cpp
+        src/robomaster.cpp
         )
 
 # Add pico_multicore which is required for multicore functionality
 target_link_libraries(minimalists
         pico_stdlib
         pico_multicore
+        hardware_spi
 )
 
 target_include_directories(minimalists
