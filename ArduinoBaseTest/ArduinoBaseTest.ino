@@ -32,7 +32,7 @@ void loop() {
         char mode = Serial.read();
         double val = Serial.readStringUntil('\n').toDouble();
 
-        if (mode == 'c')  // 瀬戸しおを取る
+        if (mode == 'c')  // 動作開始
         {
             is_started = true;
         } else if (mode == 'a') {
