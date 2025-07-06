@@ -1,5 +1,4 @@
-#ifndef ROBOMASTER_MOTOR_H
-#define ROBOMASTER_MOTOR_H
+#pragma once
 
 #include <stdint.h>
 
@@ -90,5 +89,3 @@ class robomaster_motor_t {
     void set_gear_ratio(double gear_ratio) { gear_ratio_ = gear_ratio; }
     void set_angular_velocity(double angular_velocity) { angular_velocity_ = angular_velocity; }
 };
-
-#endif

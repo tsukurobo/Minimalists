@@ -1,5 +1,4 @@
-#ifndef TRAJECTORY_H
-#define TRAJECTORY_H
+#pragma once
 
 #include <stdbool.h>  // bool型を使用するために必要
 // 台形速度軌道生成に必要なパラメータ構造体
@@ -66,5 +65,3 @@ void calculate_scurve_params(SCurveTrajectoryParams *params);
 double get_scurve_state(const SCurveTrajectoryParams *params, double current_time,
                         double *target_pos, double *target_vel,
                         double *target_accel);
-
-#endif

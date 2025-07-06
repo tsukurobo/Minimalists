@@ -1,5 +1,4 @@
-#ifndef TRAJECTORY_H
-#define TRAJECTORY_H
+#pragma once
 
 #include <stdbool.h>  // bool型を使用するために必要
 
@@ -58,5 +57,3 @@ class trajectory_t {
     void set_start_pos(double start_pos) { start_pos_ = start_pos; }
     void set_end_pos(double end_pos) { end_pos_ = end_pos; }
 };
-
-#endif
