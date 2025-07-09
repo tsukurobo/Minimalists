@@ -75,8 +75,8 @@ bool MCP25625::send_can_message(const struct can_frame* frame) {
 // 受信メッセージがあるか確認
 bool MCP25625::check_receive() {
     uint8_t status = _read_register(MCP_CANINTF);
-    // 取得したバッファ内容をダンプ
-    printf("CANINTF: 0x%02X\n", status);
+    // // 取得したバッファ内容をダンプ
+    // printf("CANINTF: 0x%02X\n", status);
     return (status & (MCP_RX0IF | MCP_RX1IF)) != 0;
 }
 

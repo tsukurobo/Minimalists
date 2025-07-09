@@ -3,12 +3,12 @@
 #include "mcp25625.hpp"  // MCP25625ライブラリをインクルード
 
 // Robomasterモーターの標準的なCAN ID
-#define CAN_ID_CONTROL_MOTORS_1_4 0x200
-#define CAN_ID_CONTROL_MOTORS_5_8 0x1FF
-#define CAN_ID_FEEDBACK_MOTOR1 0x201
-#define CAN_ID_FEEDBACK_MOTOR2 0x202
-#define CAN_ID_FEEDBACK_MOTOR3 0x203
-#define CAN_ID_FEEDBACK_MOTOR4 0x204
+constexpr uint16_t CAN_ID_CONTROL_MOTORS_1_4 = 0x200;
+constexpr uint16_t CAN_ID_CONTROL_MOTORS_5_8 = 0x1FF;
+constexpr uint16_t CAN_ID_FEEDBACK_MOTOR1 = 0x201;
+constexpr uint16_t CAN_ID_FEEDBACK_MOTOR2 = 0x202;
+constexpr uint16_t CAN_ID_FEEDBACK_MOTOR3 = 0x203;
+constexpr uint16_t CAN_ID_FEEDBACK_MOTOR4 = 0x204;
 
 // モーターからのフィードバックデータを格納する構造体
 typedef struct {

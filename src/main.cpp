@@ -19,6 +19,8 @@ constexpr int PIN_MOSI = 11;
 constexpr int PIN_RST = 20;
 constexpr int PIN_INT = 21;  // 割り込みは今回不使用
 
+constexpr uint16_t CAN_ID_BASE = 0x200;  // モーターのCAN IDベース (1〜4は0x201〜0x204)
+
 // MCP25625オブジェクトを作成
 MCP25625 can(SPI_PORT, PIN_CS, PIN_RST);
 
@@ -73,7 +75,7 @@ void core1_entry(void) {
             // 関数を呼び出すだけで、フィードバックデータを解釈できる
             if (parse_motor_feedback(rx_frame, feedback)) {
                 // モーターIDはCAN IDから特定 (0x201 -> 1)
-                uint8_t motor_id = rx_frame.can_id - 0x200;
+                uint8_t motor_id = rx_frame.can_id - CAN_ID_BASE;
                 printf("Motor %d Feedback -> Angle: %u, Speed: %d RPM, Temp: %dC\n",
                        motor_id, feedback.angle, feedback.speed, feedback.temperature);
             } else {

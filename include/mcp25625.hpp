@@ -16,38 +16,38 @@
  */
 
 // データシート 表5-1: SPI命令セット [cite: 1666]
-#define MCP_RESET 0xC0        ///< SPIコマンド: ソフトウェアリセット
-#define MCP_READ 0x03         ///< SPIコマンド: レジスタ読み出し
-#define MCP_WRITE 0x02        ///< SPIコマンド: レジスタ書き込み
-#define MCP_READ_STATUS 0xA0  ///< SPIコマンド: ステータス読み出し
-#define MCP_RX_STATUS 0xB0    ///< SPIコマンド: 受信バッファステータス
-#define MCP_BITMOD 0x05       ///< SPIコマンド: ビット修正
-#define MCP_LOAD_TXB0 0x40    ///< SPIコマンド: 送信バッファ0へのデータロード
-#define MCP_RTS_TXB0 0x81     ///< SPIコマンド: 送信要求（バッファ0）
+constexpr uint8_t MCP_RESET = 0xC0;        ///< SPIコマンド: ソフトウェアリセット
+constexpr uint8_t MCP_READ = 0x03;         ///< SPIコマンド: レジスタ読み出し
+constexpr uint8_t MCP_WRITE = 0x02;        ///< SPIコマンド: レジスタ書き込み
+constexpr uint8_t MCP_READ_STATUS = 0xA0;  ///< SPIコマンド: ステータス読み出し
+constexpr uint8_t MCP_RX_STATUS = 0xB0;    ///< SPIコマンド: 受信バッファステータス
+constexpr uint8_t MCP_BITMOD = 0x05;       ///< SPIコマンド: ビット修正
+constexpr uint8_t MCP_LOAD_TXB0 = 0x40;    ///< SPIコマンド: 送信バッファ0へのデータロード
+constexpr uint8_t MCP_RTS_TXB0 = 0x81;     ///< SPIコマンド: 送信要求（バッファ0）
 
 // データシート 4.0 レジスタマップ [cite: 1125]
-#define MCP_CANSTAT 0x0E   ///< CANステータスレジスタ
-#define MCP_CANCTRL 0x0F   ///< CAN制御レジスタ
-#define MCP_CNF1 0x2A      ///< コンフィグレーション1 レジスタ
-#define MCP_CNF2 0x29      ///< コンフィグレーション2 レジスタ
-#define MCP_CNF3 0x28      ///< コンフィグレーション3 レジスタ
-#define MCP_CANINTF 0x2C   ///< 割り込みフラグレジスタ
-#define MCP_TXB0CTRL 0x30  ///< 送信バッファ0制御レジスタ
-#define MCP_RXB0CTRL 0x60  ///< 受信バッファ0制御レジスタ
-#define MCP_RXB1CTRL 0x70  ///< 受信バッファ1制御レジスタ
-#define MCP_RXB0SIDH 0x61  ///< 受信バッファ0標準ID上位レジスタ
-#define MCP_RXB1SIDH 0x71  ///< 受信バッファ1標準ID上位レジスタ
+constexpr uint8_t MCP_CANSTAT = 0x0E;   ///< CANステータスレジスタ
+constexpr uint8_t MCP_CANCTRL = 0x0F;   ///< CAN制御レジスタ
+constexpr uint8_t MCP_CNF1 = 0x2A;      ///< コンフィグレーション1 レジスタ
+constexpr uint8_t MCP_CNF2 = 0x29;      ///< コンフィグレーション2 レジスタ
+constexpr uint8_t MCP_CNF3 = 0x28;      ///< コンフィグレーション3 レジスタ
+constexpr uint8_t MCP_CANINTF = 0x2C;   ///< 割り込みフラグレジスタ
+constexpr uint8_t MCP_TXB0CTRL = 0x30;  ///< 送信バッファ0制御レジスタ
+constexpr uint8_t MCP_RXB0CTRL = 0x60;  ///< 受信バッファ0制御レジスタ
+constexpr uint8_t MCP_RXB1CTRL = 0x70;  ///< 受信バッファ1制御レジスタ
+constexpr uint8_t MCP_RXB0SIDH = 0x61;  ///< 受信バッファ0標準ID上位レジスタ
+constexpr uint8_t MCP_RXB1SIDH = 0x71;  ///< 受信バッファ1標準ID上位レジスタ
 
 // CANCTRLレジスタのモード定義 [cite: p51]
-#define MODE_NORMAL 0x00      ///< 通常動作モード（000）
-#define MODE_SLEEP 0x20       ///< スリープモード（001）
-#define MODE_LOOPBACK 0x40    ///< ループバックモード（010）
-#define MODE_LISTENONLY 0x60  ///< リッスンオンリーモード（011）
-#define MODE_CONFIG 0x80      ///< コンフィグレーションモード（100）
+constexpr uint8_t MODE_NORMAL = 0x00;      ///< 通常動作モード（000）
+constexpr uint8_t MODE_SLEEP = 0x20;       ///< スリープモード（001）
+constexpr uint8_t MODE_LOOPBACK = 0x40;    ///< ループバックモード（010）
+constexpr uint8_t MODE_LISTENONLY = 0x60;  ///< リッスンオンリーモード（011）
+constexpr uint8_t MODE_CONFIG = 0x80;      ///< コンフィグレーションモード（100）
 
 // CANINTFフラグ [cite: 1591]
-#define MCP_RX0IF 0x01  ///< 受信バッファ0フル割り込みフラグ
-#define MCP_RX1IF 0x02  ///< 受信バッファ1フル割り込みフラグ
+constexpr uint8_t MCP_RX0IF = 0x01;  ///< 受信バッファ0フル割り込みフラグ
+constexpr uint8_t MCP_RX1IF = 0x02;  ///< 受信バッファ1フル割り込みフラグ
 
 /**
  * @enum CAN_SPEED
