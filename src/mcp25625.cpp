@@ -3,7 +3,7 @@
 #include <stdio.h>
 
 // コンストラクタ: SPIとGPIOピンを初期化
-MCP25625::MCP25625(spi_inst_t* spi, uint8_t cs_pin, uint8_t rst_pin)
+mcp25625_t::mcp25625_t(spi_inst_t* spi, uint8_t cs_pin, uint8_t rst_pin)
     : _spi(spi), _cs_pin(cs_pin), _rst_pin(rst_pin) {
     // リセットピンを初期化
     gpio_init(_rst_pin);
@@ -17,7 +17,7 @@ MCP25625::MCP25625(spi_inst_t* spi, uint8_t cs_pin, uint8_t rst_pin)
 }
 
 // 初期化: リセット、ビットタイミング設定、通常モードへの移行
-bool MCP25625::init(CAN_SPEED speed, uint32_t clock_mhz) {
+bool mcp25625_t::init(CAN_SPEED speed, uint32_t clock_mhz) {
     _reset();
     sleep_ms(10);
 
@@ -41,7 +41,7 @@ bool MCP25625::init(CAN_SPEED speed, uint32_t clock_mhz) {
 }
 
 // CANメッセージを送信バッファにロードして送信要求
-bool MCP25625::send_can_message(const struct can_frame* frame) {
+bool mcp25625_t::send_can_message(const struct can_frame_t* frame) {
     // 送信バッファが空くまで待機 (TXREQ=0) [cite: 487]
     uint8_t status = _read_register(MCP_TXB0CTRL);
     // 取得したバッファ内容をダンプ
@@ -73,7 +73,7 @@ bool MCP25625::send_can_message(const struct can_frame* frame) {
 }
 
 // 受信メッセージがあるか確認
-bool MCP25625::check_receive() {
+bool mcp25625_t::check_receive() {
     uint8_t status = _read_register(MCP_CANINTF);
     // // 取得したバッファ内容をダンプ
     // printf("CANINTF: 0x%02X\n", status);
@@ -81,7 +81,7 @@ bool MCP25625::check_receive() {
 }
 
 // 受信バッファからCANメッセージを読み出す
-bool MCP25625::read_can_message(struct can_frame* frame) {
+bool mcp25625_t::read_can_message(struct can_frame_t* frame) {
     if (!check_receive()) {
         return false;
     }
@@ -118,7 +118,7 @@ bool MCP25625::read_can_message(struct can_frame* frame) {
 
 // --- プライベートヘルパー関数 ---
 
-void MCP25625::_reset() {
+void mcp25625_t::_reset() {
     // ハードウェアリセット
     gpio_put(_rst_pin, 0);
     sleep_us(10);
@@ -131,7 +131,7 @@ void MCP25625::_reset() {
     gpio_put(_cs_pin, 1);
 }
 
-bool MCP25625::_set_mode(uint8_t mode) {
+bool mcp25625_t::_set_mode(uint8_t mode) {
     // CANCTRLレジスタの上位3ビットを設定
     _modify_register(MCP_CANCTRL, 0xE0, mode);
 
@@ -140,7 +140,7 @@ bool MCP25625::_set_mode(uint8_t mode) {
     return (status & 0xE0) == mode;
 }
 
-bool MCP25625::_set_bit_timing(CAN_SPEED speed, uint32_t clock_mhz) {
+bool mcp25625_t::_set_bit_timing(CAN_SPEED speed, uint32_t clock_mhz) {
     // クロックは16MHzと仮定(FOSC = 16MHz)
     // TQ = 2 * (BRP + 1) / FOSC [ns]
     uint8_t cnf1, cnf2, cnf3;
@@ -163,14 +163,14 @@ bool MCP25625::_set_bit_timing(CAN_SPEED speed, uint32_t clock_mhz) {
 }
 
 // 低レベルSPI関数
-void MCP25625::_write_register(uint8_t address, uint8_t value) {
+void mcp25625_t::_write_register(uint8_t address, uint8_t value) {
     uint8_t buf[3] = {MCP_WRITE, address, value};
     gpio_put(_cs_pin, 0);
     spi_write_blocking(_spi, buf, 3);
     gpio_put(_cs_pin, 1);
 }
 
-void MCP25625::_write_registers(uint8_t address, const uint8_t* values, uint8_t len) {
+void mcp25625_t::_write_registers(uint8_t address, const uint8_t* values, uint8_t len) {
     uint8_t buf[2] = {MCP_WRITE, address};
     gpio_put(_cs_pin, 0);
     spi_write_blocking(_spi, buf, 2);
@@ -178,7 +178,7 @@ void MCP25625::_write_registers(uint8_t address, const uint8_t* values, uint8_t 
     gpio_put(_cs_pin, 1);
 }
 
-uint8_t MCP25625::_read_register(uint8_t address) {
+uint8_t mcp25625_t::_read_register(uint8_t address) {
     uint8_t cmd[2] = {MCP_READ, address};
     uint8_t data;
     gpio_put(_cs_pin, 0);
@@ -188,7 +188,7 @@ uint8_t MCP25625::_read_register(uint8_t address) {
     return data;
 }
 
-void MCP25625::_read_registers(uint8_t address, uint8_t* values, uint8_t len) {
+void mcp25625_t::_read_registers(uint8_t address, uint8_t* values, uint8_t len) {
     uint8_t cmd[2] = {MCP_READ, address};
     gpio_put(_cs_pin, 0);
     spi_write_blocking(_spi, cmd, 2);
@@ -196,14 +196,14 @@ void MCP25625::_read_registers(uint8_t address, uint8_t* values, uint8_t len) {
     gpio_put(_cs_pin, 1);
 }
 
-void MCP25625::_modify_register(uint8_t address, uint8_t mask, uint8_t data) {
+void mcp25625_t::_modify_register(uint8_t address, uint8_t mask, uint8_t data) {
     uint8_t buf[4] = {MCP_BITMOD, address, mask, data};
     gpio_put(_cs_pin, 0);
     spi_write_blocking(_spi, buf, 4);
     gpio_put(_cs_pin, 1);
 }
 
-void MCP25625::_request_to_send(uint8_t instruction) {
+void mcp25625_t::_request_to_send(uint8_t instruction) {
     gpio_put(_cs_pin, 0);
     spi_write_blocking(_spi, &instruction, 1);
     gpio_put(_cs_pin, 1);

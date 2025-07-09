@@ -62,19 +62,19 @@ enum CAN_SPEED {
  * @struct can_frame
  * @brief CANメッセージ1フレーム分のデータ構造
  */
-struct can_frame {
+struct can_frame_t {
     uint32_t can_id;  ///< CAN ID (11-bit or 29-bit)
     uint8_t can_dlc;  ///< データ長 (0-8)
     uint8_t data[8];  ///< データ
 };
 
 /**
- * @class MCP25625
+ * @class mcp25625_t
  * @brief MCP25625 CANコントローラを制御するクラス
  *
  * SPI経由でMCP25625を操作し、CAN通信の初期化・送受信を行います。
  */
-class MCP25625 {
+class mcp25625_t {
    public:
     /**
      * @brief コンストラクタ
@@ -82,7 +82,7 @@ class MCP25625 {
      * @param cs_pin チップセレクトピン番号
      * @param rst_pin リセットピン番号
      */
-    MCP25625(spi_inst_t* spi, uint8_t cs_pin, uint8_t rst_pin);
+    mcp25625_t(spi_inst_t* spi, uint8_t cs_pin, uint8_t rst_pin);
 
     /**
      * @brief MCP25625の初期化
@@ -97,14 +97,14 @@ class MCP25625 {
      * @param frame 送信するCANフレーム
      * @return true:成功, false:失敗
      */
-    bool send_can_message(const struct can_frame* frame);
+    bool send_can_message(const struct can_frame_t* frame);
 
     /**
      * @brief CANメッセージの受信
      * @param frame 受信したCANフレームを格納する構造体
      * @return true:成功, false:失敗
      */
-    bool read_can_message(struct can_frame* frame);
+    bool read_can_message(struct can_frame_t* frame);
 
     /**
      * @brief 受信メッセージがあるか確認

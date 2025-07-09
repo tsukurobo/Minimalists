@@ -40,7 +40,7 @@ add_executable(minimalists
         src/mcp25625.cpp
         src/trajectory.cpp
         src/dynamics.cpp
-        src/robomaster.cpp
+        src/robomaster_motor.cpp
         )
 
 # Add pico_multicore which is required for multicore functionality

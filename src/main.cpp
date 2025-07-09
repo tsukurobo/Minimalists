@@ -6,7 +6,7 @@
 #include "pico/multicore.h"
 #include "pico/mutex.h"
 #include "pico/stdlib.h"
-#include "robomaster.hpp"
+#include "robomaster_motor.hpp"
 #include "trajectory.hpp"
 
 // PicoのSPI設定
@@ -19,10 +19,16 @@ constexpr int PIN_MOSI = 11;
 constexpr int PIN_RST = 20;
 constexpr int PIN_INT = 21;  // 割り込みは今回不使用
 
-constexpr uint16_t CAN_ID_BASE = 0x200;  // モーターのCAN IDベース (1〜4は0x201〜0x204)
-
 // MCP25625オブジェクトを作成
-MCP25625 can(SPI_PORT, PIN_CS, PIN_RST);
+mcp25625_t can(SPI_PORT, PIN_CS, PIN_RST);
+
+// ベースのモータから出力軸までのギア比
+double gear_ratio_R = 3591.0 / 187.0 * 3.0;  // M3508(3591.0/187.0) * M3508出力軸からベース根本(3.0)
+double gear_ratio_P = 36.0;                  // M2006 P36のギア比
+
+// RoboMasterモータオブジェクト
+robomaster_motor_t motor1(&can, 1, gear_ratio_R);  // motor_id=1
+robomaster_motor_t motor2(&can, 2, gear_ratio_P);  // motor_id=2
 
 // 共有データ構造体
 typedef struct
@@ -49,19 +55,18 @@ void core1_entry(void) {
     }
     printf("MCP25625 Initialized successfully!\n");
 
-    int16_t target_current = 0;
+    double target_current[4] = {0.0, 0.0, 0.0, 0.0};  // モータ1~4の目標電流値(A)
 
     while (true) {
         absolute_time_t next_time = make_timeout_time_ms(250);
 
-        // モーター1の目標電流値を設定 (-2000 ~ 2000)
-        target_current += 50;
-        if (target_current > 5000) target_current = -5000;
+        // モーター1の目標電流値(A)を設定（例: -10A〜10Aで変化）
+        target_current[0] += 0.5;
+        if (target_current[0] > 10.0) target_current[0] = -10.0;
 
         // --- 送信処理 ---
-        // 関数を呼び出すだけで、モーター1〜4に電流指令を送信できる
-        if (send_motor_currents(can, target_current, 0, 0, 0)) {
-            printf("Sent current: %d\n", target_current);
+        if (send_all_motor_currents(&can, target_current)) {
+            printf("Sent current (A): %.2f\n", target_current[0]);
         } else {
             printf("Failed to send current command.\n");
         }
@@ -69,25 +74,11 @@ void core1_entry(void) {
         sleep_ms(10);  // 送信間隔を調整
 
         // --- 受信処理 ---
-        struct can_frame rx_frame;
-        if (can.read_can_message(&rx_frame)) {
-            RoboMotorFeedback feedback;
-            // 関数を呼び出すだけで、フィードバックデータを解釈できる
-            if (parse_motor_feedback(rx_frame, feedback)) {
-                // モーターIDはCAN IDから特定 (0x201 -> 1)
-                uint8_t motor_id = rx_frame.can_id - CAN_ID_BASE;
-                printf("Motor %d Feedback -> Angle: %u, Speed: %d RPM, Temp: %dC\n",
-                       motor_id, feedback.angle, feedback.speed, feedback.temperature);
-            } else {
-                printf("Received non-feedback CAN message: ID=0x%03X, DLC=%d, Data=[",
-                       rx_frame.can_id, rx_frame.can_dlc);
-                for (int i = 0; i < rx_frame.can_dlc; ++i) {
-                    printf(" 0x%02X", rx_frame.data[i]);
-                }
-                printf(" ]\n");
-            }
+        if (motor1.receive_feedback()) {
+            printf("Motor1 Feedback -> Angle: %.2f [rad], Speed: %.2f [rad/s]\n",
+                   motor1.get_continuous_angle(), motor1.get_angular_velocity());
         } else {
-            printf("No CAN message received.\n");
+            printf("No CAN message received for Motor1.\n");
         }
 
         // mutex_enter_blocking(&g_state_mutex);
