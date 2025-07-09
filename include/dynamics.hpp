@@ -1,5 +1,4 @@
-#ifndef DYNAMICS_H
-#define DYNAMICS_H
+#pragma once
 
 // 各軸の動力学パラメータ構造体
 typedef struct {
@@ -22,5 +21,3 @@ double calculate_feedforward_control(
     const DynamicParams *dyn_params,
     double target_vel,
     double target_accel);
-
-#endif
