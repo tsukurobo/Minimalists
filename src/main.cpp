@@ -1,14 +1,25 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#include <cmath>
+
 #include "amt223v.hpp"
 #include "dynamics.hpp"
 #include "mcp25625.hpp"
 #include "pico/multicore.h"
 #include "pico/mutex.h"
 #include "pico/stdlib.h"
+#include "pid_controller.hpp"
 #include "robomaster_motor.hpp"
 #include "trajectory.hpp"
+
+// 制御周期定数
+constexpr double CONTROL_PERIOD_MS = 10.0;                       // 制御周期 [ms]
+constexpr double CONTROL_PERIOD_S = CONTROL_PERIOD_MS / 1000.0;  // 制御周期 [s]
+
+// システム設定定数
+constexpr int SHUTDOWN_PIN = 27;          // 明示的にLOWにしないとPicoが動かない
+constexpr int DEBUG_PRINT_INTERVAL = 25;  // デバッグ出力間隔（制御周期の倍数）
 
 // SPI設定構造体
 typedef struct {
@@ -21,9 +32,6 @@ typedef struct {
     int pin_mosi;
     int pin_rst;
 } spi_config_t;
-
-// PicoのSPI設定
-constexpr int SHUTDOWN_PIN = 27;  // 明示的にLOWにしないとPicoが動かない
 
 // CAN IC用SPI設定
 static const spi_config_t can_spi_config = {
@@ -55,6 +63,15 @@ double gear_ratio_P = 36.0;                  // M2006 P36のギア比
 robomaster_motor_t motor1(&can, 1, gear_ratio_R);  // motor_id=1
 robomaster_motor_t motor2(&can, 2, gear_ratio_P);  // motor_id=2
 
+// PIDコントローラ（モータ1: 回転軸、モータ2: 直動軸）
+// 位置PID制御器（位置[rad] → 目標速度[rad/s]）
+PositionPIDController position_pid_R(2.0, 0.0, 0.0, CONTROL_PERIOD_S);  // Kp=2.0, Ki=0.1, Kd=0.05
+PositionPIDController position_pid_P(1.5, 0.0, 0.0, CONTROL_PERIOD_S);  // Kp=1.5, Ki=0.05, Kd=0.03
+
+// 速度I-P制御器（速度[rad/s] → トルク[Nm]）
+VelocityIPController velocity_ip_R(0.8, 1.2, CONTROL_PERIOD_S);  // Ki=0.8, Kp=1.2
+VelocityIPController velocity_ip_P(0.6, 1.0, CONTROL_PERIOD_S);  // Ki=0.6, Kp=1.0
+
 // 共有データ構造体
 typedef struct
 {
@@ -62,6 +79,22 @@ typedef struct
     int sensor_value;
     double encoder1_angle;  // エンコーダ1の角度 [rad]
     double encoder2_angle;  // エンコーダ2の角度 [rad]
+
+    // 制御目標値
+    double target_position_R;  // R軸目標位置 [rad]
+    double target_position_P;  // P軸目標位置 [rad]
+
+    // 制御状態
+    double current_position_R;  // R軸現在位置 [rad]
+    double current_position_P;  // P軸現在位置 [rad]
+    double current_velocity_R;  // R軸現在速度 [rad/s]
+    double current_velocity_P;  // P軸現在速度 [rad/s]
+
+    // 制御出力
+    double target_velocity_R;  // R軸目標速度 [rad/s]（位置PIDの出力）
+    double target_velocity_P;  // P軸目標速度 [rad/s]（位置PIDの出力）
+    double target_torque_R;    // R軸目標トルク [Nm]（速度I-Pの出力）
+    double target_torque_P;    // P軸目標トルク [Nm]（速度I-Pの出力）
 } robot_state_t;
 
 // SPI初期化関数
@@ -129,11 +162,34 @@ bool init_encoders() {
     return true;
 }
 
+// PIDコントローラの初期化関数
+bool init_pid_controllers() {
+    printf("Initializing PID controllers...\n");
+    printf("Control period: %.1f ms (%.0f Hz)\n", CONTROL_PERIOD_MS);
+
+    // 位置PID制御器の設定
+    position_pid_R.setOutputLimits(-10.0, 10.0);  // 目標速度制限 ±10 rad/s
+    position_pid_R.setIntegralLimits(-5.0, 5.0);  // 積分制限
+
+    position_pid_P.setOutputLimits(-5.0, 5.0);    // 目標速度制限 ±5 rad/s
+    position_pid_P.setIntegralLimits(-3.0, 3.0);  // 積分制限
+
+    // 速度I-P制御器の設定
+    velocity_ip_R.setOutputLimits(-16.0, 16.0);    // トルク制限 ±16 Nm（M3508最大トルク）
+    velocity_ip_R.setIntegralLimits(-10.0, 10.0);  // 積分制限
+
+    velocity_ip_P.setOutputLimits(-10.0, 10.0);  // トルク制限 ±10 Nm（M2006最大トルク）
+    velocity_ip_P.setIntegralLimits(-8.0, 8.0);  // 積分制限
+
+    printf("PID controllers initialized successfully!\n");
+    return true;
+}
+
 // 共有状態とミューテックス
 static robot_state_t g_robot_state;
 static mutex_t g_state_mutex;
 
-// Core 1: 通信・デバッグ出力担当
+// Core 1: 通信・制御担当
 void core1_entry(void) {
     // CANの初期化（リトライ付き）
     while (!can.init(CAN_1000KBPS)) {
@@ -144,32 +200,15 @@ void core1_entry(void) {
         sleep_ms(10);
     }
     printf("MCP25625 Initialized successfully!\n");
-
+    printf("Starting control loop at %.1f ms (%.0f Hz)\n", CONTROL_PERIOD_MS);
     double target_current[4] = {0.0, 0.0, 0.0, 0.0};  // モータ1~4の目標電流値(A)
 
+    // 制御周期タイマー
+    absolute_time_t last_control_time = get_absolute_time();
+
     while (true) {
-        absolute_time_t next_time = make_timeout_time_ms(250);
-
-        // モーター1の目標電流値(A)を設定（例: -1A〜1Aで変化）
-        target_current[0] += 0.1;
-        if (target_current[0] > 1.0) target_current[0] = -1.0;
-
-        // --- 送信処理 ---
-        if (send_all_motor_currents(&can, target_current)) {
-            printf("Sent current (A): %.2f\n", target_current[0]);
-        } else {
-            printf("Failed to send current command.\n");
-        }
-
-        sleep_ms(10);  // 送信間隔を調整
-
-        // --- 受信処理 ---
-        if (motor1.receive_feedback()) {
-            printf("Motor1 Feedback -> Angle: %.2f [rad], Speed: %.2f [rad/s]\n",
-                   motor1.get_continuous_angle(), motor1.get_angular_velocity());
-        } else {
-            printf("No CAN message received for Motor1.\n");
-        }
+        absolute_time_t next_time = make_timeout_time_ms(static_cast<uint32_t>(CONTROL_PERIOD_MS));  // 制御周期
+        absolute_time_t current_time = get_absolute_time();
 
         // --- エンコーダ読み取り処理 ---
         double enc1_angle = 0.0, enc2_angle = 0.0;
@@ -178,35 +217,84 @@ void core1_entry(void) {
 
         if (enc1_ok) {
             enc1_angle = encoder_manager.get_encoder_angle_rad(0);
-            printf("Encoder1: %.4f [rad] (%.1f [deg])\n",
-                   enc1_angle, encoder_manager.get_encoder_angle_deg(0));
-        } else {
-            printf("Failed to read Encoder1\n");
         }
-
         if (enc2_ok) {
             enc2_angle = encoder_manager.get_encoder_angle_rad(1);
-            printf("Encoder2: %.4f [rad] (%.1f [deg])\n",
-                   enc2_angle, encoder_manager.get_encoder_angle_deg(1));
-        } else {
-            printf("Failed to read Encoder2\n");
         }
 
-        // 共有データ更新
+        // --- モータフィードバック受信 ---
+        double motor_position_R = 0.0, motor_velocity_R = 0.0;
+        double motor_position_P = 0.0, motor_velocity_P = 0.0;
+
+        if (motor1.receive_feedback()) {
+            motor_position_R = motor1.get_continuous_angle();
+            motor_velocity_R = motor1.get_angular_velocity();
+        }
+        if (motor2.receive_feedback()) {
+            motor_position_P = motor2.get_continuous_angle();
+            motor_velocity_P = motor2.get_angular_velocity();
+        }
+
+        // --- 共有データから目標値取得 ---
+        double target_pos_R, target_pos_P;
         mutex_enter_blocking(&g_state_mutex);
+        target_pos_R = g_robot_state.target_position_R;
+        target_pos_P = g_robot_state.target_position_P;
+
+        // 現在状態を更新
         g_robot_state.encoder1_angle = enc1_angle;
         g_robot_state.encoder2_angle = enc2_angle;
+        g_robot_state.current_position_R = motor_position_R;
+        g_robot_state.current_position_P = motor_position_P;
+        g_robot_state.current_velocity_R = motor_velocity_R;
+        g_robot_state.current_velocity_P = motor_velocity_P;
         mutex_exit(&g_state_mutex);
 
-        // mutex_enter_blocking(&g_state_mutex);
-        // int speed = g_robot_state.motor_speed;
-        // int sensor = g_robot_state.sensor_value;
-        // mutex_exit(&g_state_mutex);
+        // --- 制御計算 ---
+        // 位置PID制御（位置偏差 → 目標速度）
+        double target_vel_R = position_pid_R.computePosition(target_pos_R, motor_position_R);
+        double target_vel_P = position_pid_P.computePosition(target_pos_P, motor_position_P);
 
-        // // デバッグ出力
-        // printf("[DEBUG] speed=%d, sensor=%d\n", speed, sensor);
+        // 速度I-P制御（速度偏差 → 目標トルク）
+        double target_torque_R = velocity_ip_R.computeVelocity(target_vel_R, motor_velocity_R);
+        double target_torque_P = velocity_ip_P.computeVelocity(target_vel_P, motor_velocity_P);
 
-        // 通信処理（例: USB出力やUART送信など）ここに追加可能
+        // トルクから電流への変換
+        // RoboMasterモータのトルク定数を使用（概算値）
+        const double torque_constant_M3508 = 0.3;   // Nm/A（概算）
+        const double torque_constant_M2006 = 0.18;  // Nm/A（概算）
+
+        target_current[0] = target_torque_R / torque_constant_M3508;  // Motor1 (R軸)
+        target_current[1] = target_torque_P / torque_constant_M2006;  // Motor2 (P軸)
+
+        // --- 制御結果を共有データに保存 ---
+        mutex_enter_blocking(&g_state_mutex);
+        g_robot_state.target_velocity_R = target_vel_R;
+        g_robot_state.target_velocity_P = target_vel_P;
+        g_robot_state.target_torque_R = target_torque_R;
+        g_robot_state.target_torque_P = target_torque_P;
+        mutex_exit(&g_state_mutex);
+
+        // --- CAN送信処理 ---
+        if (send_all_motor_currents(&can, target_current)) {
+            static int print_counter = 0;
+            if (++print_counter >= DEBUG_PRINT_INTERVAL) {  // 定数で管理された間隔で出力
+                printf("Control: PosR=%.3f->%.3f VelR=%.2f->%.2f TorqR=%.2f CurR=%.2fA\n",
+                       motor_position_R, target_pos_R, motor_velocity_R, target_vel_R,
+                       target_torque_R, target_current[0]);
+                printf("         PosP=%.3f->%.3f VelP=%.2f->%.2f TorqP=%.2f CurP=%.2fA\n",
+                       motor_position_P, target_pos_P, motor_velocity_P, target_vel_P,
+                       target_torque_P, target_current[1]);
+
+                // PIDデバッグ情報（位置制御）
+                position_pid_R.printDebugInfo("PID_R", target_pos_R - motor_position_R, target_vel_R);
+                position_pid_P.printDebugInfo("PID_P", target_pos_P - motor_position_P, target_vel_P);
+
+                print_counter = 0;
+            }
+        } else {
+            printf("Failed to send current command.\n");
+        }
 
         busy_wait_until(next_time);
     }
@@ -229,6 +317,11 @@ int main(void) {
         return -1;
     }
 
+    // PIDコントローラの初期化
+    if (!init_pid_controllers()) {
+        return -1;
+    }
+
     sleep_ms(2000);  // シリアル接続待ち
 
     // LEDのGPIO初期化
@@ -241,26 +334,51 @@ int main(void) {
     g_robot_state.encoder1_angle = 0.0;
     g_robot_state.encoder2_angle = 0.0;
 
+    // 制御初期値
+    g_robot_state.target_position_R = 0.0;  // 初期目標位置
+    g_robot_state.target_position_P = 0.0;
+    g_robot_state.current_position_R = 0.0;
+    g_robot_state.current_position_P = 0.0;
+    g_robot_state.current_velocity_R = 0.0;
+    g_robot_state.current_velocity_P = 0.0;
+    g_robot_state.target_velocity_R = 0.0;
+    g_robot_state.target_velocity_P = 0.0;
+    g_robot_state.target_torque_R = 0.0;
+    g_robot_state.target_torque_P = 0.0;
+
     // Core1で実行する関数を起動
     multicore_launch_core1(core1_entry);
 
     while (1) {
-        absolute_time_t next_time = make_timeout_time_ms(500);  // 今から500ms後
+        absolute_time_t next_time = make_timeout_time_ms(1000);  // 1秒周期
 
-        // センサ読み取りや制御計算の疑似処理
-        int new_sensor = rand() % 100;
-        int new_speed = new_sensor * 2;
+        // 目標位置の変更テスト（ゆっくりとした目標値変化）
+        static double time_counter = 0.0;
+        time_counter += 1.0;  // 1秒ずつ増加
+
+        // サイン波による目標位置の変化（R軸: ±1.0 rad, P軸: ±0.5 rad）
+        double target_R = 1.0 * sin(2.0 * M_PI * time_counter / 20.0);  // 20秒周期
+        double target_P = 0.5 * sin(2.0 * M_PI * time_counter / 15.0);  // 15秒周期
 
         // 状態を更新（排他制御あり）
         mutex_enter_blocking(&g_state_mutex);
-        g_robot_state.motor_speed = new_speed;
-        g_robot_state.sensor_value = new_sensor;
+        g_robot_state.target_position_R = target_R;
+        g_robot_state.target_position_P = target_P;
+
+        // デバッグ用に現在状態も取得
+        double current_pos_R = g_robot_state.current_position_R;
+        double current_pos_P = g_robot_state.current_position_P;
+        double current_vel_R = g_robot_state.current_velocity_R;
+        double current_vel_P = g_robot_state.current_velocity_P;
         mutex_exit(&g_state_mutex);
 
-        // 実際のモータ制御などをここで行う（PWM制御など）
-        // motor_set_speed(new_speed);
+        // 1秒毎のステータス出力
+        printf("\n=== System Status (t=%.1fs) ===\n", time_counter);
+        printf("Target:  R=%.3f [rad], P=%.3f [rad]\n", target_R, target_P);
+        printf("Current: R=%.3f [rad], P=%.3f [rad]\n", current_pos_R, current_pos_P);
+        printf("Velocity: R=%.2f [rad/s], P=%.2f [rad/s]\n", current_vel_R, current_vel_P);
 
-        busy_wait_until(next_time);  // 500ms待機
+        busy_wait_until(next_time);  // 1秒待機
     }
 
     return 0;
