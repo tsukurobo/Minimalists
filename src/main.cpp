@@ -9,18 +9,47 @@
 #include "robomaster_motor.hpp"
 #include "trajectory.hpp"
 
-// PicoのSPI設定
-#define SPI_PORT spi1                    // SPI1を使用
-constexpr int SPI_BAUDRATE = 1'000'000;  // 1MHz
-constexpr int PIN_MISO = 8;
-constexpr int PIN_CS = 9;
-constexpr int PIN_SCK = 10;
-constexpr int PIN_MOSI = 11;
-constexpr int PIN_RST = 20;
-constexpr int PIN_INT = 21;  // 割り込みは今回不使用
+// SPI設定構造体
+typedef struct {
+    spi_inst_t* spi_port;
+    uint32_t baudrate;
+    int pin_miso;
+    int pin_cs[4];    // 最大4つのCSピンをサポート
+    int num_cs_pins;  // 実際に使用するCSピンの数
+    int pin_sck;
+    int pin_mosi;
+    int pin_rst;
+} spi_config_t;
 
-// MCP25625オブジェクトを作成
-mcp25625_t can(SPI_PORT, PIN_CS, PIN_RST);
+// PicoのSPI設定
+constexpr int SHUTDOWN_PIN = 27;  // 明示的にLOWにしないとPicoが動かない
+
+// CAN IC用SPI設定
+static const spi_config_t can_spi_config = {
+    .spi_port = spi1,       // SPI1を使用
+    .baudrate = 1'000'000,  // 1MHz
+    .pin_miso = 8,
+    .pin_cs = {5},     // CSピン1つ
+    .num_cs_pins = 1,  // CSピン数
+    .pin_sck = 10,
+    .pin_mosi = 11,
+    .pin_rst = 20,
+};
+
+// エンコーダ用SPI設定（2つのサブノード）
+static const spi_config_t encoder_spi_config = {
+    .spi_port = spi0,       // SPI0を使用
+    .baudrate = 1'000'000,  // 1MHz (修正: 500kHzから1MHzに)
+    .pin_miso = 16,
+    .pin_cs = {7, 6},  // CSピン2つ（エンコーダ1, エンコーダ2）
+    .num_cs_pins = 2,  // CSピン数
+    .pin_sck = 18,
+    .pin_mosi = 19,
+    .pin_rst = -1  // リセットピンなし
+};
+
+// MCP25625オブジェクトを作成（CAN SPI設定を使用）
+mcp25625_t can(can_spi_config.spi_port, can_spi_config.pin_cs[0], can_spi_config.pin_rst);
 
 // ベースのモータから出力軸までのギア比
 double gear_ratio_R = 3591.0 / 187.0 * 3.0;  // M3508(3591.0/187.0) * M3508出力軸からベース根本(3.0)
@@ -37,6 +66,73 @@ typedef struct
     int sensor_value;
 } robot_state_t;
 
+// SPI初期化関数
+bool init_spi(const spi_config_t* config) {
+    // SPIの初期化
+    spi_init(config->spi_port, config->baudrate);
+    gpio_set_function(config->pin_miso, GPIO_FUNC_SPI);
+    gpio_set_function(config->pin_sck, GPIO_FUNC_SPI);
+    gpio_set_function(config->pin_mosi, GPIO_FUNC_SPI);
+
+    // 複数のCSピンを設定
+    for (int i = 0; i < config->num_cs_pins; i++) {
+        gpio_init(config->pin_cs[i]);
+        gpio_set_dir(config->pin_cs[i], GPIO_OUT);
+        gpio_put(config->pin_cs[i], 1);  // CS初期状態はHIGH
+        printf("CS%d pin %d initialized\n", i, config->pin_cs[i]);
+    }
+
+    // リセットピンがある場合の設定
+    if (config->pin_rst >= 0) {
+        gpio_init(config->pin_rst);
+        gpio_set_dir(config->pin_rst, GPIO_OUT);
+        gpio_put(config->pin_rst, 1);  // リセット解除
+        printf("Reset pin %d initialized\n", config->pin_rst);
+    }
+
+    return true;
+}
+
+// 複数のSPIデバイスを初期化する関数
+bool init_all_spi_devices() {
+    // CAN IC用SPI初期化
+    if (!init_spi(&can_spi_config)) {
+        printf("Failed to initialize CAN SPI!\n");
+        return false;
+    }
+    printf("CAN SPI initialized successfully!\n");
+
+    // エンコーダ用SPI初期化
+    if (!init_spi(&encoder_spi_config)) {
+        printf("Failed to initialize Encoder SPI!\n");
+        return false;
+    }
+    printf("Encoder SPI initialized successfully with %d CS pins!\n", encoder_spi_config.num_cs_pins);
+
+    return true;
+}
+
+// エンコーダ用CSピン選択関数
+void encoder_select_cs(int encoder_index) {
+    // 全てのCSピンをHIGHにして非選択状態にする
+    for (int i = 0; i < encoder_spi_config.num_cs_pins; i++) {
+        gpio_put(encoder_spi_config.pin_cs[i], 1);
+    }
+
+    // 指定されたエンコーダのCSピンをLOWにして選択する
+    if (encoder_index >= 0 && encoder_index < encoder_spi_config.num_cs_pins) {
+        gpio_put(encoder_spi_config.pin_cs[encoder_index], 0);
+    }
+}
+
+// エンコーダ用CSピン非選択関数
+void encoder_deselect_all_cs() {
+    // 全てのCSピンをHIGHにして非選択状態にする
+    for (int i = 0; i < encoder_spi_config.num_cs_pins; i++) {
+        gpio_put(encoder_spi_config.pin_cs[i], 1);
+    }
+}
+
 // 共有状態とミューテックス
 static robot_state_t g_robot_state;
 static mutex_t g_state_mutex;
@@ -46,12 +142,10 @@ void core1_entry(void) {
     // CANの初期化（リトライ付き）
     while (!can.init(CAN_1000KBPS)) {
         printf("MCP25625 Initialization failed. Retrying in 2 seconds...\n");
-        for (int i = 0; i < 4; ++i) {
-            gpio_put(PICO_DEFAULT_LED_PIN, 1);
-            sleep_ms(250);
-            gpio_put(PICO_DEFAULT_LED_PIN, 0);
-            sleep_ms(250);
-        }
+        gpio_put(PICO_DEFAULT_LED_PIN, 1);
+        sleep_ms(10);
+        gpio_put(PICO_DEFAULT_LED_PIN, 0);
+        sleep_ms(10);
     }
     printf("MCP25625 Initialized successfully!\n");
 
@@ -60,9 +154,9 @@ void core1_entry(void) {
     while (true) {
         absolute_time_t next_time = make_timeout_time_ms(250);
 
-        // モーター1の目標電流値(A)を設定（例: -10A〜10Aで変化）
-        target_current[0] += 0.5;
-        if (target_current[0] > 10.0) target_current[0] = -10.0;
+        // モーター1の目標電流値(A)を設定（例: -1A〜1Aで変化）
+        target_current[0] += 0.1;
+        if (target_current[0] > 1.0) target_current[0] = -1.0;
 
         // --- 送信処理 ---
         if (send_all_motor_currents(&can, target_current)) {
@@ -97,11 +191,15 @@ void core1_entry(void) {
 
 int main(void) {
     stdio_init_all();  // UARTなど初期化
-    // SPIの初期化
-    spi_init(SPI_PORT, SPI_BAUDRATE);
-    gpio_set_function(PIN_MISO, GPIO_FUNC_SPI);
-    gpio_set_function(PIN_SCK, GPIO_FUNC_SPI);
-    gpio_set_function(PIN_MOSI, GPIO_FUNC_SPI);
+    gpio_init(SHUTDOWN_PIN);
+    gpio_set_dir(SHUTDOWN_PIN, GPIO_OUT);
+    gpio_put(SHUTDOWN_PIN, 0);  // HIGHにしておくとPicoが動かないのでLOWに設定
+    sleep_ms(2000);             // 少し待機して安定化
+
+    // 全SPIデバイスの初期化
+    if (!init_all_spi_devices()) {
+        return -1;
+    }
 
     sleep_ms(2000);  // シリアル接続待ち
 

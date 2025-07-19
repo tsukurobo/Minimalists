@@ -18,14 +18,16 @@ mcp25625_t::mcp25625_t(spi_inst_t* spi, uint8_t cs_pin, uint8_t rst_pin)
 
 // 初期化: リセット、ビットタイミング設定、通常モードへの移行
 bool mcp25625_t::init(CAN_SPEED speed, uint32_t clock_mhz) {
-    _reset();
+    // _reset();
     sleep_ms(10);
 
     if (!_set_mode(MODE_CONFIG)) {  // コンフィグレーションモードに設定 [cite: 295]
+        printf("[ERROR] Failed to set configuration mode.\n");
         return false;
     }
 
     if (!_set_bit_timing(speed, clock_mhz)) {  // ビットタイミングを設定 [cite: 296]
+        printf("[ERROR] Failed to set bit timing.\n");
         return false;
     }
 
@@ -34,6 +36,7 @@ bool mcp25625_t::init(CAN_SPEED speed, uint32_t clock_mhz) {
     _modify_register(MCP_RXB1CTRL, 0x60, 0x60);  // RXB1: 全受信 ←追加
 
     if (!_set_mode(MODE_NORMAL)) {  // 通常動作モードに設定 [cite: 300]
+        printf("[ERROR] Failed to set normal mode.\n");
         return false;
     }
 
@@ -134,9 +137,11 @@ void mcp25625_t::_reset() {
 bool mcp25625_t::_set_mode(uint8_t mode) {
     // CANCTRLレジスタの上位3ビットを設定
     _modify_register(MCP_CANCTRL, 0xE0, mode);
+    printf("[DEBUG] Setting mode to 0x%02X\n", mode);
 
     // モードが正しく設定されたか確認 [cite: 286]
     uint8_t status = _read_register(MCP_CANSTAT);
+    printf("[DEBUG] Current CANSTAT: 0x%02X\n", status);
     return (status & 0xE0) == mode;
 }
 
