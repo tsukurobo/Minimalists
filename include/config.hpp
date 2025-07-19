@@ -5,7 +5,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#include "config.hpp"
+#include <iostream>
+
 #include "dynamics.hpp"
 #include "dynamixel.hpp"
 #include "hand.hpp"
@@ -15,23 +16,24 @@
 #include "trajectory.hpp"
 
 // PIN設定
-constexpr int PUMP_PIN = 10;
-constexpr int PUMP_DIR_PIN = 11;
-constexpr int SOLENOID_PIN = 12;
+constexpr int PUMP_PIN1 = 10;
+constexpr int PUMP_PIN2 = 11;
+constexpr int SOLENOID_PIN1 = 12;
+constexpr int SOLENOID_PIN2 = 13;
 
 // 手先のmotorに与えるduty比
-constexpr int PUMP_PWM = 128;
+constexpr int PUMP_PWM = 0.80;
 
 // 手先のdynamixcelの角度定数 0~360°
-constexpr float GRAB_ANGLE = 10.0f;
-constexpr float RELEASE_ANGLE = 90.0f;
+constexpr float GRAB_ANGLE = 210.0f;
+constexpr float RELEASE_ANGLE = 300.0f;
 // 昇降用dynamixcelの角度定数　
 constexpr float UP_ANGLE = 10.0f;
-constexpr float DOWN_ANGLE = 20.0f;
+constexpr float DOWN_ANGLE = 150.0f;
 
 // dynamixelのID
-constexpr short DXL_ID0 = 0x01;  // 昇降
-constexpr short DXL_ID1 = 0x02;  // 手先
+constexpr short DXL_ID1 = 0x01;  // 手先
+constexpr short DXL_ID2 = 0x02;  // 昇降
 
 extern mutex_t g_hand_mutex;
 extern volatile bool g_hand_requested;
