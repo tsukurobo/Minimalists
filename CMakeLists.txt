@@ -38,6 +38,7 @@ pico_sdk_init()
 add_executable(minimalists
         src/main.cpp
         src/mcp25625.cpp
+        src/amt223v.cpp
         src/trajectory.cpp
         src/dynamics.cpp
         src/robomaster_motor.cpp
