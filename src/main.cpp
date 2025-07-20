@@ -4,6 +4,7 @@
 #include <cmath>
 
 #include "amt223v.hpp"
+#include "control_timing.hpp"
 #include "dynamics.hpp"
 #include "mcp25625.hpp"
 #include "pico/multicore.h"
@@ -203,12 +204,13 @@ void core1_entry(void) {
     printf("Starting control loop at %.1f ms (%.0f Hz)\n", CONTROL_PERIOD_MS);
     double target_current[4] = {0.0, 0.0, 0.0, 0.0};  // モータ1~4の目標電流値(A)
 
-    // 制御周期タイマー
-    absolute_time_t last_control_time = get_absolute_time();
+    // 制御周期管理構造体の初期化
+    control_timing_t control_timing;
+    init_control_timing(&control_timing);
 
     while (true) {
-        absolute_time_t next_time = make_timeout_time_ms(static_cast<uint32_t>(CONTROL_PERIOD_MS));  // 制御周期
-        absolute_time_t current_time = get_absolute_time();
+        // 制御周期開始処理
+        control_timing_start(&control_timing, CONTROL_PERIOD_MS);
 
         // --- エンコーダ読み取り処理 ---
         double enc1_angle = 0.0, enc2_angle = 0.0;
@@ -279,12 +281,12 @@ void core1_entry(void) {
         if (send_all_motor_currents(&can, target_current)) {
             static int print_counter = 0;
             if (++print_counter >= DEBUG_PRINT_INTERVAL) {  // 定数で管理された間隔で出力
-                printf("Control: PosR=%.3f->%.3f VelR=%.2f->%.2f TorqR=%.2f CurR=%.2fA\n",
+                printf("Control: PosR=%.3f->%.3f VelR=%.2f->%.2f TorqR=%.2f CurR=%.2fA [LED:%s]\n",
                        motor_position_R, target_pos_R, motor_velocity_R, target_vel_R,
-                       target_torque_R, target_current[0]);
-                printf("         PosP=%.3f->%.3f VelP=%.2f->%.2f TorqP=%.2f CurP=%.2fA\n",
+                       target_torque_R, target_current[0], get_led_status_string(control_timing.led_mode));
+                printf("         PosP=%.3f->%.3f VelP=%.2f->%.2f TorqP=%.2f CurP=%.2fA [Violations:%d]\n",
                        motor_position_P, target_pos_P, motor_velocity_P, target_vel_P,
-                       target_torque_P, target_current[1]);
+                       target_torque_P, target_current[1], control_timing.timing_violation_count);
 
                 // PIDデバッグ情報（位置制御）
                 position_pid_R.printDebugInfo("PID_R", target_pos_R - motor_position_R, target_vel_R);
@@ -296,7 +298,8 @@ void core1_entry(void) {
             printf("Failed to send current command.\n");
         }
 
-        busy_wait_until(next_time);
+        // 制御周期終了処理
+        control_timing_end(&control_timing, CONTROL_PERIOD_MS);
     }
 }
 
@@ -349,8 +352,10 @@ int main(void) {
     // Core1で実行する関数を起動
     multicore_launch_core1(core1_entry);
 
+    absolute_time_t next_main_time = get_absolute_time();
+
     while (1) {
-        absolute_time_t next_time = make_timeout_time_ms(1000);  // 1秒周期
+        next_main_time = delayed_by_us(next_main_time, 1000000);  // 1秒周期
 
         // 目標位置の変更テスト（ゆっくりとした目標値変化）
         static double time_counter = 0.0;
@@ -378,7 +383,7 @@ int main(void) {
         printf("Current: R=%.3f [rad], P=%.3f [rad]\n", current_pos_R, current_pos_P);
         printf("Velocity: R=%.2f [rad/s], P=%.2f [rad/s]\n", current_vel_R, current_vel_P);
 
-        busy_wait_until(next_time);  // 1秒待機
+        busy_wait_until(next_main_time);  // 1秒待機
     }
 
     return 0;
