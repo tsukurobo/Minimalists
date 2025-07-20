@@ -248,7 +248,7 @@ void core1_entry(void) {
 
     while (true) {
         // 制御周期開始処理
-        control_timing_start(&control_timing, CONTROL_PERIOD_MS);
+        control_timing_start(&control_timing, OVERFLOW_CONTINUOUS);
 
         // --- エンコーダ読み取り処理 ---
         double enc1_angle = 0.0, enc2_angle = 0.0;

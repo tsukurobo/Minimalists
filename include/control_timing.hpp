@@ -5,9 +5,8 @@
 
 // LED制御モード
 enum led_mode_t {
-    LED_OFF,
-    LED_SLOW_BLINK,
-    LED_FAST_BLINK
+    LED_OFF,  // LED消灯（正常時）
+    LED_ON    // LED点灯（処理時間超過時）
 };
 
 // 制御周期超過時の動作モード
@@ -24,8 +23,6 @@ typedef struct {
     int timing_violation_count;
 
     // LED制御用
-    absolute_time_t led_toggle_time;
-    bool led_state;
     led_mode_t led_mode;
 
     // 制御周期超過時の動作設定
