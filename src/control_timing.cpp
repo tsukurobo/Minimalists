@@ -40,12 +40,18 @@ void control_timing_end(control_timing_t* timing, double control_period_ms) {
     absolute_time_t processing_end_time = get_absolute_time();
     int64_t processing_time_us = absolute_time_diff_us(timing->loop_start_time, processing_end_time);
 
-    if (absolute_time_diff_us(get_absolute_time(), timing->next_control_time) > 0) {
+    // デバッグ用：現在時刻と次回制御時刻の差を計算
+    int64_t time_until_next_control_us = absolute_time_diff_us(get_absolute_time(), timing->next_control_time);
+
+    // 現在時刻が次回制御時刻を過ぎているかを正しく判定
+    if (absolute_time_diff_us(timing->next_control_time, get_absolute_time()) > 0) {
         // 処理時間が制御周期を超過した場合 - LED点灯
         timing->timing_violation_count++;
         timing->led_mode = LED_ON;  // 処理時間超過 - LED点灯で警告
-        // printf("CRITICAL: Processing time exceeded control period! Processing: %.2f ms\n",
-        //        processing_time_us / 1000.0);
+        printf("CRITICAL: Processing time exceeded control period!\n");
+        printf("  Processing time: %.2f ms\n", processing_time_us / 1000.0);
+        printf("  Control period: %.1f ms\n", control_period_ms);
+        printf("  Time until next control: %.2f ms\n", time_until_next_control_us / 1000.0);
 
         // 制御周期を超過した場合の対応策を設定に基づいて選択
         switch (timing->overflow_mode) {
