@@ -12,8 +12,11 @@
 #define M_PI 3.14159265358979323846
 #endif
 
-AMT223V::AMT223V(spi_inst_t* spi_instance, int chip_select_pin)
-    : spi_port(spi_instance), cs_pin(chip_select_pin), raw_angle(0), angle_rad(0.0), angle_deg(0.0) {
+// AMT223D-V マルチターンコマンド定義
+const uint8_t AMT223V::CMD_READ_MULTITURN[4] = {0x00, 0xA0, 0x00, 0x00};
+
+AMT223V::AMT223V(spi_inst_t* spi_instance, int chip_select_pin, bool multiturn_support)
+    : spi_port(spi_instance), cs_pin(chip_select_pin), raw_angle(0), angle_rad(0.0), angle_deg(0.0), is_multiturn(multiturn_support), turn_count(0), continuous_angle_rad(0.0), continuous_angle_deg(0.0) {
 }
 
 bool AMT223V::init() {
@@ -36,21 +39,68 @@ bool AMT223V::init() {
 }
 
 bool AMT223V::read_angle() {
-    uint8_t tx_data[2] = {CMD_READ_ANGLE, 0x00};  // コマンド + ダミーバイト
-    uint8_t rx_data[2] = {0};
+    if (is_multiturn) {
+        // マルチターン対応の場合は4バイト通信
+        uint8_t tx_data[4] = {0x00, 0xA0, 0x00, 0x00};
+        uint8_t rx_data[4] = {0};
 
-    // SPI通信実行
-    select();
-    spi_transfer(tx_data, rx_data, 2);
-    deselect();
+        // SPI通信実行
+        select();
+        for (int i = 0; i < 4; i++) {
+            // 1バイトずつ送信して受信
+            spi_transfer(&tx_data[i], &rx_data[i], 1);
+            sleep_us(3);  // SPI通信の安定化のために少し待つ
+        }
+        deselect();
 
-    // 受信データから角度を抽出（14ビット）
-    uint16_t received_data = (rx_data[0] << 8) | rx_data[1];
-    raw_angle = received_data & ANGLE_MASK;
+        // 最初の2バイトから角度を抽出（14ビット）
+        uint16_t received_angle = (static_cast<uint16_t>(rx_data[0]) << 8) | static_cast<uint16_t>(rx_data[1]);
+        raw_angle = received_angle & ANGLE_MASK;
 
-    // 角度変換
-    angle_rad = (double)raw_angle * 2.0 * M_PI / COUNTS_PER_REV;
-    angle_deg = (double)raw_angle * 360.0 / COUNTS_PER_REV;
+        sleep_us(3);
+
+        // 次の2バイトから回転回数を抽出（14ビット符号付き）
+        uint16_t received_turn = (static_cast<uint16_t>(rx_data[2]) << 8) | static_cast<uint16_t>(rx_data[3]);
+        received_turn = 0x0FFF & received_turn;  // 14ビットでマスクとるとなんか動かなかったから12ビットマスクをとってる
+
+        // 14ビット符号付き数値に変換
+        if (received_turn & 0x2000) {                        // MSBが1の場合は負数
+            turn_count = (int32_t)(received_turn | 0xC000);  // 符号拡張
+        } else {
+            turn_count = (int32_t)received_turn;
+        }
+
+        // 角度変換
+        angle_rad = (double)raw_angle * 2.0 * M_PI / COUNTS_PER_REV;
+        angle_deg = (double)raw_angle * 360.0 / COUNTS_PER_REV;
+
+        // 連続角度計算
+        continuous_angle_rad = (double)turn_count * 2.0 * M_PI + angle_rad;
+        continuous_angle_deg = (double)turn_count * 360.0 + angle_deg;
+
+    } else {
+        // 単回転モード
+        uint8_t tx_data[2] = {CMD_READ_ANGLE, 0x00};  // コマンド + ダミーバイト
+        uint8_t rx_data[2] = {0};
+
+        // SPI通信実行
+        select();
+        spi_transfer(tx_data, rx_data, 2);
+        deselect();
+
+        // 受信データから角度を抽出（14ビット）
+        uint16_t received_data = (rx_data[0] << 8) | rx_data[1];
+        raw_angle = received_data & ANGLE_MASK;
+
+        // 角度変換
+        angle_rad = (double)raw_angle * 2.0 * M_PI / COUNTS_PER_REV;
+        angle_deg = (double)raw_angle * 360.0 / COUNTS_PER_REV;
+
+        // 単回転では連続角度は通常角度と同じ
+        continuous_angle_rad = angle_rad;
+        continuous_angle_deg = angle_deg;
+        turn_count = 0;
+    }
 
     // データの妥当性チェック（14ビット範囲内かどうか）
     if (raw_angle >= COUNTS_PER_REV) {
@@ -88,17 +138,18 @@ AMT223V_Manager::AMT223V_Manager(spi_inst_t* spi_instance, uint32_t baud, int mi
     cs_pins.fill(-1);
 }
 
-int AMT223V_Manager::add_encoder(int cs_pin) {
+int AMT223V_Manager::add_encoder(int cs_pin, bool multiturn_support) {
     if (num_encoders >= 4) {
         printf("Error: Maximum 4 encoders supported\n");
         return -1;
     }
 
     cs_pins[num_encoders] = cs_pin;
-    encoders[num_encoders] = new AMT223V(spi_port, cs_pin);
+    encoders[num_encoders] = new AMT223V(spi_port, cs_pin, multiturn_support);
     num_encoders++;
 
-    printf("Added encoder %d with CS pin %d\n", num_encoders - 1, cs_pin);
+    printf("Added encoder %d with CS pin %d (multiturn: %s)\n",
+           num_encoders - 1, cs_pin, multiturn_support ? "yes" : "no");
     return num_encoders - 1;
 }
 
@@ -170,4 +221,28 @@ double AMT223V_Manager::get_encoder_angle_deg(int encoder_index) const {
     }
 
     return encoders[encoder_index]->get_angle_deg();
+}
+
+int16_t AMT223V_Manager::get_encoder_turn_count(int encoder_index) const {
+    if (encoder_index < 0 || encoder_index >= num_encoders || !encoders[encoder_index]) {
+        return 0;
+    }
+
+    return encoders[encoder_index]->get_turn_count();
+}
+
+double AMT223V_Manager::get_encoder_continuous_angle_rad(int encoder_index) const {
+    if (encoder_index < 0 || encoder_index >= num_encoders || !encoders[encoder_index]) {
+        return 0.0;
+    }
+
+    return encoders[encoder_index]->get_continuous_angle_rad();
+}
+
+double AMT223V_Manager::get_encoder_continuous_angle_deg(int encoder_index) const {
+    if (encoder_index < 0 || encoder_index >= num_encoders || !encoders[encoder_index]) {
+        return 0.0;
+    }
+
+    return encoders[encoder_index]->get_continuous_angle_deg();
 }

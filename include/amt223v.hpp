@@ -22,9 +22,19 @@ class AMT223V {
     double angle_rad;
     double angle_deg;
 
+    // マルチターン対応変数
+    bool is_multiturn;            // マルチターン対応エンコーダかどうか
+    int16_t turn_count;           // 回転回数（14ビット符号付き）
+    double continuous_angle_rad;  // 連続角度[rad]
+    double continuous_angle_deg;  // 連続角度[deg]
+
     // AMT223-V コマンド定義
     static const uint8_t CMD_READ_ANGLE = 0x00;  // 角度読み取りコマンド
     static const uint16_t ANGLE_MASK = 0x3FFF;   // 14ビットマスク
+
+    // AMT223D-V マルチターンコマンド定義
+    static const uint8_t CMD_READ_MULTITURN[4];  // マルチターン読み取りコマンド: {0x00, 0xA0, 0x00, 0x00}
+    static const uint16_t TURN_MASK = 0x3FFF;    // 14ビット回転数マスク
 
    public:
     static constexpr double COUNTS_PER_REV = 16384.0;  // 2^14 = 16384 counts per revolution
@@ -32,8 +42,9 @@ class AMT223V {
      * @brief コンストラクタ
      * @param spi_instance SPI インスタンス
      * @param chip_select_pin チップセレクトピン番号
+     * @param multiturn_support マルチターン対応エンコーダかどうか（デフォルト: false）
      */
-    AMT223V(spi_inst_t* spi_instance, int chip_select_pin);
+    AMT223V(spi_inst_t* spi_instance, int chip_select_pin, bool multiturn_support = false);
 
     /**
      * @brief エンコーダの初期化
@@ -64,6 +75,30 @@ class AMT223V {
      * @return 角度[deg]
      */
     double get_angle_deg() const { return angle_deg; }
+
+    /**
+     * @brief マルチターン対応かどうか確認
+     * @return マルチターン対応時true
+     */
+    bool is_multiturn_supported() const { return is_multiturn; }
+
+    /**
+     * @brief 回転回数を取得（マルチターン対応時のみ）
+     * @return 回転回数（14ビット符号付き）
+     */
+    int16_t get_turn_count() const { return turn_count; }
+
+    /**
+     * @brief 連続角度を取得（マルチターン対応時のみ）
+     * @return 連続角度[rad]
+     */
+    double get_continuous_angle_rad() const { return continuous_angle_rad; }
+
+    /**
+     * @brief 連続角度を取得（マルチターン対応時のみ）
+     * @return 連続角度[deg]
+     */
+    double get_continuous_angle_deg() const { return continuous_angle_deg; }
 
    private:
     /**
@@ -115,9 +150,10 @@ class AMT223V_Manager {
     /**
      * @brief エンコーダを追加
      * @param cs_pin CSピン番号
+     * @param multiturn_support マルチターン対応エンコーダかどうか（デフォルト: false）
      * @return エンコーダのインデックス（-1は失敗）
      */
-    int add_encoder(int cs_pin);
+    int add_encoder(int cs_pin, bool multiturn_support = false);
 
     /**
      * @brief SPI設定を初期化
@@ -157,6 +193,27 @@ class AMT223V_Manager {
      * @return 角度[deg]（失敗時は-1.0）
      */
     double get_encoder_angle_deg(int encoder_index) const;
+
+    /**
+     * @brief 指定したエンコーダの回転回数取得（マルチターン対応時のみ）
+     * @param encoder_index エンコーダインデックス
+     * @return 回転回数（失敗時は0）
+     */
+    int16_t get_encoder_turn_count(int encoder_index) const;
+
+    /**
+     * @brief 指定したエンコーダの連続角度取得（マルチターン対応時のみ）
+     * @param encoder_index エンコーダインデックス
+     * @return 連続角度[rad]（失敗時は0.0）
+     */
+    double get_encoder_continuous_angle_rad(int encoder_index) const;
+
+    /**
+     * @brief 指定したエンコーダの連続角度取得（マルチターン対応時のみ）
+     * @param encoder_index エンコーダインデックス
+     * @return 連続角度[deg]（失敗時は0.0）
+     */
+    double get_encoder_continuous_angle_deg(int encoder_index) const;
 
     /**
      * @brief エンコーダ数を取得
