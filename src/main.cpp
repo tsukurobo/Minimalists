@@ -57,8 +57,39 @@ AMT223V_Manager encoder_manager(spi1,       // SPI1を使用
                                 19);        // MOSI pin
 
 // ベースのモータから出力軸までのギア比
-double gear_ratio_R = 3591.0 / 187.0 * 3.0;  // M3508(3591.0/187.0) * M3508出力軸からベース根本(3.0)
-double gear_ratio_P = 36.0;                  // M2006 P36のギア比
+constexpr double gear_ratio_R = 3591.0 / 187.0 * 3.0;  // M3508(3591.0/187.0) * M3508出力軸からベース根本(3.0)
+constexpr double gear_ratio_P = 36.0;                  // M2006 P36のギア比
+constexpr double gear_radius_P = 0.025;                // ギアの半径 (m) - M2006の出力軸からラックまでの距離が25mm
+
+// R軸（ベース回転）の動力学パラメータ
+dynamics_t dynamics_R(
+    0.024371,                 // 等価慣性モーメント (kg·m^2)
+    0.036437,                 // 等価粘性摩擦係数 (N·m·s/rad)
+    0.3 * gear_ratio_R * 0.7  // 等価トルク定数（M3508のトルク定数xギア比x伝達効率）(Nm/A)
+);
+
+// P軸（アーム直動）の動力学パラメータ
+dynamics_t dynamics_P(
+    0.3,                                        // 等価慣性モーメント (kg·m^2)
+    0.002651,                                   // 粘性摩擦係数 (N·m·s/rad)
+    0.18 * gear_ratio_P * 0.66 / gear_radius_P  // 力定数（M2006のトルク定数xギア比x伝達効率/ギアの半径）(N/A)
+);
+
+// R軸（ベース回転）の軌道生成パラメータ
+trajectory_t trajectory_R(
+    6.0,      // 最大角速度 (rad/s)
+    20.0,     // 最大角加速度 (rad/s^2)
+    0.0,      // 開始位置 (rad)
+    2 * M_PI  // 目標位置 (rad)
+);
+
+// P軸（アーム直動）の軌道生成パラメータ
+trajectory_t trajectory_P(
+    0.5 / gear_radius_P,  // 最大速度 (m/s) / ギアの円周(m) * 2pi = 最大速度 / ギアの半径 = 最大角速度 (rad/s)
+    2.0 / gear_radius_P,  // 最大角加速度 (rad/s^2)
+    0.0 / gear_radius_P,  // 開始位置 (rad)
+    0.3 / gear_radius_P   // 目標位置 (rad) - 300mm移動
+);
 
 // RoboMasterモータオブジェクト
 robomaster_motor_t motor1(&can, 1, gear_ratio_R);  // motor_id=1
@@ -66,12 +97,19 @@ robomaster_motor_t motor2(&can, 2, gear_ratio_P);  // motor_id=2
 
 // PIDコントローラ（モータ1: 回転軸、モータ2: 直動軸）
 // 位置PID制御器（位置[rad] → 目標速度[rad/s]）
-PositionPIDController position_pid_R(2.0, 0.0, 0.0, CONTROL_PERIOD_S);  // Kp=2.0, Ki=0.1, Kd=0.05
-PositionPIDController position_pid_P(1.5, 0.0, 0.0, CONTROL_PERIOD_S);  // Kp=1.5, Ki=0.05, Kd=0.03
+const double R_POSITION_KP = 2.0;                                                                                          // R軸位置PIDの比例ゲイン
+const double R_VELOCITY_KP = 1.0;                                                                                          // R軸速度I-Pの比例ゲイン
+const double R_VELOCITY_KI = 27 * R_POSITION_KP * R_POSITION_KP * dynamics_R.get_inertia_mass();                           // R軸速度I-Pの積分ゲイン
+const double P_POSITION_KP = 1.5;                                                                                          // P軸位置PID
+const double P_VELOCITY_KP = 9 * P_POSITION_KP * dynamics_P.get_inertia_mass() - dynamics_P.get_viscous_friction_coeff();  // P軸速度I-Pの比例ゲイン
+const double P_VELOCITY_KI = 27 * P_POSITION_KP * P_POSITION_KP * dynamics_P.get_inertia_mass();                           // P軸速度I-Pの積分ゲイン
+
+PositionPIDController position_pid_R(R_POSITION_KP, 0.0, 0.0, CONTROL_PERIOD_S);  // Kp, Ki, Kd
+PositionPIDController position_pid_P(P_POSITION_KP, 0.0, 0.0, CONTROL_PERIOD_S);  // Kp, Ki, Kd
 
 // 速度I-P制御器（速度[rad/s] → トルク[Nm]）
-VelocityIPController velocity_ip_R(0.8, 1.2, CONTROL_PERIOD_S);  // Ki=0.8, Kp=1.2
-VelocityIPController velocity_ip_P(0.6, 1.0, CONTROL_PERIOD_S);  // Ki=0.6, Kp=1.0
+VelocityIPController velocity_ip_R(R_VELOCITY_KI, R_VELOCITY_KP, CONTROL_PERIOD_S);  // Ki, Kp
+VelocityIPController velocity_ip_P(P_VELOCITY_KI, P_VELOCITY_KP, CONTROL_PERIOD_S);  // Ki, Kp
 
 // 共有データ構造体
 typedef struct
@@ -194,7 +232,7 @@ static mutex_t g_state_mutex;
 void core1_entry(void) {
     // CANの初期化（リトライ付き）
     while (!can.init(CAN_1000KBPS)) {
-        printf("MCP25625 Initialization failed. Retrying in 2 seconds...\n");
+        printf("MCP25625 Initialization failed. Retrying...\n");
         gpio_put(PICO_DEFAULT_LED_PIN, 1);
         sleep_ms(10);
         gpio_put(PICO_DEFAULT_LED_PIN, 0);
