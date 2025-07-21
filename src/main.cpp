@@ -23,10 +23,8 @@ constexpr int SHUTDOWN_PIN = 27;          // 明示的にLOWにしないとPico�
 constexpr int DEBUG_PRINT_INTERVAL = 25;  // デバッグ出力間隔（制御周期の倍数）
 
 // モータとエンコーダの符号補正設定
-constexpr double MOTOR_R_DIRECTION = 1.0;     // R軸モータの回転方向補正 (+1.0 or -1.0) 正入力で右回り、右回りでエンコーダ値が増加
-constexpr double MOTOR_P_DIRECTION = -1.0;    // P軸モータの回転方向補正 (+1.0 or -1.0) 正入力で根本方向、根本方向でエンコーダ値が減少
-constexpr double ENCODER_R_DIRECTION = 1.0;   // R軸エンコーダの増加方向補正 (+1.0 or -1.0)
-constexpr double ENCODER_P_DIRECTION = -1.0;  // P軸エンコーダの増加方向補正 (+1.0 or -1.0)
+constexpr double ENCODER_R_DIRECTION = 1.0;   // R軸エンコーダの増加方向補正 (+1.0 or -1.0) 正入力で右回り、右回りでエンコーダ値が増加
+constexpr double ENCODER_P_DIRECTION = -1.0;  // P軸エンコーダの増加方向補正 (+1.0 or -1.0) 正入力で根本方向、根本方向でエンコーダ値が減少
 
 // SPI設定構造体
 typedef struct {
@@ -103,12 +101,13 @@ robomaster_motor_t motor2(&can, 2, gear_ratio_P);  // motor_id=2
 
 // PIDコントローラ（モータ1: 回転軸、モータ2: 直動軸）
 // 位置PID制御器（位置[rad] → 目標速度[rad/s]）
-const double R_POSITION_KP = 2.0;                                                                                          // R軸位置PIDの比例ゲイン
-const double R_VELOCITY_KP = 1.0;                                                                                          // R軸速度I-Pの比例ゲイン
-const double R_VELOCITY_KI = 27 * R_POSITION_KP * R_POSITION_KP * dynamics_R.get_inertia_mass();                           // R軸速度I-Pの積分ゲイン
-const double P_POSITION_KP = 1.5;                                                                                          // P軸位置PID
-const double P_VELOCITY_KP = 9 * P_POSITION_KP * dynamics_P.get_inertia_mass() - dynamics_P.get_viscous_friction_coeff();  // P軸速度I-Pの比例ゲイン
-const double P_VELOCITY_KI = 27 * P_POSITION_KP * P_POSITION_KP * dynamics_P.get_inertia_mass();                           // P軸速度I-Pの積分ゲイン
+const double R_POSITION_KP = 2.0;  // R軸位置PIDの比例ゲイン
+const double R_VELOCITY_KP = 5.0;  // R軸速度I-Pの比例ゲイン
+const double R_VELOCITY_KI = 0.5;  // R軸速度I-Pの積分ゲイン
+// 27 * R_POSITION_KP * R_POSITION_KP * dynamics_R.get_inertia_mass();                           // R軸速度I-Pの積分ゲイン
+const double P_POSITION_KP = 20.0;  // P軸位置PID
+const double P_VELOCITY_KP = 20.0;  // P軸速度I-Pの比例ゲイン
+const double P_VELOCITY_KI = 0.1;   // P軸速度I-Pの積分ゲイン
 
 PositionPIDController position_pid_R(R_POSITION_KP, 0.0, 0.0, CONTROL_PERIOD_S);  // Kp, Ki, Kd
 PositionPIDController position_pid_P(P_POSITION_KP, 0.0, 0.0, CONTROL_PERIOD_S);  // Kp, Ki, Kd
@@ -219,8 +218,8 @@ bool init_pid_controllers() {
 
     // 方向補正設定の表示
     printf("Direction correction settings:\n");
-    printf("  Motor R direction: %+.1f, Encoder R direction: %+.1f\n", MOTOR_R_DIRECTION, ENCODER_R_DIRECTION);
-    printf("  Motor P direction: %+.1f, Encoder P direction: %+.1f\n", MOTOR_P_DIRECTION, ENCODER_P_DIRECTION);
+    printf("  Encoder R direction: %+.1f\n", ENCODER_R_DIRECTION);
+    printf("  Encoder P direction: %+.1f\n", ENCODER_P_DIRECTION);
 
     // 位置PID制御器の設定
     position_pid_R.setOutputLimits(-10.0, 10.0);  // 目標速度制限 ±10 rad/s
@@ -282,11 +281,11 @@ void core1_entry(void) {
         double motor_velocity_R = 0.0, motor_velocity_P = 0.0;
         if (motor1.receive_feedback()) {
             // motor_position_R = motor1.get_continuous_angle() * MOTOR_R_DIRECTION; //  位置は外付けエンコーダの方を使う
-            motor_velocity_R = motor1.get_angular_velocity() * MOTOR_R_DIRECTION;
+            motor_velocity_R = motor1.get_angular_velocity();
         }
         if (motor2.receive_feedback()) {
             // motor_position_P = motor2.get_continuous_angle() * MOTOR_P_DIRECTION;
-            motor_velocity_P = motor2.get_angular_velocity() * MOTOR_P_DIRECTION;
+            motor_velocity_P = motor2.get_angular_velocity();
         }
 
         // --- 共有データから目標値取得 ---
@@ -312,10 +311,10 @@ void core1_entry(void) {
         double target_torque_P = velocity_ip_P.computeVelocity(target_vel_P, motor_velocity_P);
 
         // // トルクから電流への変換
-        target_current[0] = target_torque_R / dynamics_R.get_torque_constant() * MOTOR_R_DIRECTION;  // Motor1 (R軸)
-        target_current[1] = target_torque_P / dynamics_P.get_torque_constant() * MOTOR_P_DIRECTION;  // Motor2 (P軸)
-        // target_current[0] = 0.0;  // Motor1 (R軸)
-        // target_current[1] = 0.5;  // Motor2 (P軸)
+        // target_current[0] = target_torque_R / dynamics_R.get_torque_constant();  // Motor1 (R軸)
+        target_current[1] = target_torque_P / dynamics_P.get_torque_constant();  // Motor2 (P軸)
+        target_current[0] = 0.0;                                                 // Motor1 (R軸)
+        // target_current[1] = 0.0;  // Motor2 (P軸)
 
         // --- 制御結果を共有データに保存 ---
         mutex_enter_blocking(&g_state_mutex);
@@ -404,14 +403,15 @@ int main(void) {
     absolute_time_t next_main_time = get_absolute_time();
 
     while (1) {
-        next_main_time = delayed_by_us(next_main_time, 1000000);  // 1秒周期
+        next_main_time = delayed_by_us(next_main_time, 100000);  // 100ms周期
 
         // 目標位置の変更テスト（ゆっくりとした目標値変化）
         static double time_counter = 0.0;
-        time_counter += 1.0;  // 1秒ずつ増加
+        time_counter += 0.1;  // 1秒ずつ増加
         // 10秒ごとに0度(0rad)と30度(約0.5236rad)を切り替える
-        double target_R = (static_cast<int>(time_counter / 10.0) % 2 == 0) ? 4.3 : 5.9;  // 0 or 30度
-        double target_P = 0.0;                                                           // 必要なら同様に切り替え可能
+        double target_R = (static_cast<int>(time_counter / 10.0) % 2 == 0) ? 2.16 : 3.6;       // 0 or 30度
+        double target_P_m = (static_cast<int>(time_counter / 10.0) % 2 == 0) ? 1.022 : 0.533;  // 0mmまたは500mm -0.97 : 0.5
+        double target_P = target_P_m / gear_radius_P;                                          // m単位からrad単位に変換
 
         // 状態を取得してデバッグ出力（排他制御あり）
         mutex_enter_blocking(&g_state_mutex);
@@ -434,37 +434,34 @@ int main(void) {
         int can_errors = g_robot_state.can_error_count;
         mutex_exit(&g_state_mutex);
 
+        // rad単位からm単位への変換
+        double current_pos_P_m = current_pos_P * gear_radius_P;
+        double current_vel_P_m = current_vel_P * gear_radius_P;
+        double target_vel_P_m = target_vel_P * gear_radius_P;
+
         // 1秒毎のステータス出力（Core0で実行 - 重いprintf処理）
         printf("\n=== System Status (t=%.1fs) ===\n", time_counter);
-        printf("Target:  R=%.3f [rad] (%.1f°), P=%.3f [rad]\n", target_R, target_R * 180.0 / M_PI, target_P);
-        printf("Current: R=%.3f [rad] (%.1f°), P=%.3f [rad]\n", current_pos_R, current_pos_R * 180.0 / M_PI, current_pos_P);
-        printf("Velocity: R=%.2f [rad/s], P=%.2f [rad/s]\n", current_vel_R, current_vel_P);
+        printf("Target:  R=%.3f [rad] (%.1f°), P=%.3f [m] (%.1f mm)\n", target_R, target_R * 180.0 / M_PI, target_P_m, target_P_m * 1000.0);
+        printf("Current: R=%.3f [rad] (%.1f°), P=%.3f [m] (%.1f mm)\n", current_pos_R, current_pos_R * 180.0 / M_PI, current_pos_P_m, current_pos_P_m * 1000.0);
+        printf("Velocity: R=%.2f [rad/s], P=%.2f [m/s] (%.1f mm/s)\n", current_vel_R, current_vel_P_m, current_vel_P_m * 1000.0);
 
         // P軸マルチターン情報
         int16_t p_turn_count = encoder_manager.get_encoder_turn_count(1);
         double p_single_angle = encoder_manager.get_encoder_angle_deg(1);
-        printf("P-axis multiturn: %d turns, single angle: %.1f°, continuous: %.1f°\n",
-               p_turn_count, p_single_angle, current_pos_P * 180.0 / M_PI);
+        printf("P-axis multiturn: %d turns, single angle: %.1f°, continuous: %.3f m (%.1f mm)\n",
+               p_turn_count, p_single_angle, current_pos_P_m, current_pos_P_m * 1000.0);
 
         // 制御詳細情報
         printf("Control: PosR=%.3f->%.3f VelR=%.2f->%.2f TorqR=%.2f CurR=%.2fA [LED:%s]\n",
                current_pos_R, target_R, current_vel_R, target_vel_R,
                target_torque_R, target_cur_R, get_led_status_string(led_status));
         printf("         PosP=%.3f->%.3f VelP=%.2f->%.2f TorqP=%.2f CurP=%.2fA [Violations:%d]\n",
-               current_pos_P, target_P, current_vel_P, target_vel_P,
+               current_pos_P_m, target_P_m, current_vel_P_m, target_vel_P_m,
                target_torque_P, target_cur_P, timing_violations);
 
         // エラー情報
         if (can_errors > 0) {
             printf("WARNING: CAN transmission errors: %d\n", can_errors);
-        }
-
-        // 方向補正情報を時々表示
-        static int direction_info_counter = 0;
-        if (++direction_info_counter >= 10) {  // 10秒に1回表示
-            printf("Direction: MotorR%+.0f EncoderR%+.0f | MotorP%+.0f EncoderP%+.0f\n",
-                   MOTOR_R_DIRECTION, ENCODER_R_DIRECTION, MOTOR_P_DIRECTION, ENCODER_P_DIRECTION);
-            direction_info_counter = 0;
         }
 
         busy_wait_until(next_main_time);  // 1秒待機
