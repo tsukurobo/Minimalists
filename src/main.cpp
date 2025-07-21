@@ -457,6 +457,47 @@ void core1_entry(void) {
         g_robot_state.encoder_p_continuous_angle_rad = encoder_p_continuous_angle_rad;
         g_robot_state.encoder_r_valid = enc1_ok;
         g_robot_state.encoder_p_valid = enc2_ok;
+
+        // 新しい目標値が設定された場合の軌道開始処理
+        if (new_target_R) {
+            g_robot_state.new_target_R = false;  // フラグをクリア
+            g_robot_state.trajectory_active_R = true;
+            g_robot_state.trajectory_start_time_R = current_time_s;
+            g_robot_state.trajectory_start_pos_R = motor_position_R;
+            trajectory_active_R = true;
+            trajectory_start_time_R = current_time_s;
+            trajectory_start_pos_R = motor_position_R;
+
+            // R軸軌道を計算
+            trajectory_R_local.set_start_pos(motor_position_R);
+            trajectory_R_local.set_end_pos(target_pos_R);
+            trajectory_R_local.calculate_trapezoidal_params();
+
+            // 軌道開始をCore0に通知（簡易的にprintfなしで処理）
+        }
+
+        if (new_target_P) {
+            g_robot_state.new_target_P = false;  // フラグをクリア
+            g_robot_state.trajectory_active_P = true;
+            g_robot_state.trajectory_start_time_P = current_time_s;
+            g_robot_state.trajectory_start_pos_P = motor_position_P;
+            trajectory_active_P = true;
+            trajectory_start_time_P = current_time_s;
+            trajectory_start_pos_P = motor_position_P;
+
+            // P軸軌道計算前の状態をデバッグ出力（Core1では簡易出力のみ）
+            // P軸軌道を計算
+            trajectory_P_local.set_start_pos(motor_position_P);
+            trajectory_P_local.set_end_pos(target_pos_P);
+            trajectory_P_local.calculate_trapezoidal_params();
+
+            // 軌道計算後の検証
+            double debug_total_dist = trajectory_P_local.get_total_dist();
+            double debug_total_time = trajectory_P_local.get_total_time();
+
+            // 軌道開始をCore0に通知（簡易的にprintfなしで処理）
+        }
+
         mutex_exit(&g_state_mutex);
 
         // --- 制御計算 ---
@@ -479,14 +520,31 @@ void core1_entry(void) {
                 trajectory_active_R = false;
             }
         } else {
-            // 軌道停止時は現在位置を目標位置として保持
-            trajectory_target_pos_R = motor_position_R;
+            // 軌道停止時は最後の目標値を保持
+            trajectory_target_pos_R = target_pos_R;
+            trajectory_target_vel_R = 0.0;
+            trajectory_target_accel_R = 0.0;
         }
 
         // P軸の台形プロファイル計算
         if (trajectory_active_P) {
             double elapsed_time = current_time_s - trajectory_start_time_P;
             trajectory_P_local.get_trapezoidal_state(elapsed_time, &trajectory_target_pos_P, &trajectory_target_vel_P, &trajectory_target_accel_P);
+
+            // printf("R Trajectory: Pos=%.4f, Vel=%.4f, Accel=%.4f\n", trajectory_target_pos_P, trajectory_target_vel_P, trajectory_target_accel_P);
+
+            // 軌道結果の異常値検出とリセット処理
+            constexpr double MAX_REASONABLE_POS = 100.0;  // 100 rad = 約25 m（明らかに異常な値）
+            if (std::abs(trajectory_target_pos_P) > MAX_REASONABLE_POS) {
+                // 異常な軌道計算結果を検出した場合、軌道を停止
+                mutex_enter_blocking(&g_state_mutex);
+                g_robot_state.trajectory_active_P = false;
+                mutex_exit(&g_state_mutex);
+                trajectory_active_P = false;
+                trajectory_target_pos_P = motor_position_P;  // 現在位置で保持
+                trajectory_target_vel_P = 0.0;
+                trajectory_target_accel_P = 0.0;
+            }
 
             // 軌道完了チェック
             if (elapsed_time >= trajectory_P_local.get_total_time()) {
@@ -497,8 +555,10 @@ void core1_entry(void) {
             }
 
         } else {
-            // 軌道停止時は現在位置を目標位置として保持
-            trajectory_target_pos_P = motor_position_P;
+            // 軌道停止時は最後の目標値を保持
+            trajectory_target_pos_P = target_pos_P;
+            trajectory_target_vel_P = 0.0;
+            trajectory_target_accel_P = 0.0;
         }
 
         // 位置PID制御（位置偏差 → 速度補正）
@@ -683,55 +743,56 @@ int main(void) {
             current_pos_P = g_robot_state.current_position_P;
             mutex_exit(&g_state_mutex);
 
-            // 初回のみ基準位置を設定
+            // 初回のみ基準位置を設定（現在位置を基準として固定）
             if (!initial_pos_set) {
                 initial_pos_R = current_pos_R;
                 initial_pos_P = current_pos_P;
                 initial_pos_set = true;
                 printf("Set initial positions: R=%.3f rad, P=%.3f rad (%.1f mm)\n",
                        initial_pos_R, initial_pos_P, initial_pos_P * gear_radius_P * 1000.0);
+                printf("NOTE: This position will be used as the reference (0mm) for all movements\n");
             }
 
             if (forward_direction) {
-                // 前進方向の軌道（基準位置 → +300mm）
+                // 前進方向の軌道（基準位置 → +550mm）
                 // R軸: 基準位置から(1/2)π rad（90度）回転
                 double target_R = initial_pos_R + 1.0 / 2.0 * M_PI;
                 set_target_position_R(target_R);
 
-                // P軸: 基準位置から100mm移動
-                double target_P_m = 0.1;  // 100mm
+                // P軸: 基準位置から550mm移動 一番遠いワークまでの距離 - 一番近いワークまでの距離
+                double target_P_m = 0.55;  // 550mm
                 double target_P_rad = target_P_m / gear_radius_P;
                 double target_P = initial_pos_P + target_P_rad;
                 set_target_position_P(target_P);
 
-                printf("Started FORWARD trajectory at t=%.1fs (to P=+%.1fmm)\n",
-                       time_counter, target_P_m * 1000.0);
-                printf("DEBUG: P-axis targets - initial_pos_P=%.3f, target_P_rad=%.3f, target_P=%.3f\n",
-                       initial_pos_P, target_P_rad, target_P);
+                printf("Started FORWARD trajectory at t=%.1fs:\n", time_counter);
+                printf("  Current position: P=%.3f rad (%.1f mm)\n",
+                       current_pos_P, current_pos_P * gear_radius_P * 1000.0);
+                printf("  Initial position: P=%.3f rad (%.1f mm)\n",
+                       initial_pos_P, initial_pos_P * gear_radius_P * 1000.0);
+                printf("  Target position:  P=%.3f rad (%.1f mm)\n",
+                       target_P, target_P * gear_radius_P * 1000.0);
+                printf("  Movement distance: %.1f mm\n", target_P_m * 1000.0);
             } else {
-                // 後退方向の軌道（+300mm → 基準位置）
+                // 後退方向の軌道（550mm → 基準位置）
                 // R軸: 基準位置に戻る
                 set_target_position_R(initial_pos_R);
 
                 // P軸: 基準位置に戻る
                 set_target_position_P(initial_pos_P);
 
-                printf("Started BACKWARD trajectory at t=%.1fs (to P=0mm)\n", time_counter);
-                printf("DEBUG: P-axis BACKWARD target - initial_pos_P=%.3f\n", initial_pos_P);
+                printf("Started BACKWARD trajectory at t=%.1fs:\n", time_counter);
+                printf("  Current position: P=%.3f rad (%.1f mm)\n",
+                       current_pos_P, current_pos_P * gear_radius_P * 1000.0);
+                printf("  Target position:  P=%.3f rad (%.1f mm)\n",
+                       initial_pos_P, initial_pos_P * gear_radius_P * 1000.0);
+                printf("  Movement distance: %.1f mm\n",
+                       (initial_pos_P - current_pos_P) * gear_radius_P * 1000.0);
             }
 
             trajectory_started = true;
             last_trajectory_time = time_counter;
             forward_direction = !forward_direction;  // 次回は逆方向
-        }
-
-        // 軌道完了チェック（Core1で自動停止されるため、ここでは表示のみ）
-        if (trajectory_started && is_trajectory_completed_R()) {
-            printf("R-axis trajectory completed at t=%.1fs\n", time_counter);
-        }
-
-        if (trajectory_started && is_trajectory_completed_P()) {
-            printf("P-axis trajectory completed at t=%.1fs\n", time_counter);
         }
 
         // 状態を取得してデバッグ出力（排他制御あり）
@@ -756,6 +817,10 @@ int main(void) {
         bool traj_active_R = g_robot_state.trajectory_active_R;
         bool traj_active_P = g_robot_state.trajectory_active_P;
 
+        // 最終目標位置（Core0→Core1）
+        double final_target_pos_R = g_robot_state.target_position_R;
+        double final_target_pos_P = g_robot_state.target_position_P;
+
         int timing_violations = g_robot_state.timing_violation_count;
         led_mode_t led_status = g_robot_state.led_status;
         int can_errors = g_robot_state.can_error_count;
@@ -768,12 +833,46 @@ int main(void) {
         bool encoder_p_valid = g_robot_state.encoder_p_valid;
         mutex_exit(&g_state_mutex);
 
+        // 軌道完了チェック（Core1で自動停止されるため、ここでは表示のみ）
+        static bool prev_trajectory_active_R = false;
+        static bool prev_trajectory_active_P = false;
+
+        // 軌道開始検出
+        if (!prev_trajectory_active_R && traj_active_R) {
+            printf("R-axis trajectory STARTED: %.3f → %.3f rad (%.1f° → %.1f°)\n",
+                   current_pos_R, final_target_pos_R,
+                   current_pos_R * 180.0 / M_PI, final_target_pos_R * 180.0 / M_PI);
+        }
+        if (!prev_trajectory_active_P && traj_active_P) {
+            printf("P-axis trajectory STARTED: %.3f → %.3f rad (%.1f → %.1f mm)\n",
+                   current_pos_P, final_target_pos_P,
+                   current_pos_P * gear_radius_P * 1000.0, final_target_pos_P * gear_radius_P * 1000.0);
+            printf("DEBUG: P-axis trajectory params - dist=%.3f rad (%.1f mm), max_vel=%.3f rad/s (%.1f mm/s)\n",
+                   final_target_pos_P - current_pos_P,
+                   (final_target_pos_P - current_pos_P) * gear_radius_P * 1000.0,
+                   TrajectoryLimits::P_MAX_VELOCITY,
+                   TrajectoryLimits::P_MAX_VELOCITY * gear_radius_P * 1000.0);
+        }
+
+        // 軌道完了検出
+        if (prev_trajectory_active_R && !traj_active_R) {
+            printf("R-axis trajectory COMPLETED\n");
+        }
+        if (prev_trajectory_active_P && !traj_active_P) {
+            printf("P-axis trajectory COMPLETED\n");
+        }
+
+        // 前回状態を保存
+        prev_trajectory_active_R = traj_active_R;
+        prev_trajectory_active_P = traj_active_P;
+
         // rad単位からm単位への変換
         double current_pos_P_m = current_pos_P * gear_radius_P;
         double current_vel_P_m = current_vel_P * gear_radius_P;
         double target_vel_P_m = target_vel_P * gear_radius_P;
         double traj_target_pos_P_m = traj_target_pos_P * gear_radius_P;
         double traj_target_vel_P_m = traj_target_vel_P * gear_radius_P;
+        double final_target_pos_P_m = final_target_pos_P * gear_radius_P;
 
         // 1秒毎のステータス出力（Core0で実行 - 重いprintf処理）
         printf("\n=== Trapezoidal Profile Control Status (t=%.1fs) ===\n", time_counter);
@@ -794,9 +893,19 @@ int main(void) {
             limits_displayed = true;
         }
 
+        printf("Final Target:      R=%.3f [rad] (%.1f°), P=%.3f [rad] (%.1f mm)\n",
+               final_target_pos_R, final_target_pos_R * 180.0 / M_PI,
+               final_target_pos_P, final_target_pos_P_m * 1000.0);
         printf("Trajectory Target: R=%.3f [rad] (%.1f°), P=%.3f [rad] (%.1f mm)\n",
                traj_target_pos_R, traj_target_pos_R * 180.0 / M_PI,
                traj_target_pos_P, traj_target_pos_P_m * 1000.0);
+
+        // 異常な軌道目標位置の警告表示
+        if (std::abs(traj_target_pos_P) > 1000.0) {
+            printf("WARNING: Abnormal P-axis trajectory target detected! Value=%.3f rad (%.1f mm)\n",
+                   traj_target_pos_P, traj_target_pos_P_m * 1000.0);
+        }
+
         printf("Current Position:  R=%.3f [rad] (%.1f°), P=%.3f [rad] (%.1f mm)\n",
                current_pos_R, current_pos_R * 180.0 / M_PI,
                current_pos_P, current_pos_P_m * 1000.0);
