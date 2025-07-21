@@ -88,13 +88,15 @@ double PIDController::compute(double setpoint, double input) {
 double PIDController::computeIP(double setpoint, double input) {
     double error = setpoint - input;
 
-    // 積分項の計算（目標値に対して）
-    integral += setpoint * dt;
+    // printf("IP Control: Setpoint=%.4f, Input=%.4f, Error=%.4f\n", setpoint, input, error);
+
+    // 積分項の計算
+    integral += error * dt;
     integral = std::clamp(integral, integral_min, integral_max);
 
     // I-P制御出力計算
     // I項は目標値、P項は偏差
-    double output = ki * integral + kp * error;
+    double output = ki * integral - kp * input;
 
     // 出力制限
     output = std::clamp(output, output_min, output_max);
