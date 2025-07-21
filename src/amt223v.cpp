@@ -19,7 +19,7 @@ const uint8_t AMT223V::CMD_READ_MULTITURN[4] = {0x00, 0xA0, 0x00, 0x00};
 const uint8_t AMT223V::CMD_SET_ZERO[2] = {0x00, 0x70};
 
 AMT223V::AMT223V(spi_inst_t* spi_instance, int chip_select_pin, bool multiturn_support)
-    : spi_port(spi_instance), cs_pin(chip_select_pin), raw_angle(0), angle_rad(0.0), angle_deg(0.0), is_multiturn(multiturn_support), turn_count(0), continuous_angle_rad(0.0), continuous_angle_deg(0.0), previous_angle_rad(0.0), angular_velocity_rad(0.0), angular_velocity_deg(0.0), previous_time_us(0), velocity_initialized(false) {
+    : spi_port(spi_instance), cs_pin(chip_select_pin), raw_angle(0), angle_rad(0.0), angle_deg(0.0), is_multiturn(multiturn_support), turn_count(0), initial_turn_count(0), continuous_angle_rad(0.0), continuous_angle_deg(0.0), previous_angle_rad(0.0), angular_velocity_rad(0.0), angular_velocity_deg(0.0), previous_time_us(0), velocity_initialized(false) {
 }
 
 bool AMT223V::init() {
@@ -32,6 +32,12 @@ bool AMT223V::init() {
     if (!read_angle()) {
         printf("AMT223V initialization failed - initial read failed\n");
         return false;
+    }
+
+    // マルチターンエンコーダの場合は初期回転回数を保存
+    if (is_multiturn) {
+        initial_turn_count = turn_count;
+        printf("Initial turn count saved: %d\n", initial_turn_count);
     }
 
     printf("AMT223V initialized successfully on CS pin %d (multiturn: %s)\n",
@@ -94,12 +100,16 @@ bool AMT223V::read_angle() {
                rx_data[0], rx_data[1], rx_data[2], rx_data[3]);
         printf("Received hex (masked): 0x%04X\n", received_turn);
 
-        // 14ビット符号付き数値に変換
-        if (received_turn & 0x2000) {                        // MSBが1の場合は負数
-            turn_count = (int32_t)(received_turn | 0xC000);  // 符号拡張
+        // 14ビット符号付き数値に変換（生の値）
+        int16_t raw_turn_count;
+        if (received_turn & 0x2000) {                            // MSBが1の場合は負数
+            raw_turn_count = (int16_t)(received_turn | 0xC000);  // 符号拡張
         } else {
-            turn_count = (int32_t)received_turn;
+            raw_turn_count = (int16_t)received_turn;
         }
+
+        // 初期化時の回転回数からの差分を計算
+        turn_count = raw_turn_count - initial_turn_count;
 
         // 角度変換
         angle_rad = (double)raw_angle * 2.0 * M_PI / COUNTS_PER_REV;
@@ -185,6 +195,27 @@ bool AMT223V::set_zero_position() {
     sleep_ms(100);
 
     printf("Zero position set command completed\n");
+    return true;
+}
+
+bool AMT223V::reset_turn_count() {
+    if (!is_multiturn) {
+        printf("Error: Reset turn count is only supported for multiturn encoders\n");
+        return false;
+    }
+
+    // 現在の生の回転回数を読み取り
+    if (!read_angle()) {
+        printf("Error: Failed to read current angle for turn count reset\n");
+        return false;
+    }
+
+    // 現在の生の回転回数を新しい基準点として設定
+    // この時点でturn_countは差分値なので、initial_turn_count + turn_countが生の値
+    initial_turn_count = initial_turn_count + turn_count;
+    turn_count = 0;  // 差分をリセット
+
+    printf("Turn count reset completed. New reference: %d\n", initial_turn_count);
     return true;
 }
 
@@ -445,4 +476,14 @@ double AMT223V_Manager::get_encoder_angular_velocity_deg(int encoder_index) cons
     }
 
     return encoders[encoder_index]->get_angular_velocity_deg();
+}
+
+bool AMT223V_Manager::reset_encoder_turn_count(int encoder_index) {
+    if (encoder_index < 0 || encoder_index >= num_encoders || !encoders[encoder_index]) {
+        printf("Error: Invalid encoder index %d\n", encoder_index);
+        return false;
+    }
+
+    printf("Resetting turn count for encoder %d...\n", encoder_index);
+    return encoders[encoder_index]->reset_turn_count();
 }

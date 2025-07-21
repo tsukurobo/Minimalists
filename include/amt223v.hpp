@@ -25,6 +25,7 @@ class AMT223V {
     // マルチターン対応変数
     bool is_multiturn;            // マルチターン対応エンコーダかどうか
     int16_t turn_count;           // 回転回数（14ビット符号付き）
+    int16_t initial_turn_count;   // 初期化時の回転回数
     double continuous_angle_rad;  // 連続角度[rad]
     double continuous_angle_deg;  // 連続角度[deg]
 
@@ -102,7 +103,7 @@ class AMT223V {
 
     /**
      * @brief 回転回数を取得（マルチターン対応時のみ）
-     * @return 回転回数（14ビット符号付き）
+     * @return 初期化時からの回転回数差分（14ビット符号付き）
      */
     int16_t get_turn_count() const { return turn_count; }
 
@@ -129,6 +130,13 @@ class AMT223V {
      * @return 角速度[deg/s]
      */
     double get_angular_velocity_deg() const { return angular_velocity_deg; }
+
+    /**
+     * @brief 回転回数をリセット（マルチターン対応時のみ）
+     * @return リセット成功時true
+     * @note 現在の回転回数を新しい基準点として設定します
+     */
+    bool reset_turn_count();
 
    private:
     /**
@@ -279,6 +287,13 @@ class AMT223V_Manager {
      * @return 角速度[deg/s]（失敗時は0.0）
      */
     double get_encoder_angular_velocity_deg(int encoder_index) const;
+
+    /**
+     * @brief 指定したエンコーダの回転回数をリセット（マルチターン対応時のみ）
+     * @param encoder_index エンコーダインデックス
+     * @return リセット成功時true
+     */
+    bool reset_encoder_turn_count(int encoder_index);
 
     /**
      * @brief エンコーダ数を取得
