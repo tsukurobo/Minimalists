@@ -54,8 +54,8 @@ static const spi_config_t can_spi_config = {
 mcp25625_t can(can_spi_config.spi_port, can_spi_config.pin_cs[0], can_spi_config.pin_rst);
 
 // AMT223-V エンコーダマネージャを作成
-AMT223V_Manager encoder_manager(spi1,       // SPI1を使用
-                                1'000'000,  // 1MHz
+AMT223V_Manager encoder_manager(spi0,       // SPI0を使用
+                                1'000'000,  // 2MHz
                                 16,         // MISO pin
                                 18,         // SCK pin
                                 19);        // MOSI pin
