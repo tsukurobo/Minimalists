@@ -591,6 +591,20 @@ void core1_entry(void) {
         // double target_torque_R = velocity_ip_R.computeVelocity(final_target_vel_R, motor_velocity_R);
         // double target_torque_P = velocity_ip_P.computeVelocity(final_target_vel_P, motor_velocity_P);
 
+        // --- 制御出力の制限 ---
+        // R軸のトルク制限
+        if (target_torque_R > ControlLimits::R_Axis::MAX_TORQUE) {
+            target_torque_R = ControlLimits::R_Axis::MAX_TORQUE;
+        } else if (target_torque_R < -ControlLimits::R_Axis::MAX_TORQUE) {
+            target_torque_R = -ControlLimits::R_Axis::MAX_TORQUE;
+        }
+        // P軸のトルク制限
+        if (target_torque_P > ControlLimits::P_Axis::MAX_TORQUE) {
+            target_torque_P = ControlLimits::P_Axis::MAX_TORQUE;
+        } else if (target_torque_P < -ControlLimits::P_Axis::MAX_TORQUE) {
+            target_torque_P = -ControlLimits::P_Axis::MAX_TORQUE;
+        }
+
         // // トルクから電流への変換
         // target_current[0] = target_torque_R / dynamics_R.get_torque_constant();  // Motor1 (R軸)
         target_current[1] = target_torque_P / dynamics_P.get_torque_constant();  // Motor2 (P軸)
