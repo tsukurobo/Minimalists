@@ -16,9 +16,9 @@
 #include "trajectory.hpp"
 
 // PIN設定
-constexpr int PUMP_PIN1 = 10;
+constexpr int PUMP_PIN1 = 3;
 constexpr int PUMP_PIN2 = 11;
-constexpr int SOLENOID_PIN1 = 12;
+constexpr int SOLENOID_PIN1 = 4;
 constexpr int SOLENOID_PIN2 = 13;
 
 // 手先のmotorに与えるduty比
@@ -31,9 +31,9 @@ constexpr float RELEASE_ANGLE = 300.0f;
 constexpr float UP_ANGLE = 10.0f;
 constexpr float DOWN_ANGLE = 150.0f;
 
-// dynamixelのID
-constexpr short DXL_ID1 = 0x01;  // 手先
-constexpr short DXL_ID2 = 0x02;  // 昇降
+// dynamixelのID (デイジーチェーン接続)
+constexpr short DXL_ID1 = 0x00;  // 手先 (ID=0)
+constexpr short DXL_ID2 = 0x01;  // 昇降 (ID=1)
 
 extern mutex_t g_hand_mutex;
 extern volatile bool g_hand_requested;

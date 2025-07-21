@@ -69,7 +69,7 @@ void send_packet(const uart_config_t* config, const uint8_t* data, size_t length
     while (uart_hw->fr & UART_UARTFR_BUSY_BITS) {
         tight_loop_contents();
     }
-    // set_rx_mode(config);
+    set_rx_mode(config);
 }
 
 int receive_packet(const uart_config_t* config, uint8_t* rx_buf, size_t expected_len) {

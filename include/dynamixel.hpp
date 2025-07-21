@@ -35,9 +35,9 @@ typedef struct {
 
 const uart_config_t UART0 = {
     .uart_number = uart0,
-    .tx_pin = 16,
-    .rx_pin = 17,
-    .de_pin = 18};
+    .tx_pin = 0,
+    .rx_pin = 1,
+    .de_pin = 2};
 
 const uart_config_t UART1 = {
     .uart_number = uart1,
