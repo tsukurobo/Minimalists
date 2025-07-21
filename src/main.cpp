@@ -53,11 +53,11 @@ static const spi_config_t can_spi_config = {
 mcp25625_t can(can_spi_config.spi_port, can_spi_config.pin_cs[0], can_spi_config.pin_rst);
 
 // AMT223-V エンコーダマネージャを作成
-AMT223V_Manager encoder_manager(spi0,       // SPI0を使用
+AMT223V_Manager encoder_manager(spi1,       // SPI0を使用
                                 1'000'000,  // 2MHz
-                                16,         // MISO pin
-                                18,         // SCK pin
-                                19);        // MOSI pin
+                                8,          // MISO pin
+                                10,         // SCK pin
+                                11);        // MOSI pin
 
 // ベースのモータから出力軸までのギア比
 constexpr double gear_ratio_R = 3591.0 / 187.0 * 3.0;  // M3508(3591.0/187.0) * M3508出力軸からベース根本(3.0)
