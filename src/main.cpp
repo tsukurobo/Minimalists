@@ -60,9 +60,9 @@ AMT223V_Manager encoder_manager(spi1,       // SPI0を使用
                                 11);        // MOSI pin
 
 // モータの出力軸から機構の出力軸までのギア比
-constexpr double gear_ratio_R = 3.0;                   // M3508出力軸からベース根本(3.0)
-constexpr double gear_ratio_P = 1.0;                   // M2006 P36出力軸からラックまで(ギアなし)
-constexpr double gear_radius_P = 0.025;                // ギアの半径 (m) - M2006の出力軸からラックまでの距離が25mm
+constexpr double gear_ratio_R = 3.0;     // M3508出力軸からベース根本(3.0)
+constexpr double gear_ratio_P = 1.0;     // M2006 P36出力軸からラックまで(ギアなし)
+constexpr double gear_radius_P = 0.025;  // ギアの半径 (m) - M2006の出力軸からラックまでの距離が25mm
 
 // R軸（ベース回転）の動力学パラメータ
 dynamics_t dynamics_R(
@@ -80,8 +80,8 @@ dynamics_t dynamics_P(
 
 // 軌道生成と制御器で共通の制限定数
 namespace TrajectoryLimits {
-constexpr double R_MAX_VELOCITY = 482.0 / 60.0 * 2.0 * M_PI / gear_ratio_R;   // R軸最大速度制限 [rad/s] 無負荷回転数482rpm
-constexpr double P_MAX_VELOCITY = 500.0 / 60.0 * 2.0 * M_PI / gear_ratio_P;   // P軸最大速度制限 [rad/s] 無負荷回転数500rpm
+constexpr double R_MAX_VELOCITY = 482.0 / 60.0 * 2.0 * M_PI / gear_ratio_R;  // R軸最大速度制限 [rad/s] 無負荷回転数482rpm
+constexpr double P_MAX_VELOCITY = 500.0 / 60.0 * 2.0 * M_PI / gear_ratio_P;  // P軸最大速度制限 [rad/s] 無負荷回転数500rpm
 
 // 電流上限
 constexpr double MAX_CURRENT = 2.0;  // R軸最大電流 [A] (M3508の最大電流)
@@ -93,22 +93,6 @@ constexpr double P_INERTIA = 0.3;                                          // P�
 constexpr double R_MAX_ACCELERATION = R_MAX_TORQUE / R_INERTIA;            // R軸最大角加速度 [rad/s^2]
 constexpr double P_MAX_ACCELERATION = P_MAX_TORQUE / P_INERTIA;            // P軸最大角加速度 [rad/s^2]
 }  // namespace TrajectoryLimits
-
-// R軸（ベース回転）の軌道生成パラメータ
-trajectory_t trajectory_R(
-    TrajectoryLimits::R_MAX_VELOCITY,      // 最大角速度 (rad/s) - 制御器と同じ制限値を使用
-    TrajectoryLimits::R_MAX_ACCELERATION,  // 最大角加速度 (rad/s^2) - トルク制限から計算
-    0.0,                                   // 開始位置 (rad)
-    2 * M_PI                               // 目標位置 (rad)
-);
-
-// P軸（アーム直動）の軌道生成パラメータ
-trajectory_t trajectory_P(
-    TrajectoryLimits::P_MAX_VELOCITY,      // 最大角速度 (rad/s) - 制御器と同じ制限値を使用
-    TrajectoryLimits::P_MAX_ACCELERATION,  // 最大角加速度 (rad/s^2) - トルク制限から計算
-    0.0,                                   // 開始位置 (rad)
-    0.3                                    // 目標位置 (rad) - 300mm移動
-);
 
 // RoboMasterモータオブジェクト
 robomaster_motor_t motor1(&can, 1, gear_ratio_R);  // motor_id=1
@@ -163,9 +147,11 @@ typedef struct
     int motor_speed;
     int sensor_value;
 
-    // 制御目標値
-    double target_position_R;  // R軸目標位置 [rad]
-    double target_position_P;  // P軸目標位置 [rad]
+    // 制御目標値（Core0→Core1）
+    double target_position_R;  // R軸最終目標位置 [rad]
+    double target_position_P;  // P軸最終目標位置 [rad]
+    bool new_target_R;         // R軸新しい目標値フラグ
+    bool new_target_P;         // P軸新しい目標値フラグ
 
     // 制御状態
     double current_position_R;  // R軸現在位置 [rad]
@@ -200,11 +186,14 @@ typedef struct
     led_mode_t led_status;       // LED状態
     int can_error_count;         // CAN送信エラー回数
 
-    // 軌道実行管理
-    bool trajectory_active_R;      // R軸軌道実行中フラグ
-    bool trajectory_active_P;      // P軸軌道実行中フラグ
-    double trajectory_start_time;  // 軌道開始時刻 [s]
-    double current_time;           // 現在時刻 [s]
+    // 軌道実行管理（Core1専用）
+    bool trajectory_active_R;        // R軸軌道実行中フラグ
+    bool trajectory_active_P;        // P軸軌道実行中フラグ
+    double trajectory_start_time_R;  // R軸軌道開始時刻 [s]
+    double trajectory_start_time_P;  // P軸軌道開始時刻 [s]
+    double trajectory_start_pos_R;   // R軸軌道開始位置 [rad]
+    double trajectory_start_pos_P;   // P軸軌道開始位置 [rad]
+    double current_time;             // 現在時刻 [s]
 } robot_state_t;
 
 // SPI初期化関数
@@ -325,36 +314,18 @@ bool init_pid_controllers() {
 static robot_state_t g_robot_state;
 static mutex_t g_state_mutex;
 
-// 軌道開始用ヘルパー関数
-void start_trajectory_R(double start_pos, double end_pos, double current_time) {
+// 目標値設定用ヘルパー関数（Core0専用）
+void set_target_position_R(double target_pos) {
     mutex_enter_blocking(&g_state_mutex);
-    trajectory_R.set_start_pos(start_pos);
-    trajectory_R.set_end_pos(end_pos);
-    trajectory_R.calculate_trapezoidal_params();
-    g_robot_state.trajectory_active_R = true;
-    g_robot_state.trajectory_start_time = current_time;
+    g_robot_state.target_position_R = target_pos;
+    g_robot_state.new_target_R = true;
     mutex_exit(&g_state_mutex);
 }
 
-void start_trajectory_P(double start_pos, double end_pos, double current_time) {
+void set_target_position_P(double target_pos) {
     mutex_enter_blocking(&g_state_mutex);
-    trajectory_P.set_start_pos(start_pos);
-    trajectory_P.set_end_pos(end_pos);
-    trajectory_P.calculate_trapezoidal_params();
-    g_robot_state.trajectory_active_P = true;
-    g_robot_state.trajectory_start_time = current_time;
-    mutex_exit(&g_state_mutex);
-}
-
-void stop_trajectory_R() {
-    mutex_enter_blocking(&g_state_mutex);
-    g_robot_state.trajectory_active_R = false;
-    mutex_exit(&g_state_mutex);
-}
-
-void stop_trajectory_P() {
-    mutex_enter_blocking(&g_state_mutex);
-    g_robot_state.trajectory_active_P = false;
+    g_robot_state.target_position_P = target_pos;
+    g_robot_state.new_target_P = true;
     mutex_exit(&g_state_mutex);
 }
 
@@ -362,31 +333,29 @@ void stop_trajectory_P() {
 bool is_trajectory_completed_R() {
     mutex_enter_blocking(&g_state_mutex);
     bool active = g_robot_state.trajectory_active_R;
-    double current_time = g_robot_state.current_time;
-    double start_time = g_robot_state.trajectory_start_time;
     mutex_exit(&g_state_mutex);
-
-    if (!active) return true;
-
-    double elapsed_time = current_time - start_time;
-    return elapsed_time >= trajectory_R.get_total_time();
+    return !active;
 }
 
 bool is_trajectory_completed_P() {
     mutex_enter_blocking(&g_state_mutex);
     bool active = g_robot_state.trajectory_active_P;
-    double current_time = g_robot_state.current_time;
-    double start_time = g_robot_state.trajectory_start_time;
     mutex_exit(&g_state_mutex);
-
-    if (!active) return true;
-
-    double elapsed_time = current_time - start_time;
-    return elapsed_time >= trajectory_P.get_total_time();
+    return !active;
 }
 
 // Core 1: 通信・制御担当
 void core1_entry(void) {
+    // Core1専用の軌道生成インスタンス
+    trajectory_t trajectory_R_local(
+        TrajectoryLimits::R_MAX_VELOCITY,
+        TrajectoryLimits::R_MAX_ACCELERATION,
+        0.0, 0.0);
+    trajectory_t trajectory_P_local(
+        TrajectoryLimits::P_MAX_VELOCITY,
+        TrajectoryLimits::P_MAX_ACCELERATION,
+        0.0, 0.0);
+
     // CANの初期化（リトライ付き）
     while (!can.init(CAN_1000KBPS)) {
         // 初期化失敗時のLED点滅のみ（printf削除）
@@ -455,16 +424,22 @@ void core1_entry(void) {
 
         // --- 共有データから目標値取得と状態更新 ---
         double target_pos_R, target_pos_P;
+        bool new_target_R, new_target_P;
         bool trajectory_active_R, trajectory_active_P;
-        double trajectory_start_time, current_time;
+        double trajectory_start_time_R, trajectory_start_time_P;
+        double trajectory_start_pos_R, trajectory_start_pos_P;
 
         mutex_enter_blocking(&g_state_mutex);
         target_pos_R = g_robot_state.target_position_R;
         target_pos_P = g_robot_state.target_position_P;
+        new_target_R = g_robot_state.new_target_R;
+        new_target_P = g_robot_state.new_target_P;
         trajectory_active_R = g_robot_state.trajectory_active_R;
         trajectory_active_P = g_robot_state.trajectory_active_P;
-        trajectory_start_time = g_robot_state.trajectory_start_time;
-        current_time = g_robot_state.current_time;
+        trajectory_start_time_R = g_robot_state.trajectory_start_time_R;
+        trajectory_start_time_P = g_robot_state.trajectory_start_time_P;
+        trajectory_start_pos_R = g_robot_state.trajectory_start_pos_R;
+        trajectory_start_pos_P = g_robot_state.trajectory_start_pos_P;
 
         // 現在時刻を更新
         g_robot_state.current_time = current_time_s;
@@ -493,8 +468,16 @@ void core1_entry(void) {
 
         // R軸の台形プロファイル計算
         if (trajectory_active_R) {
-            double elapsed_time = current_time_s - trajectory_start_time;
-            trajectory_R.get_trapezoidal_state(elapsed_time, &trajectory_target_pos_R, &trajectory_target_vel_R, &trajectory_target_accel_R);
+            double elapsed_time = current_time_s - trajectory_start_time_R;
+            trajectory_R_local.get_trapezoidal_state(elapsed_time, &trajectory_target_pos_R, &trajectory_target_vel_R, &trajectory_target_accel_R);
+
+            // 軌道完了チェック
+            if (elapsed_time >= trajectory_R_local.get_total_time()) {
+                mutex_enter_blocking(&g_state_mutex);
+                g_robot_state.trajectory_active_R = false;
+                mutex_exit(&g_state_mutex);
+                trajectory_active_R = false;
+            }
         } else {
             // 軌道停止時は現在位置を目標位置として保持
             trajectory_target_pos_R = motor_position_R;
@@ -502,8 +485,17 @@ void core1_entry(void) {
 
         // P軸の台形プロファイル計算
         if (trajectory_active_P) {
-            double elapsed_time = current_time_s - trajectory_start_time;
-            trajectory_P.get_trapezoidal_state(elapsed_time, &trajectory_target_pos_P, &trajectory_target_vel_P, &trajectory_target_accel_P);
+            double elapsed_time = current_time_s - trajectory_start_time_P;
+            trajectory_P_local.get_trapezoidal_state(elapsed_time, &trajectory_target_pos_P, &trajectory_target_vel_P, &trajectory_target_accel_P);
+
+            // 軌道完了チェック
+            if (elapsed_time >= trajectory_P_local.get_total_time()) {
+                mutex_enter_blocking(&g_state_mutex);
+                g_robot_state.trajectory_active_P = false;
+                mutex_exit(&g_state_mutex);
+                trajectory_active_P = false;
+            }
+
         } else {
             // 軌道停止時は現在位置を目標位置として保持
             trajectory_target_pos_P = motor_position_P;
@@ -633,7 +625,14 @@ int main(void) {
     g_robot_state.trajectory_target_velocity_P = 0.0;
     g_robot_state.trajectory_active_R = false;
     g_robot_state.trajectory_active_P = false;
-    g_robot_state.trajectory_start_time = 0.0;
+    g_robot_state.trajectory_start_time_R = 0.0;
+    g_robot_state.trajectory_start_time_P = 0.0;
+    g_robot_state.trajectory_start_pos_R = 0.0;
+    g_robot_state.trajectory_start_pos_P = 0.0;
+    g_robot_state.target_position_R = 0.0;
+    g_robot_state.target_position_P = 0.0;
+    g_robot_state.new_target_R = false;
+    g_robot_state.new_target_P = false;
     g_robot_state.current_time = 0.0;
 
     // デバッグ情報の初期化
@@ -689,33 +688,36 @@ int main(void) {
                 initial_pos_R = current_pos_R;
                 initial_pos_P = current_pos_P;
                 initial_pos_set = true;
-                printf("Set initial positions: R=%.3f rad, P=%.3f m\n",
-                       initial_pos_R, initial_pos_P * gear_radius_P);
+                printf("Set initial positions: R=%.3f rad, P=%.3f rad (%.1f mm)\n",
+                       initial_pos_R, initial_pos_P, initial_pos_P * gear_radius_P * 1000.0);
             }
 
             if (forward_direction) {
                 // 前進方向の軌道（基準位置 → +300mm）
                 // R軸: 基準位置から(1/2)π rad（90度）回転
                 double target_R = initial_pos_R + 1.0 / 2.0 * M_PI;
-                start_trajectory_R(current_pos_R, target_R, current_main_time);
+                set_target_position_R(target_R);
 
-                // P軸: 基準位置から300mm移動
-                double target_P_m = 0.3;  // 300mm
+                // P軸: 基準位置から100mm移動
+                double target_P_m = 0.1;  // 100mm
                 double target_P_rad = target_P_m / gear_radius_P;
                 double target_P = initial_pos_P + target_P_rad;
-                start_trajectory_P(current_pos_P, target_P, current_main_time);
+                set_target_position_P(target_P);
 
                 printf("Started FORWARD trajectory at t=%.1fs (to P=+%.1fmm)\n",
                        time_counter, target_P_m * 1000.0);
+                printf("DEBUG: P-axis targets - initial_pos_P=%.3f, target_P_rad=%.3f, target_P=%.3f\n",
+                       initial_pos_P, target_P_rad, target_P);
             } else {
                 // 後退方向の軌道（+300mm → 基準位置）
                 // R軸: 基準位置に戻る
-                start_trajectory_R(current_pos_R, initial_pos_R, current_main_time);
+                set_target_position_R(initial_pos_R);
 
                 // P軸: 基準位置に戻る
-                start_trajectory_P(current_pos_P, initial_pos_P, current_main_time);
+                set_target_position_P(initial_pos_P);
 
                 printf("Started BACKWARD trajectory at t=%.1fs (to P=0mm)\n", time_counter);
+                printf("DEBUG: P-axis BACKWARD target - initial_pos_P=%.3f\n", initial_pos_P);
             }
 
             trajectory_started = true;
@@ -723,14 +725,12 @@ int main(void) {
             forward_direction = !forward_direction;  // 次回は逆方向
         }
 
-        // 軌道完了チェックと自動停止
+        // 軌道完了チェック（Core1で自動停止されるため、ここでは表示のみ）
         if (trajectory_started && is_trajectory_completed_R()) {
-            stop_trajectory_R();
             printf("R-axis trajectory completed at t=%.1fs\n", time_counter);
         }
 
         if (trajectory_started && is_trajectory_completed_P()) {
-            stop_trajectory_P();
             printf("P-axis trajectory completed at t=%.1fs\n", time_counter);
         }
 
