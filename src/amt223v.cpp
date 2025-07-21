@@ -15,6 +15,9 @@
 // AMT223D-V マルチターンコマンド定義
 const uint8_t AMT223V::CMD_READ_MULTITURN[4] = {0x00, 0xA0, 0x00, 0x00};
 
+// ゼロ位置セットコマンド定義（単回転エンコーダのみ）
+const uint8_t AMT223V::CMD_SET_ZERO[2] = {0x00, 0x70};
+
 AMT223V::AMT223V(spi_inst_t* spi_instance, int chip_select_pin, bool multiturn_support)
     : spi_port(spi_instance), cs_pin(chip_select_pin), raw_angle(0), angle_rad(0.0), angle_deg(0.0), is_multiturn(multiturn_support), turn_count(0), continuous_angle_rad(0.0), continuous_angle_deg(0.0) {
 }
@@ -31,9 +34,31 @@ bool AMT223V::init() {
         return false;
     }
 
-    printf("AMT223V initialized successfully on CS pin %d\n", cs_pin);
+    printf("AMT223V initialized successfully on CS pin %d (multiturn: %s)\n",
+           cs_pin, is_multiturn ? "yes" : "no");
     printf("Initial angle: %d counts, %.2f deg, %.4f rad\n",
            raw_angle, angle_deg, angle_rad);
+
+    // // 単回転エンコーダの場合はゼロ位置セットを実行
+    // if (!is_multiturn) {
+    //     printf("Setting zero position for single-turn encoder on CS pin %d...\n", cs_pin);
+
+    //     // エンコーダが安定するまで少し待つ
+    //     sleep_ms(100);
+
+    //     if (set_zero_position()) {
+    //         printf("Zero position set successfully!\n");
+
+    //         // ゼロ位置セット後に再度読み取り
+    //         sleep_ms(50);  // リセット後の安定化時間
+    //         if (read_angle()) {
+    //             printf("Post-zero angle: %d counts, %.2f deg, %.4f rad\n",
+    //                    raw_angle, angle_deg, angle_rad);
+    //         }
+    //     } else {
+    //         printf("Warning: Failed to set zero position\n");
+    //     }
+    // }
 
     return true;
 }
@@ -62,6 +87,11 @@ bool AMT223V::read_angle() {
         // 次の2バイトから回転回数を抽出（14ビット符号付き）
         uint16_t received_turn = (static_cast<uint16_t>(rx_data[2]) << 8) | static_cast<uint16_t>(rx_data[3]);
         received_turn = 0x0FFF & received_turn;  // 14ビットでマスクとるとなんか動かなかったから12ビットマスクをとってる
+
+        // // 受信したデータとマスク後のデータを表示
+        // printf("Received hex: 0x%02X 0x%02X 0x%02X 0x%02X\n",
+        //        rx_data[0], rx_data[1], rx_data[2], rx_data[3]);
+        // printf("Received hex (masked): 0x%04X\n", received_turn);
 
         // 14ビット符号付き数値に変換
         if (received_turn & 0x2000) {                        // MSBが1の場合は負数
@@ -108,6 +138,40 @@ bool AMT223V::read_angle() {
         return false;
     }
 
+    return true;
+}
+
+bool AMT223V::set_zero_position() {
+    // マルチターンエンコーダではゼロ位置セットは使用できません
+    if (is_multiturn) {
+        printf("Error: Set zero position is not supported for multiturn encoders\n");
+        return false;
+    }
+
+    // ゼロ位置セットコマンドを送信
+    uint8_t tx_data[2] = {CMD_SET_ZERO[0], CMD_SET_ZERO[1]};  // {0x00, 0x70}
+    uint8_t rx_data[2] = {0};
+
+    printf("Sending set zero command: 0x%02X 0x%02X\n", tx_data[0], tx_data[1]);
+
+    // SPI通信実行
+    select();
+    spi_transfer(tx_data, rx_data, 2);
+    deselect();
+
+    // 受信したデータを確認（現在位置が返される）
+    uint16_t received_data = (rx_data[0] << 8) | rx_data[1];
+    uint16_t position_before_reset = received_data & ANGLE_MASK;
+
+    printf("Position before reset: %d counts (%.2f deg)\n",
+           position_before_reset,
+           (double)position_before_reset * 360.0 / COUNTS_PER_REV);
+
+    // エンコーダがリセット処理を完了するまで待機
+    // データシートによると、リセット処理には時間がかかる場合があります
+    sleep_ms(100);
+
+    printf("Zero position set command completed\n");
     return true;
 }
 
@@ -245,4 +309,14 @@ double AMT223V_Manager::get_encoder_continuous_angle_deg(int encoder_index) cons
     }
 
     return encoders[encoder_index]->get_continuous_angle_deg();
+}
+
+bool AMT223V_Manager::set_encoder_zero_position(int encoder_index) {
+    if (encoder_index < 0 || encoder_index >= num_encoders || !encoders[encoder_index]) {
+        printf("Error: Invalid encoder index %d\n", encoder_index);
+        return false;
+    }
+
+    printf("Setting zero position for encoder %d...\n", encoder_index);
+    return encoders[encoder_index]->set_zero_position();
 }

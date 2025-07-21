@@ -32,6 +32,9 @@ class AMT223V {
     static const uint8_t CMD_READ_ANGLE = 0x00;  // 角度読み取りコマンド
     static const uint16_t ANGLE_MASK = 0x3FFF;   // 14ビットマスク
 
+    // ゼロ位置セットコマンド（単回転エンコーダのみ）
+    static const uint8_t CMD_SET_ZERO[2];  // ゼロ位置セットコマンド: {0x00, 0x70}
+
     // AMT223D-V マルチターンコマンド定義
     static const uint8_t CMD_READ_MULTITURN[4];  // マルチターン読み取りコマンド: {0x00, 0xA0, 0x00, 0x00}
     static const uint16_t TURN_MASK = 0x3FFF;    // 14ビット回転数マスク
@@ -57,6 +60,14 @@ class AMT223V {
      * @return 読み取り成功時true
      */
     bool read_angle();
+
+    /**
+     * @brief ゼロ位置をセット（単回転エンコーダのみ）
+     * @return セット成功時true
+     * @note エンコーダは静止状態である必要があります
+     * @note マルチターンエンコーダでは使用できません
+     */
+    bool set_zero_position();
 
     /**
      * @brief 生の角度データを取得（0-16383）
@@ -214,6 +225,13 @@ class AMT223V_Manager {
      * @return 連続角度[deg]（失敗時は0.0）
      */
     double get_encoder_continuous_angle_deg(int encoder_index) const;
+
+    /**
+     * @brief 指定したエンコーダのゼロ位置をセット（単回転エンコーダのみ）
+     * @param encoder_index エンコーダインデックス
+     * @return セット成功時true
+     */
+    bool set_encoder_zero_position(int encoder_index);
 
     /**
      * @brief エンコーダ数を取得
