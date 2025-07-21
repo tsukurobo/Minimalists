@@ -129,6 +129,13 @@ class AMT223V {
      * @param length データ長
      */
     void spi_transfer(const uint8_t* tx_data, uint8_t* rx_buffer, size_t length);
+
+    /**
+     * @brief パリティチェックを実行
+     * @param response 16ビットの受信データ
+     * @return パリティチェック成功時true
+     */
+    bool verify_parity(uint16_t response) const;
 };
 
 /**

@@ -71,27 +71,28 @@ bool AMT223V::read_angle() {
 
         // SPI通信実行
         select();
-        for (int i = 0; i < 4; i++) {
-            // 1バイトずつ送信して受信
-            spi_transfer(&tx_data[i], &rx_data[i], 1);
-            sleep_us(3);  // SPI通信の安定化のために少し待つ
-        }
+        spi_transfer(tx_data, rx_data, 4);
         deselect();
 
         // 最初の2バイトから角度を抽出（14ビット）
         uint16_t received_angle = (static_cast<uint16_t>(rx_data[0]) << 8) | static_cast<uint16_t>(rx_data[1]);
-        raw_angle = received_angle & ANGLE_MASK;
 
-        sleep_us(3);
+        // パリティチェック実行
+        if (!verify_parity(received_angle)) {
+            printf("Warning: Parity check failed for angle data\n");
+            return false;
+        }
+
+        raw_angle = received_angle & ANGLE_MASK;
 
         // 次の2バイトから回転回数を抽出（14ビット符号付き）
         uint16_t received_turn = (static_cast<uint16_t>(rx_data[2]) << 8) | static_cast<uint16_t>(rx_data[3]);
-        received_turn = 0x0FFF & received_turn;  // 14ビットでマスクとるとなんか動かなかったから12ビットマスクをとってる
+        received_turn = 0x3FFF & received_turn;  // 14ビットでマスクとるとなんか動かなかったから12ビットマスクをとってる
 
-        // // 受信したデータとマスク後のデータを表示
-        // printf("Received hex: 0x%02X 0x%02X 0x%02X 0x%02X\n",
-        //        rx_data[0], rx_data[1], rx_data[2], rx_data[3]);
-        // printf("Received hex (masked): 0x%04X\n", received_turn);
+        // 受信したデータとマスク後のデータを表示
+        printf("Received hex: 0x%02X 0x%02X 0x%02X 0x%02X\n",
+               rx_data[0], rx_data[1], rx_data[2], rx_data[3]);
+        printf("Received hex (masked): 0x%04X\n", received_turn);
 
         // 14ビット符号付き数値に変換
         if (received_turn & 0x2000) {                        // MSBが1の場合は負数
@@ -118,8 +119,15 @@ bool AMT223V::read_angle() {
         spi_transfer(tx_data, rx_data, 2);
         deselect();
 
-        // 受信データから角度を抽出（14ビット）
+        // 受信データから角度を抽出（16ビット応答）
         uint16_t received_data = (rx_data[0] << 8) | rx_data[1];
+
+        // パリティチェック実行
+        if (!verify_parity(received_data)) {
+            printf("Warning: Parity check failed for single-turn data\n");
+            return false;
+        }
+
         raw_angle = received_data & ANGLE_MASK;
 
         // 角度変換
@@ -177,17 +185,68 @@ bool AMT223V::set_zero_position() {
 
 void AMT223V::select() {
     gpio_put(cs_pin, 0);  // CSをLOWにして選択
-    sleep_us(1);          // セットアップ時間
+    sleep_us(3);          // セットアップ時間
 }
 
 void AMT223V::deselect() {
-    sleep_us(1);          // ホールド時間
+    sleep_us(3);          // time before CS can be released
     gpio_put(cs_pin, 1);  // CSをHIGHにして非選択
+    sleep_us(40);         // time between reads
 }
 
 void AMT223V::spi_transfer(const uint8_t* tx_data, uint8_t* rx_buffer, size_t length) {
     // SPI通信実行
-    spi_write_read_blocking(spi_port, tx_data, rx_buffer, length);
+    for (size_t i = 0; i < length; i++) {
+        spi_write_read_blocking(spi_port, &tx_data[i], &rx_buffer[i], 1);
+        sleep_us(3);  // time between bytes
+    }
+}
+
+bool AMT223V::verify_parity(uint16_t response) const {
+    // チェックビットを抽出
+    uint8_t k1 = (response >> 15) & 0x01;  // MSB (ビット15)
+    uint8_t k0 = (response >> 14) & 0x01;  // ビット14
+
+    // 14ビット位置データを抽出
+    uint16_t position = response & 0x3FFF;
+
+    // 奇数ビットの XOR 計算: H5^H3^H1^L7^L5^L3^L1
+    uint8_t odd_parity = 0;
+    odd_parity ^= (position >> 13) & 0x01;  // H5 (bit 13)
+    odd_parity ^= (position >> 11) & 0x01;  // H3 (bit 11)
+    odd_parity ^= (position >> 9) & 0x01;   // H1 (bit 9)
+    odd_parity ^= (position >> 7) & 0x01;   // L7 (bit 7)
+    odd_parity ^= (position >> 5) & 0x01;   // L5 (bit 5)
+    odd_parity ^= (position >> 3) & 0x01;   // L3 (bit 3)
+    odd_parity ^= (position >> 1) & 0x01;   // L1 (bit 1)
+
+    // 偶数ビットの XOR 計算: H4^H2^H0^L6^L4^L2^L0
+    uint8_t even_parity = 0;
+    even_parity ^= (position >> 12) & 0x01;  // H4 (bit 12)
+    even_parity ^= (position >> 10) & 0x01;  // H2 (bit 10)
+    even_parity ^= (position >> 8) & 0x01;   // H0 (bit 8)
+    even_parity ^= (position >> 6) & 0x01;   // L6 (bit 6)
+    even_parity ^= (position >> 4) & 0x01;   // L4 (bit 4)
+    even_parity ^= (position >> 2) & 0x01;   // L2 (bit 2)
+    even_parity ^= (position >> 0) & 0x01;   // L0 (bit 0)
+
+    // チェックビット計算 (奇数パリティ)
+    uint8_t k1_calc = !odd_parity;   // K1 = !(奇数ビットXOR)
+    uint8_t k0_calc = !even_parity;  // K0 = !(偶数ビットXOR)
+
+    // パリティチェック結果
+    bool parity_ok = (k1 == k1_calc) && (k0 == k0_calc);
+
+    // デバッグ情報（初期化時のみ表示）
+    static int parity_debug_count = 0;
+    if (parity_debug_count < 3 || !parity_ok) {
+        printf("Parity check: 0x%04X, pos=0x%04X, K1=%d(calc:%d), K0=%d(calc:%d) -> %s\n",
+               response, position, k1, k1_calc, k0, k0_calc,
+               parity_ok ? "OK" : "ERROR");
+        if (parity_ok) parity_debug_count++;
+    }
+
+    return parity_ok;
 }
 
 // ===== AMT223V_Manager クラス実装 =====
