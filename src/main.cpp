@@ -59,9 +59,9 @@ AMT223V_Manager encoder_manager(spi1,       // SPI0を使用
                                 10,         // SCK pin
                                 11);        // MOSI pin
 
-// ベースのモータから出力軸までのギア比
-constexpr double gear_ratio_R = 3591.0 / 187.0 * 3.0;  // M3508(3591.0/187.0) * M3508出力軸からベース根本(3.0)
-constexpr double gear_ratio_P = 36.0;                  // M2006 P36のギア比
+// モータの出力軸から機構の出力軸までのギア比
+constexpr double gear_ratio_R = 3.0;                   // M3508出力軸からベース根本(3.0)
+constexpr double gear_ratio_P = 1.0;                   // M2006 P36出力軸からラックまで(ギアなし)
 constexpr double gear_radius_P = 0.025;                // ギアの半径 (m) - M2006の出力軸からラックまでの距離が25mm
 
 // R軸（ベース回転）の動力学パラメータ
@@ -81,7 +81,7 @@ dynamics_t dynamics_P(
 // 軌道生成と制御器で共通の制限定数
 namespace TrajectoryLimits {
 constexpr double R_MAX_VELOCITY = 482.0 / 60.0 * 2.0 * M_PI / gear_ratio_R;   // R軸最大速度制限 [rad/s] 無負荷回転数482rpm
-constexpr double P_MAX_VELOCITY = 3000.0 / 60.0 * 2.0 * M_PI / gear_ratio_P;  // P軸最大速度制限 [rad/s] 無負荷回転数3000rpm（6倍に増加）
+constexpr double P_MAX_VELOCITY = 500.0 / 60.0 * 2.0 * M_PI / gear_ratio_P;   // P軸最大速度制限 [rad/s] 無負荷回転数500rpm
 
 // 電流上限
 constexpr double MAX_CURRENT = 2.0;  // R軸最大電流 [A] (M3508の最大電流)
@@ -129,9 +129,9 @@ namespace ControlLimits {
 // R軸（ベース回転）制御制限
 namespace R_Axis {
 constexpr double MAX_VELOCITY = 0.7 * TrajectoryLimits::R_MAX_VELOCITY;       // 位置PID出力の最大速度制限 [rad/s] - 軌道生成より小さく設定
-constexpr double INTEGRAL_VELOCITY = 0.6 * TrajectoryLimits::R_MAX_VELOCITY;  // 位置PID積分制限 [rad/s]
+constexpr double INTEGRAL_VELOCITY = 0.6 * TrajectoryLimits::R_MAX_VELOCITY;  // 位置PID積分制限 [rad/s] - 最大角速度の60%に設定
 constexpr double MAX_TORQUE = TrajectoryLimits::R_MAX_TORQUE;                 // 速度I-P出力の最大トルク制限 [Nm] - 軌道生成と共通
-constexpr double INTEGRAL_TORQUE = 0.8 * TrajectoryLimits::R_MAX_TORQUE;      // 速度I-P積分制限 [Nm]
+constexpr double INTEGRAL_TORQUE = 0.8 * TrajectoryLimits::R_MAX_TORQUE;      // 速度I-P積分制限 [Nm] 最大トルクの80%に設定
 }  // namespace R_Axis
 
 // P軸（アーム直動）制御制限
