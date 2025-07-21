@@ -28,6 +28,13 @@ class AMT223V {
     double continuous_angle_rad;  // 連続角度[rad]
     double continuous_angle_deg;  // 連続角度[deg]
 
+    // 角速度計算用変数
+    double previous_angle_rad;    // 前回の角度[rad]
+    double angular_velocity_rad;  // 角速度[rad/s]
+    double angular_velocity_deg;  // 角速度[deg/s]
+    uint64_t previous_time_us;    // 前回の測定時刻[μs]
+    bool velocity_initialized;    // 角速度初期化フラグ
+
     // AMT223-V コマンド定義
     static const uint8_t CMD_READ_ANGLE = 0x00;  // 角度読み取りコマンド
     static const uint16_t ANGLE_MASK = 0x3FFF;   // 14ビットマスク
@@ -111,6 +118,18 @@ class AMT223V {
      */
     double get_continuous_angle_deg() const { return continuous_angle_deg; }
 
+    /**
+     * @brief 角速度を取得（ラジアン/秒）
+     * @return 角速度[rad/s]
+     */
+    double get_angular_velocity_rad() const { return angular_velocity_rad; }
+
+    /**
+     * @brief 角速度を取得（度/秒）
+     * @return 角速度[deg/s]
+     */
+    double get_angular_velocity_deg() const { return angular_velocity_deg; }
+
    private:
     /**
      * @brief CSピンを選択状態にする
@@ -136,6 +155,13 @@ class AMT223V {
      * @return パリティチェック成功時true
      */
     bool verify_parity(uint16_t response) const;
+
+    /**
+     * @brief 角速度を計算（疑似微分）
+     * @param current_angle_rad 現在の角度[rad]
+     * @param current_time_us 現在の時刻[μs]
+     */
+    void calculate_angular_velocity(double current_angle_rad, uint64_t current_time_us);
 };
 
 /**
@@ -239,6 +265,20 @@ class AMT223V_Manager {
      * @return セット成功時true
      */
     bool set_encoder_zero_position(int encoder_index);
+
+    /**
+     * @brief 指定したエンコーダの角速度取得
+     * @param encoder_index エンコーダインデックス
+     * @return 角速度[rad/s]（失敗時は0.0）
+     */
+    double get_encoder_angular_velocity_rad(int encoder_index) const;
+
+    /**
+     * @brief 指定したエンコーダの角速度取得
+     * @param encoder_index エンコーダインデックス
+     * @return 角速度[deg/s]（失敗時は0.0）
+     */
+    double get_encoder_angular_velocity_deg(int encoder_index) const;
 
     /**
      * @brief エンコーダ数を取得

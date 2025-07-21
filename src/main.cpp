@@ -19,8 +19,7 @@ constexpr double CONTROL_PERIOD_MS = 2.0;                        // 制御周期
 constexpr double CONTROL_PERIOD_S = CONTROL_PERIOD_MS / 1000.0;  // 制御周期 [s]
 
 // システム設定定数
-constexpr int SHUTDOWN_PIN = 27;          // 明示的にLOWにしないとPicoが動かない
-constexpr int DEBUG_PRINT_INTERVAL = 25;  // デバッグ出力間隔（制御周期の倍数）
+constexpr int SHUTDOWN_PIN = 27;  // 明示的にLOWにしないとPicoが動かない
 
 // モータとエンコーダの符号補正設定
 constexpr double ENCODER_R_DIRECTION = 1.0;   // R軸エンコーダの増加方向補正 (+1.0 or -1.0) 正入力で右回り、右回りでエンコーダ値が増加
@@ -74,9 +73,9 @@ dynamics_t dynamics_R(
 
 // P軸（アーム直動）の動力学パラメータ
 dynamics_t dynamics_P(
-    0.3,                                        // 等価慣性モーメント (kg·m^2)
-    0.002651,                                   // 粘性摩擦係数 (N·m·s/rad)
-    0.18 * gear_ratio_P * 0.66 / gear_radius_P  // 力定数（M2006のトルク定数xギア比x伝達効率/ギアの半径）(N/A)
+    0.3,                        // 等価慣性モーメント (kg·m^2)
+    0.002651,                   // 粘性摩擦係数 (N·m·s/rad)
+    0.18 * gear_ratio_P * 0.66  // 等価トルク定数（M2006のトルク定数xギア比x伝達効率）(Nm/A)
 );
 
 // R軸（ベース回転）の軌道生成パラメータ
@@ -266,27 +265,30 @@ void core1_entry(void) {
 
         // --- エンコーダ読み取り処理 ---
         double motor_position_R = 0.0, motor_position_P = 0.0;
+        double motor_velocity_R = 0.0, motor_velocity_P = 0.0;
         bool enc1_ok = encoder_manager.read_encoder(0);  // エンコーダ0
         bool enc2_ok = encoder_manager.read_encoder(1);  // エンコーダ1
 
         if (enc1_ok) {
             motor_position_R = encoder_manager.get_encoder_angle_rad(0) * ENCODER_R_DIRECTION;
+            motor_velocity_R = encoder_manager.get_encoder_angular_velocity_rad(0) * ENCODER_R_DIRECTION;
         }
         if (enc2_ok) {
             // P軸はマルチターン対応エンコーダのため連続角度を使用
             motor_position_P = encoder_manager.get_encoder_continuous_angle_rad(1) * ENCODER_P_DIRECTION;
+            motor_velocity_P = encoder_manager.get_encoder_angular_velocity_rad(1) * ENCODER_P_DIRECTION;
         }
 
-        // --- モータフィードバック受信 ---
-        double motor_velocity_R = 0.0, motor_velocity_P = 0.0;
-        if (motor1.receive_feedback()) {
-            // motor_position_R = motor1.get_continuous_angle() * MOTOR_R_DIRECTION; //  位置は外付けエンコーダの方を使う
-            motor_velocity_R = motor1.get_angular_velocity();
-        }
-        if (motor2.receive_feedback()) {
-            // motor_position_P = motor2.get_continuous_angle() * MOTOR_P_DIRECTION;
-            motor_velocity_P = motor2.get_angular_velocity();
-        }
+        // // --- モータフィードバック受信 ---
+        // double motor_velocity_R = 0.0, motor_velocity_P = 0.0;
+        // if (motor1.receive_feedback()) {
+        //     // motor_position_R = motor1.get_continuous_angle() * MOTOR_R_DIRECTION; //  位置は外付けエンコーダの方を使う
+        //     motor_velocity_R = motor1.get_angular_velocity();
+        // }
+        // if (motor2.receive_feedback()) {
+        //     // motor_position_P = motor2.get_continuous_angle() * MOTOR_P_DIRECTION;
+        //     motor_velocity_P = motor2.get_angular_velocity();
+        // }
 
         // --- 共有データから目標値取得 ---
         double target_pos_R, target_pos_P;

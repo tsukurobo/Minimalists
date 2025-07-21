@@ -19,7 +19,7 @@ const uint8_t AMT223V::CMD_READ_MULTITURN[4] = {0x00, 0xA0, 0x00, 0x00};
 const uint8_t AMT223V::CMD_SET_ZERO[2] = {0x00, 0x70};
 
 AMT223V::AMT223V(spi_inst_t* spi_instance, int chip_select_pin, bool multiturn_support)
-    : spi_port(spi_instance), cs_pin(chip_select_pin), raw_angle(0), angle_rad(0.0), angle_deg(0.0), is_multiturn(multiturn_support), turn_count(0), continuous_angle_rad(0.0), continuous_angle_deg(0.0) {
+    : spi_port(spi_instance), cs_pin(chip_select_pin), raw_angle(0), angle_rad(0.0), angle_deg(0.0), is_multiturn(multiturn_support), turn_count(0), continuous_angle_rad(0.0), continuous_angle_deg(0.0), previous_angle_rad(0.0), angular_velocity_rad(0.0), angular_velocity_deg(0.0), previous_time_us(0), velocity_initialized(false) {
 }
 
 bool AMT223V::init() {
@@ -146,6 +146,11 @@ bool AMT223V::read_angle() {
         return false;
     }
 
+    // 角速度計算
+    uint64_t current_time_us = time_us_64();
+    double current_angle = is_multiturn ? continuous_angle_rad : angle_rad;
+    calculate_angular_velocity(current_angle, current_time_us);
+
     return true;
 }
 
@@ -247,6 +252,52 @@ bool AMT223V::verify_parity(uint16_t response) const {
     }
 
     return parity_ok;
+}
+
+void AMT223V::calculate_angular_velocity(double current_angle_rad, uint64_t current_time_us) {
+    if (!velocity_initialized) {
+        // 初回は角速度を0として初期化
+        previous_angle_rad = current_angle_rad;
+        previous_time_us = current_time_us;
+        angular_velocity_rad = 0.0;
+        angular_velocity_deg = 0.0;
+        velocity_initialized = true;
+        return;
+    }
+
+    // 時間差を計算
+    uint64_t delta_time_us = current_time_us - previous_time_us;
+
+    if (delta_time_us == 0) {
+        // 時間差が0の場合は計算をスキップ
+        return;
+    }
+
+    // 角度差を計算
+    double delta_angle_rad = current_angle_rad - previous_angle_rad;
+
+    // マルチターンでない場合は360度の境界を考慮
+    if (!is_multiturn) {
+        // 角度差が180度を超える場合は逆方向の最短経路を計算
+        if (delta_angle_rad > M_PI) {
+            delta_angle_rad -= 2.0 * M_PI;
+        } else if (delta_angle_rad < -M_PI) {
+            delta_angle_rad += 2.0 * M_PI;
+        }
+    }
+
+    double delta_time_s = (double)delta_time_us / 1000000.0;
+
+    constexpr float CUTOFF_FREQ = 100.0;             // カットオフ周波数 [rad/s]
+    const float alpha = CUTOFF_FREQ * delta_time_s;  // 時間を秒に変換してローパスフィルタのゲインを計算
+
+    // 角速度を計算 [rad/s]
+    angular_velocity_rad = alpha * delta_angle_rad + (1.0f - alpha) * angular_velocity_rad;
+    angular_velocity_deg = angular_velocity_rad * 180.0 / M_PI;
+
+    // 次回計算用に値を保存
+    previous_angle_rad = current_angle_rad;
+    previous_time_us = current_time_us;
 }
 
 // ===== AMT223V_Manager クラス実装 =====
@@ -378,4 +429,20 @@ bool AMT223V_Manager::set_encoder_zero_position(int encoder_index) {
 
     printf("Setting zero position for encoder %d...\n", encoder_index);
     return encoders[encoder_index]->set_zero_position();
+}
+
+double AMT223V_Manager::get_encoder_angular_velocity_rad(int encoder_index) const {
+    if (encoder_index < 0 || encoder_index >= num_encoders || !encoders[encoder_index]) {
+        return 0.0;
+    }
+
+    return encoders[encoder_index]->get_angular_velocity_rad();
+}
+
+double AMT223V_Manager::get_encoder_angular_velocity_deg(int encoder_index) const {
+    if (encoder_index < 0 || encoder_index >= num_encoders || !encoders[encoder_index]) {
+        return 0.0;
+    }
+
+    return encoders[encoder_index]->get_angular_velocity_deg();
 }
