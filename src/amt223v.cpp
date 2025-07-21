@@ -93,12 +93,12 @@ bool AMT223V::read_angle() {
 
         // 次の2バイトから回転回数を抽出（14ビット符号付き）
         uint16_t received_turn = (static_cast<uint16_t>(rx_data[2]) << 8) | static_cast<uint16_t>(rx_data[3]);
-        received_turn = 0x3FFF & received_turn;  // 14ビットでマスクとるとなんか動かなかったから12ビットマスクをとってる
+        received_turn = 0x0FFF & received_turn;  // 14ビットでマスクとるとなんか動かなかったから12ビットマスクをとってる
 
-        // 受信したデータとマスク後のデータを表示
-        printf("Received hex: 0x%02X 0x%02X 0x%02X 0x%02X\n",
-               rx_data[0], rx_data[1], rx_data[2], rx_data[3]);
-        printf("Received hex (masked): 0x%04X\n", received_turn);
+        // // 受信したデータとマスク後のデータを表示
+        // printf("Received hex: 0x%02X 0x%02X 0x%02X 0x%02X\n",
+        //        rx_data[0], rx_data[1], rx_data[2], rx_data[3]);
+        // printf("Received hex (masked): 0x%04X\n", received_turn);
 
         // 14ビット符号付き数値に変換（生の値）
         int16_t raw_turn_count;
@@ -107,6 +107,9 @@ bool AMT223V::read_angle() {
         } else {
             raw_turn_count = (int16_t)received_turn;
         }
+
+        // printf("raw_turn_count: %d   ", raw_turn_count);
+        // printf("initial_turn_count: %d\n", initial_turn_count);
 
         // 初期化時の回転回数からの差分を計算
         turn_count = raw_turn_count - initial_turn_count;
@@ -304,6 +307,19 @@ void AMT223V::calculate_angular_velocity(double current_angle_rad, uint64_t curr
         return;
     }
 
+    // 異常に短い時間間隔や長い時間間隔を検出
+    if (delta_time_us < 100) {  // 100μs未満は異常
+        return;
+    }
+    if (delta_time_us > 100000) {  // 100ms超過は異常（初期化直後など）
+        // 時間が長すぎる場合は初期化し直す
+        previous_angle_rad = current_angle_rad;
+        previous_time_us = current_time_us;
+        angular_velocity_rad = 0.0;
+        angular_velocity_deg = 0.0;
+        return;
+    }
+
     // 角度差を計算
     double delta_angle_rad = current_angle_rad - previous_angle_rad;
 
@@ -317,13 +333,37 @@ void AMT223V::calculate_angular_velocity(double current_angle_rad, uint64_t curr
         }
     }
 
+    // 時間を秒に変換
     double delta_time_s = (double)delta_time_us / 1000000.0;
 
-    constexpr float CUTOFF_FREQ = 100.0;             // カットオフ周波数 [rad/s]
-    const float alpha = CUTOFF_FREQ * delta_time_s;  // 時間を秒に変換してローパスフィルタのゲインを計算
+    // 生の角速度を計算 [rad/s]
+    double raw_angular_velocity = delta_angle_rad / delta_time_s;
 
-    // 角速度を計算 [rad/s]
-    angular_velocity_rad = alpha * delta_angle_rad + (1.0f - alpha) * angular_velocity_rad;
+    // 異常値フィルタリング（物理的に不可能な角速度をチェック）
+    const double MAX_ANGULAR_VELOCITY = 50.0;  // 最大角速度 [rad/s] (約477rpm)
+    if (fabs(raw_angular_velocity) > MAX_ANGULAR_VELOCITY) {
+        // 異常値の場合は前回値を保持
+        previous_angle_rad = current_angle_rad;
+        previous_time_us = current_time_us;
+        return;
+    }
+
+    // ローパスフィルタ適用（1次遅れフィルタ）
+    // カットオフ周波数 fc = 10Hz を使用
+    const double CUTOFF_FREQ_HZ = 10.0;                  // カットオフ周波数 [Hz]
+    const double omega_c = 2.0 * M_PI * CUTOFF_FREQ_HZ;  // 角周波数 [rad/s]
+
+    // フィルタ係数計算（後退オイラー法）
+    // H(s) = ωc / (s + ωc) を離散化
+    // alpha = ωc * dt / (1 + ωc * dt)
+    double alpha = (omega_c * delta_time_s) / (1.0 + omega_c * delta_time_s);
+
+    // alphaは0から1の範囲に制限される（安全性チェック）
+    if (alpha < 0.0) alpha = 0.0;
+    if (alpha > 1.0) alpha = 1.0;
+
+    // フィルタ適用：y[n] = α * x[n] + (1-α) * y[n-1]
+    angular_velocity_rad = alpha * raw_angular_velocity + (1.0 - alpha) * angular_velocity_rad;
     angular_velocity_deg = angular_velocity_rad * 180.0 / M_PI;
 
     // 次回計算用に値を保存
