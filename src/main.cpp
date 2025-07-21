@@ -137,6 +137,14 @@ typedef struct
     double target_torque_R;    // R軸目標トルク [Nm]（速度I-Pの出力）
     double target_torque_P;    // P軸目標トルク [Nm]（速度I-Pの出力）
 
+    // エンコーダ詳細情報（Core1→Core0）
+    int16_t encoder_p_turn_count;           // P軸エンコーダ回転回数
+    double encoder_p_single_angle_deg;      // P軸エンコーダ単回転角度[deg]
+    double encoder_p_continuous_angle_rad;  // P軸エンコーダ連続角度[rad]
+    double encoder_r_angle_deg;             // R軸エンコーダ角度[deg]
+    bool encoder_r_valid;                   // R軸エンコーダデータ有効性
+    bool encoder_p_valid;                   // P軸エンコーダデータ有効性
+
     // デバッグ・制御タイミング情報
     double target_current_R;     // R軸目標電流 [A]
     double target_current_P;     // P軸目標電流 [A]
@@ -266,17 +274,30 @@ void core1_entry(void) {
         // --- エンコーダ読み取り処理 ---
         double motor_position_R = 0.0, motor_position_P = 0.0;
         double motor_velocity_R = 0.0, motor_velocity_P = 0.0;
-        bool enc1_ok = encoder_manager.read_encoder(0);  // エンコーダ0
-        bool enc2_ok = encoder_manager.read_encoder(1);  // エンコーダ1
+        bool enc1_ok = encoder_manager.read_encoder(0);  // エンコーダ0 (R軸)
+        bool enc2_ok = encoder_manager.read_encoder(1);  // エンコーダ1 (P軸)
+
+        // エンコーダデータの取得
+        double encoder_r_angle_deg = 0.0;
+        int16_t encoder_p_turn_count = 0;
+        double encoder_p_single_angle_deg = 0.0;
+        double encoder_p_continuous_angle_rad = 0.0;
 
         if (enc1_ok) {
             motor_position_R = encoder_manager.get_encoder_angle_rad(0) * ENCODER_R_DIRECTION;
             motor_velocity_R = encoder_manager.get_encoder_angular_velocity_rad(0) * ENCODER_R_DIRECTION;
+            encoder_r_angle_deg = encoder_manager.get_encoder_angle_deg(0);
         }
+
         if (enc2_ok) {
             // P軸はマルチターン対応エンコーダのため連続角度を使用
             motor_position_P = encoder_manager.get_encoder_continuous_angle_rad(1) * ENCODER_P_DIRECTION;
             motor_velocity_P = encoder_manager.get_encoder_angular_velocity_rad(1) * ENCODER_P_DIRECTION;
+
+            // デバッグ用エンコーダ情報を取得
+            encoder_p_turn_count = encoder_manager.get_encoder_turn_count(1);
+            encoder_p_single_angle_deg = encoder_manager.get_encoder_angle_deg(1);
+            encoder_p_continuous_angle_rad = encoder_manager.get_encoder_continuous_angle_rad(1);
         }
 
         // // --- モータフィードバック受信 ---
@@ -290,7 +311,7 @@ void core1_entry(void) {
         //     motor_velocity_P = motor2.get_angular_velocity();
         // }
 
-        // --- 共有データから目標値取得 ---
+        // --- 共有データから目標値取得と状態更新 ---
         double target_pos_R, target_pos_P;
         mutex_enter_blocking(&g_state_mutex);
         target_pos_R = g_robot_state.target_position_R;
@@ -301,6 +322,14 @@ void core1_entry(void) {
         g_robot_state.current_position_P = motor_position_P;
         g_robot_state.current_velocity_R = motor_velocity_R;
         g_robot_state.current_velocity_P = motor_velocity_P;
+
+        // エンコーダ詳細情報を更新
+        g_robot_state.encoder_r_angle_deg = encoder_r_angle_deg;
+        g_robot_state.encoder_p_turn_count = encoder_p_turn_count;
+        g_robot_state.encoder_p_single_angle_deg = encoder_p_single_angle_deg;
+        g_robot_state.encoder_p_continuous_angle_rad = encoder_p_continuous_angle_rad;
+        g_robot_state.encoder_r_valid = enc1_ok;
+        g_robot_state.encoder_p_valid = enc2_ok;
         mutex_exit(&g_state_mutex);
 
         // --- 制御計算 ---
@@ -387,6 +416,14 @@ int main(void) {
     g_robot_state.target_torque_R = 0.0;
     g_robot_state.target_torque_P = 0.0;
 
+    // エンコーダ詳細情報の初期化
+    g_robot_state.encoder_p_turn_count = 0;
+    g_robot_state.encoder_p_single_angle_deg = 0.0;
+    g_robot_state.encoder_p_continuous_angle_rad = 0.0;
+    g_robot_state.encoder_r_angle_deg = 0.0;
+    g_robot_state.encoder_r_valid = false;
+    g_robot_state.encoder_p_valid = false;
+
     // デバッグ情報の初期化
     g_robot_state.target_current_R = 0.0;
     g_robot_state.target_current_P = 0.0;
@@ -405,7 +442,7 @@ int main(void) {
     absolute_time_t next_main_time = get_absolute_time();
 
     while (1) {
-        next_main_time = delayed_by_us(next_main_time, 100000);  // 100ms周期
+        next_main_time = delayed_by_us(next_main_time, 100'000);  // 100ms周期
 
         // 目標位置の変更テスト（ゆっくりとした目標値変化）
         static double time_counter = 0.0;
@@ -434,6 +471,13 @@ int main(void) {
         int timing_violations = g_robot_state.timing_violation_count;
         led_mode_t led_status = g_robot_state.led_status;
         int can_errors = g_robot_state.can_error_count;
+
+        // エンコーダ詳細情報を共有変数から取得
+        int16_t p_turn_count = g_robot_state.encoder_p_turn_count;
+        double p_single_angle = g_robot_state.encoder_p_single_angle_deg;
+        double r_angle_deg = g_robot_state.encoder_r_angle_deg;
+        bool encoder_r_valid = g_robot_state.encoder_r_valid;
+        bool encoder_p_valid = g_robot_state.encoder_p_valid;
         mutex_exit(&g_state_mutex);
 
         // rad単位からm単位への変換
@@ -447,11 +491,10 @@ int main(void) {
         printf("Current: R=%.3f [rad] (%.1f°), P=%.3f [m] (%.1f mm)\n", current_pos_R, current_pos_R * 180.0 / M_PI, current_pos_P_m, current_pos_P_m * 1000.0);
         printf("Velocity: R=%.2f [rad/s], P=%.2f [m/s] (%.1f mm/s)\n", current_vel_R, current_vel_P_m, current_vel_P_m * 1000.0);
 
-        // P軸マルチターン情報
-        int16_t p_turn_count = encoder_manager.get_encoder_turn_count(1);
-        double p_single_angle = encoder_manager.get_encoder_angle_deg(1);
-        printf("P-axis multiturn: %d turns, single angle: %.1f°, continuous: %.3f m (%.1f mm)\n",
-               p_turn_count, p_single_angle, current_pos_P_m, current_pos_P_m * 1000.0);
+        // P軸マルチターン情報（共有変数から取得）
+        printf("P-axis multiturn: %d turns, single angle: %.1f°, continuous: %.3f m (%.1f mm) [Valid: R=%s P=%s]\n",
+               p_turn_count, p_single_angle, current_pos_P_m, current_pos_P_m * 1000.0,
+               encoder_r_valid ? "OK" : "ERR", encoder_p_valid ? "OK" : "ERR");
 
         // 制御詳細情報
         printf("Control: PosR=%.3f->%.3f VelR=%.2f->%.2f TorqR=%.2f CurR=%.2fA [LED:%s]\n",
