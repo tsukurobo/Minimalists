@@ -80,18 +80,16 @@ dynamics_t dynamics_P(
 
 // 軌道生成と制御器で共通の制限定数
 namespace TrajectoryLimits {
-constexpr double R_MAX_VELOCITY = 482.0 / 60.0 * 2.0 * M_PI / gear_ratio_R;  // R軸最大速度制限 [rad/s] 無負荷回転数482rpm
-constexpr double P_MAX_VELOCITY = 500.0 / 60.0 * 2.0 * M_PI / gear_ratio_P;  // P軸最大速度制限 [rad/s] 無負荷回転数500rpm
+constexpr double R_MAX_VELOCITY = 482.0 / 60.0 * 2.0 * M_PI / gear_ratio_R;        // R軸最大速度制限 [rad/s] 無負荷回転数482rpm
+constexpr double P_MAX_VELOCITY = 0.4 * 500.0 / 60.0 * 2.0 * M_PI / gear_ratio_P;  // P軸最大速度制限 [rad/s] 無負荷回転数500rpm
 
-// 電流上限
-constexpr double MAX_CURRENT = 2.0;  // R軸最大電流 [A] (M3508の最大電流)
 // 動力学パラメータとトルク制限から計算した最大角加速度
-constexpr double R_MAX_TORQUE = MAX_CURRENT * 0.3 * gear_ratio_R * 0.7;    // R軸最大トルク制限 [Nm] (M3508最大連続トルク 3.0Nm)
-constexpr double P_MAX_TORQUE = MAX_CURRENT * 0.18 * gear_ratio_P * 0.66;  // P軸最大トルク制限 [Nm] (M2006最大連続トルク 1.0Nm)
-constexpr double R_INERTIA = 0.024371;                                     // R軸等価慣性モーメント [kg·m^2] - dynamics_R.get_inertia_mass()と同じ値
-constexpr double P_INERTIA = 0.3;                                          // P軸等価慣性モーメント [kg·m^2] - dynamics_P.get_inertia_mass()と同じ値
-constexpr double R_MAX_ACCELERATION = R_MAX_TORQUE / R_INERTIA;            // R軸最大角加速度 [rad/s^2]
-constexpr double P_MAX_ACCELERATION = P_MAX_TORQUE / P_INERTIA;            // P軸最大角加速度 [rad/s^2]
+constexpr double R_MAX_TORQUE = 3.0 * gear_ratio_R;              // R軸最大トルク制限 [Nm] (M3508最大連続トルク 3.0Nm)
+constexpr double P_MAX_TORQUE = 1.0 * gear_ratio_P;              // P軸最大トルク制限 [Nm] (M2006最大連続トルク 1.0Nm)
+constexpr double R_INERTIA = 0.024371;                           // R軸等価慣性モーメント [kg·m^2] - dynamics_R.get_inertia_mass()と同じ値
+constexpr double P_INERTIA = 0.3;                                // P軸等価慣性モーメント [kg·m^2] - dynamics_P.get_inertia_mass()と同じ値
+constexpr double R_MAX_ACCELERATION = R_MAX_TORQUE / R_INERTIA;  // R軸最大角加速度 [rad/s^2]
+constexpr double P_MAX_ACCELERATION = P_MAX_TORQUE / P_INERTIA;  // P軸最大角加速度 [rad/s^2]
 }  // namespace TrajectoryLimits
 
 // RoboMasterモータオブジェクト
@@ -104,9 +102,9 @@ constexpr double R_POSITION_KP = 5.0;  // R軸位置PIDの比例ゲイン
 constexpr double R_VELOCITY_KP = 5.0;  // R軸速度I-Pの比例ゲイン
 constexpr double R_VELOCITY_KI = 1.0;  // R軸速度I-Pの積分ゲイン
 // 27 * R_POSITION_KP * R_POSITION_KP * dynamics_R.get_inertia_mass();                           // R軸速度I-Pの積分ゲイン
-constexpr double P_POSITION_KP = 3.0;  // P軸位置PID
-constexpr double P_VELOCITY_KP = 2.0;  // P軸速度I-Pの比例ゲイン
-constexpr double P_VELOCITY_KI = 1.0;  // P軸速度I-Pの積分ゲイン
+constexpr double P_POSITION_KP = 0.5;  // P軸位置PID (振動抑制のため下げた 0.7→0.5)
+constexpr double P_VELOCITY_KP = 0.1;  // P軸速度I-Pの比例ゲイン (積分ゲイン低下の補償で上げた 0.3→0.4)
+constexpr double P_VELOCITY_KI = 0.1;  // P軸速度I-Pの積分ゲイン (振動抑制のため大幅に下げた 1.0→0.4)
 
 // 制御器の制限値設定
 namespace ControlLimits {
@@ -889,7 +887,7 @@ int main(void) {
         double final_target_pos_P_m = final_target_pos_P * gear_radius_P;
 
         // 1秒毎のステータス出力（Core0で実行 - 重いprintf処理）
-        printf("\n=== Trapezoidal Profile Control Status (t=%.1fs) ===\n", time_counter);
+        printf("\n=== Trapezoidal Profile Control Status ===\n");
         printf("Trajectory Status: R=%s, P=%s\n",
                traj_active_R ? "ACTIVE" : "STOPPED",
                traj_active_P ? "ACTIVE" : "STOPPED");
