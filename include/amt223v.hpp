@@ -25,12 +25,23 @@ class AMT223V {
     // マルチターン対応変数
     bool is_multiturn;            // マルチターン対応エンコーダかどうか
     int16_t turn_count;           // 回転回数（14ビット符号付き）
+    int16_t initial_turn_count;   // 初期化時の回転回数
     double continuous_angle_rad;  // 連続角度[rad]
     double continuous_angle_deg;  // 連続角度[deg]
+
+    // 角速度計算用変数
+    double previous_angle_rad;    // 前回の角度[rad]
+    double angular_velocity_rad;  // 角速度[rad/s]
+    double angular_velocity_deg;  // 角速度[deg/s]
+    uint64_t previous_time_us;    // 前回の測定時刻[μs]
+    bool velocity_initialized;    // 角速度初期化フラグ
 
     // AMT223-V コマンド定義
     static const uint8_t CMD_READ_ANGLE = 0x00;  // 角度読み取りコマンド
     static const uint16_t ANGLE_MASK = 0x3FFF;   // 14ビットマスク
+
+    // ゼロ位置セットコマンド（単回転エンコーダのみ）
+    static const uint8_t CMD_SET_ZERO[2];  // ゼロ位置セットコマンド: {0x00, 0x70}
 
     // AMT223D-V マルチターンコマンド定義
     static const uint8_t CMD_READ_MULTITURN[4];  // マルチターン読み取りコマンド: {0x00, 0xA0, 0x00, 0x00}
@@ -59,6 +70,14 @@ class AMT223V {
     bool read_angle();
 
     /**
+     * @brief ゼロ位置をセット（単回転エンコーダのみ）
+     * @return セット成功時true
+     * @note エンコーダは静止状態である必要があります
+     * @note マルチターンエンコーダでは使用できません
+     */
+    bool set_zero_position();
+
+    /**
      * @brief 生の角度データを取得（0-16383）
      * @return 14ビットの生角度データ
      */
@@ -84,7 +103,7 @@ class AMT223V {
 
     /**
      * @brief 回転回数を取得（マルチターン対応時のみ）
-     * @return 回転回数（14ビット符号付き）
+     * @return 初期化時からの回転回数差分（14ビット符号付き）
      */
     int16_t get_turn_count() const { return turn_count; }
 
@@ -99,6 +118,25 @@ class AMT223V {
      * @return 連続角度[deg]
      */
     double get_continuous_angle_deg() const { return continuous_angle_deg; }
+
+    /**
+     * @brief 角速度を取得（ラジアン/秒）
+     * @return 角速度[rad/s]
+     */
+    double get_angular_velocity_rad() const { return angular_velocity_rad; }
+
+    /**
+     * @brief 角速度を取得（度/秒）
+     * @return 角速度[deg/s]
+     */
+    double get_angular_velocity_deg() const { return angular_velocity_deg; }
+
+    /**
+     * @brief 回転回数をリセット（マルチターン対応時のみ）
+     * @return リセット成功時true
+     * @note 現在の回転回数を新しい基準点として設定します
+     */
+    bool reset_turn_count();
 
    private:
     /**
@@ -118,6 +156,20 @@ class AMT223V {
      * @param length データ長
      */
     void spi_transfer(const uint8_t* tx_data, uint8_t* rx_buffer, size_t length);
+
+    /**
+     * @brief パリティチェックを実行
+     * @param response 16ビットの受信データ
+     * @return パリティチェック成功時true
+     */
+    bool verify_parity(uint16_t response) const;
+
+    /**
+     * @brief 角速度を計算（疑似微分）
+     * @param current_angle_rad 現在の角度[rad]
+     * @param current_time_us 現在の時刻[μs]
+     */
+    void calculate_angular_velocity(double current_angle_rad, uint64_t current_time_us);
 };
 
 /**
@@ -214,6 +266,34 @@ class AMT223V_Manager {
      * @return 連続角度[deg]（失敗時は0.0）
      */
     double get_encoder_continuous_angle_deg(int encoder_index) const;
+
+    /**
+     * @brief 指定したエンコーダのゼロ位置をセット（単回転エンコーダのみ）
+     * @param encoder_index エンコーダインデックス
+     * @return セット成功時true
+     */
+    bool set_encoder_zero_position(int encoder_index);
+
+    /**
+     * @brief 指定したエンコーダの角速度取得
+     * @param encoder_index エンコーダインデックス
+     * @return 角速度[rad/s]（失敗時は0.0）
+     */
+    double get_encoder_angular_velocity_rad(int encoder_index) const;
+
+    /**
+     * @brief 指定したエンコーダの角速度取得
+     * @param encoder_index エンコーダインデックス
+     * @return 角速度[deg/s]（失敗時は0.0）
+     */
+    double get_encoder_angular_velocity_deg(int encoder_index) const;
+
+    /**
+     * @brief 指定したエンコーダの回転回数をリセット（マルチターン対応時のみ）
+     * @param encoder_index エンコーダインデックス
+     * @return リセット成功時true
+     */
+    bool reset_encoder_turn_count(int encoder_index);
 
     /**
      * @brief エンコーダ数を取得
