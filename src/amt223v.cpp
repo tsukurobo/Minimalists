@@ -115,12 +115,12 @@ bool AMT223V::read_angle() {
         turn_count = raw_turn_count - initial_turn_count;
 
         // 角度変換
-        angle_rad = (double)raw_angle * 2.0 * M_PI / COUNTS_PER_REV;
-        angle_deg = (double)raw_angle * 360.0 / COUNTS_PER_REV;
+        angle_rad = (float)raw_angle * 2.0 * M_PI / COUNTS_PER_REV;
+        angle_deg = (float)raw_angle * 360.0 / COUNTS_PER_REV;
 
         // 連続角度計算
-        continuous_angle_rad = (double)turn_count * 2.0 * M_PI + angle_rad;
-        continuous_angle_deg = (double)turn_count * 360.0 + angle_deg;
+        continuous_angle_rad = (float)turn_count * 2.0 * M_PI + angle_rad;
+        continuous_angle_deg = (float)turn_count * 360.0 + angle_deg;
 
     } else {
         // 単回転モード
@@ -144,8 +144,8 @@ bool AMT223V::read_angle() {
         raw_angle = received_data & ANGLE_MASK;
 
         // 角度変換
-        angle_rad = (double)raw_angle * 2.0 * M_PI / COUNTS_PER_REV;
-        angle_deg = (double)raw_angle * 360.0 / COUNTS_PER_REV;
+        angle_rad = (float)raw_angle * 2.0 * M_PI / COUNTS_PER_REV;
+        angle_deg = (float)raw_angle * 360.0 / COUNTS_PER_REV;
 
         // 単回転では連続角度は通常角度と同じ
         continuous_angle_rad = angle_rad;
@@ -161,7 +161,7 @@ bool AMT223V::read_angle() {
 
     // 角速度計算
     uint64_t current_time_us = time_us_64();
-    double current_angle = is_multiturn ? continuous_angle_rad : angle_rad;
+    float current_angle = is_multiturn ? continuous_angle_rad : angle_rad;
     calculate_angular_velocity(current_angle, current_time_us);
 
     return true;
@@ -191,7 +191,7 @@ bool AMT223V::set_zero_position() {
 
     printf("Position before reset: %d counts (%.2f deg)\n",
            position_before_reset,
-           (double)position_before_reset * 360.0 / COUNTS_PER_REV);
+           (float)position_before_reset * 360.0 / COUNTS_PER_REV);
 
     // エンコーダがリセット処理を完了するまで待機
     // データシートによると、リセット処理には時間がかかる場合があります
@@ -288,7 +288,7 @@ bool AMT223V::verify_parity(uint16_t response) const {
     return parity_ok;
 }
 
-void AMT223V::calculate_angular_velocity(double current_angle_rad, uint64_t current_time_us) {
+void AMT223V::calculate_angular_velocity(float current_angle_rad, uint64_t current_time_us) {
     if (!velocity_initialized) {
         // 初回は角速度を0として初期化
         previous_angle_rad = current_angle_rad;
@@ -321,7 +321,7 @@ void AMT223V::calculate_angular_velocity(double current_angle_rad, uint64_t curr
     }
 
     // 角度差を計算
-    double delta_angle_rad = current_angle_rad - previous_angle_rad;
+    float delta_angle_rad = current_angle_rad - previous_angle_rad;
 
     // マルチターンでない場合は360度の境界を考慮
     if (!is_multiturn) {
@@ -334,13 +334,13 @@ void AMT223V::calculate_angular_velocity(double current_angle_rad, uint64_t curr
     }
 
     // 時間を秒に変換
-    double delta_time_s = (double)delta_time_us / 1000000.0;
+    float delta_time_s = (float)delta_time_us / 1000000.0;
 
     // 生の角速度を計算 [rad/s]
-    double raw_angular_velocity = delta_angle_rad / delta_time_s;
+    float raw_angular_velocity = delta_angle_rad / delta_time_s;
 
     // 異常値フィルタリング（物理的に不可能な角速度をチェック）
-    const double MAX_ANGULAR_VELOCITY = 50.0;  // 最大角速度 [rad/s] (約477rpm)
+    const float MAX_ANGULAR_VELOCITY = 50.0;  // 最大角速度 [rad/s] (約477rpm)
     if (fabs(raw_angular_velocity) > MAX_ANGULAR_VELOCITY) {
         // 異常値の場合は前回値を保持
         previous_angle_rad = current_angle_rad;
@@ -350,13 +350,13 @@ void AMT223V::calculate_angular_velocity(double current_angle_rad, uint64_t curr
 
     // ローパスフィルタ適用（1次遅れフィルタ）
     // カットオフ周波数 fc = 10Hz を使用
-    const double CUTOFF_FREQ_HZ = 10.0;                  // カットオフ周波数 [Hz]
-    const double omega_c = 2.0 * M_PI * CUTOFF_FREQ_HZ;  // 角周波数 [rad/s]
+    const float CUTOFF_FREQ_HZ = 10.0;                  // カットオフ周波数 [Hz]
+    const float omega_c = 2.0 * M_PI * CUTOFF_FREQ_HZ;  // 角周波数 [rad/s]
 
     // フィルタ係数計算（後退オイラー法）
     // H(s) = ωc / (s + ωc) を離散化
     // alpha = ωc * dt / (1 + ωc * dt)
-    double alpha = (omega_c * delta_time_s) / (1.0 + omega_c * delta_time_s);
+    float alpha = (omega_c * delta_time_s) / (1.0 + omega_c * delta_time_s);
 
     // alphaは0から1の範囲に制限される（安全性チェック）
     if (alpha < 0.0) alpha = 0.0;
@@ -452,7 +452,7 @@ int AMT223V_Manager::read_all_encoders() {
     return success_count;
 }
 
-double AMT223V_Manager::get_encoder_angle_rad(int encoder_index) const {
+float AMT223V_Manager::get_encoder_angle_rad(int encoder_index) const {
     if (encoder_index < 0 || encoder_index >= num_encoders || !encoders[encoder_index]) {
         return -1.0;
     }
@@ -460,7 +460,7 @@ double AMT223V_Manager::get_encoder_angle_rad(int encoder_index) const {
     return encoders[encoder_index]->get_angle_rad();
 }
 
-double AMT223V_Manager::get_encoder_angle_deg(int encoder_index) const {
+float AMT223V_Manager::get_encoder_angle_deg(int encoder_index) const {
     if (encoder_index < 0 || encoder_index >= num_encoders || !encoders[encoder_index]) {
         return -1.0;
     }
@@ -476,7 +476,7 @@ int16_t AMT223V_Manager::get_encoder_turn_count(int encoder_index) const {
     return encoders[encoder_index]->get_turn_count();
 }
 
-double AMT223V_Manager::get_encoder_continuous_angle_rad(int encoder_index) const {
+float AMT223V_Manager::get_encoder_continuous_angle_rad(int encoder_index) const {
     if (encoder_index < 0 || encoder_index >= num_encoders || !encoders[encoder_index]) {
         return 0.0;
     }
@@ -484,7 +484,7 @@ double AMT223V_Manager::get_encoder_continuous_angle_rad(int encoder_index) cons
     return encoders[encoder_index]->get_continuous_angle_rad();
 }
 
-double AMT223V_Manager::get_encoder_continuous_angle_deg(int encoder_index) const {
+float AMT223V_Manager::get_encoder_continuous_angle_deg(int encoder_index) const {
     if (encoder_index < 0 || encoder_index >= num_encoders || !encoders[encoder_index]) {
         return 0.0;
     }
@@ -502,7 +502,7 @@ bool AMT223V_Manager::set_encoder_zero_position(int encoder_index) {
     return encoders[encoder_index]->set_zero_position();
 }
 
-double AMT223V_Manager::get_encoder_angular_velocity_rad(int encoder_index) const {
+float AMT223V_Manager::get_encoder_angular_velocity_rad(int encoder_index) const {
     if (encoder_index < 0 || encoder_index >= num_encoders || !encoders[encoder_index]) {
         return 0.0;
     }
@@ -510,7 +510,7 @@ double AMT223V_Manager::get_encoder_angular_velocity_rad(int encoder_index) cons
     return encoders[encoder_index]->get_angular_velocity_rad();
 }
 
-double AMT223V_Manager::get_encoder_angular_velocity_deg(int encoder_index) const {
+float AMT223V_Manager::get_encoder_angular_velocity_deg(int encoder_index) const {
     if (encoder_index < 0 || encoder_index >= num_encoders || !encoders[encoder_index]) {
         return 0.0;
     }

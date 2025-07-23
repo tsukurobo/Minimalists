@@ -15,15 +15,15 @@
 #include "trajectory.hpp"
 
 // 制御周期定数
-constexpr double CONTROL_PERIOD_MS = 2.0;                        // 制御周期 [ms]
-constexpr double CONTROL_PERIOD_S = CONTROL_PERIOD_MS / 1000.0;  // 制御周期 [s]
+constexpr float CONTROL_PERIOD_MS = 2.0;                        // 制御周期 [ms]
+constexpr float CONTROL_PERIOD_S = CONTROL_PERIOD_MS / 1000.0;  // 制御周期 [s]
 
 // システム設定定数
 constexpr int SHUTDOWN_PIN = 27;  // 明示的にLOWにしないとPicoが動かない
 
 // モータとエンコーダの符号補正設定
-constexpr double ENCODER_R_DIRECTION = 1.0;  // R軸エンコーダの増加方向補正 (+1.0 or -1.0) 正入力で右回り、右回りでエンコーダ値が増加
-constexpr double ENCODER_P_DIRECTION = 1.0;  // P軸エンコーダの増加方向補正 (+1.0 or -1.0) 正入力で根本方向、根本方向でエンコーダ値が減少
+constexpr float ENCODER_R_DIRECTION = 1.0;  // R軸エンコーダの増加方向補正 (+1.0 or -1.0) 正入力で右回り、右回りでエンコーダ値が増加
+constexpr float ENCODER_P_DIRECTION = 1.0;  // P軸エンコーダの増加方向補正 (+1.0 or -1.0) 正入力で根本方向、根本方向でエンコーダ値が減少
 
 // SPI設定構造体
 typedef struct {
@@ -60,9 +60,9 @@ AMT223V_Manager encoder_manager(spi1,       // SPI0を使用
                                 11);        // MOSI pin
 
 // モータの出力軸から機構の出力軸までのギア比
-constexpr double gear_ratio_R = 3.0;     // M3508出力軸からベース根本(3.0)
-constexpr double gear_ratio_P = 1.0;     // M2006 P36出力軸からラックまで(ギアなし)
-constexpr double gear_radius_P = 0.025;  // ギアの半径 (m) - M2006の出力軸からラックまでの距離が25mm
+constexpr float gear_ratio_R = 3.0;     // M3508出力軸からベース根本(3.0)
+constexpr float gear_ratio_P = 1.0;     // M2006 P36出力軸からラックまで(ギアなし)
+constexpr float gear_radius_P = 0.025;  // ギアの半径 (m) - M2006の出力軸からラックまでの距離が25mm
 
 // R軸（ベース回転）の動力学パラメータ
 dynamics_t dynamics_R(
@@ -80,16 +80,16 @@ dynamics_t dynamics_P(
 
 // 軌道生成と制御器で共通の制限定数
 namespace TrajectoryLimits {
-constexpr double R_MAX_VELOCITY = 482.0 / 60.0 * 2.0 * M_PI / gear_ratio_R;        // R軸最大速度制限 [rad/s] 無負荷回転数482rpm
-constexpr double P_MAX_VELOCITY = 0.4 * 500.0 / 60.0 * 2.0 * M_PI / gear_ratio_P;  // P軸最大速度制限 [rad/s] 無負荷回転数500rpm
+constexpr float R_MAX_VELOCITY = 482.0 / 60.0 * 2.0 * M_PI / gear_ratio_R;        // R軸最大速度制限 [rad/s] 無負荷回転数482rpm
+constexpr float P_MAX_VELOCITY = 0.4 * 500.0 / 60.0 * 2.0 * M_PI / gear_ratio_P;  // P軸最大速度制限 [rad/s] 無負荷回転数500rpm
 
 // 動力学パラメータとトルク制限から計算した最大角加速度
-constexpr double R_MAX_TORQUE = 3.0 * gear_ratio_R;              // R軸最大トルク制限 [Nm] (M3508最大連続トルク 3.0Nm)
-constexpr double P_MAX_TORQUE = 1.0 * gear_ratio_P;              // P軸最大トルク制限 [Nm] (M2006最大連続トルク 1.0Nm)
-constexpr double R_INERTIA = 0.024371;                           // R軸等価慣性モーメント [kg·m^2] - dynamics_R.get_inertia_mass()と同じ値
-constexpr double P_INERTIA = 0.3;                                // P軸等価慣性モーメント [kg·m^2] - dynamics_P.get_inertia_mass()と同じ値
-constexpr double R_MAX_ACCELERATION = R_MAX_TORQUE / R_INERTIA;  // R軸最大角加速度 [rad/s^2]
-constexpr double P_MAX_ACCELERATION = P_MAX_TORQUE / P_INERTIA;  // P軸最大角加速度 [rad/s^2]
+constexpr float R_MAX_TORQUE = 3.0 * gear_ratio_R;              // R軸最大トルク制限 [Nm] (M3508最大連続トルク 3.0Nm)
+constexpr float P_MAX_TORQUE = 1.0 * gear_ratio_P;              // P軸最大トルク制限 [Nm] (M2006最大連続トルク 1.0Nm)
+constexpr float R_INERTIA = 0.024371;                           // R軸等価慣性モーメント [kg·m^2] - dynamics_R.get_inertia_mass()と同じ値
+constexpr float P_INERTIA = 0.3;                                // P軸等価慣性モーメント [kg·m^2] - dynamics_P.get_inertia_mass()と同じ値
+constexpr float R_MAX_ACCELERATION = R_MAX_TORQUE / R_INERTIA;  // R軸最大角加速度 [rad/s^2]
+constexpr float P_MAX_ACCELERATION = P_MAX_TORQUE / P_INERTIA;  // P軸最大角加速度 [rad/s^2]
 }  // namespace TrajectoryLimits
 
 // RoboMasterモータオブジェクト
@@ -98,37 +98,37 @@ robomaster_motor_t motor2(&can, 2, gear_ratio_P);  // motor_id=2
 
 // PIDコントローラ（モータ1: 回転軸、モータ2: 直動軸）
 // 位置PID制御器（位置[rad] → 目標速度[rad/s]）
-constexpr double R_POSITION_KP = 5.0;  // R軸位置PIDの比例ゲイン
-constexpr double R_VELOCITY_KP = 5.0;  // R軸速度I-Pの比例ゲイン
-constexpr double R_VELOCITY_KI = 1.0;  // R軸速度I-Pの積分ゲイン
+constexpr float R_POSITION_KP = 5.0;  // R軸位置PIDの比例ゲイン
+constexpr float R_VELOCITY_KP = 5.0;  // R軸速度I-Pの比例ゲイン
+constexpr float R_VELOCITY_KI = 1.0;  // R軸速度I-Pの積分ゲイン
 // 27 * R_POSITION_KP * R_POSITION_KP * dynamics_R.get_inertia_mass();                           // R軸速度I-Pの積分ゲイン
-constexpr double P_POSITION_KP = 0.5;  // P軸位置PID (振動抑制のため下げた 0.7→0.5)
-constexpr double P_VELOCITY_KP = 0.1;  // P軸速度I-Pの比例ゲイン (積分ゲイン低下の補償で上げた 0.3→0.4)
-constexpr double P_VELOCITY_KI = 0.1;  // P軸速度I-Pの積分ゲイン (振動抑制のため大幅に下げた 1.0→0.4)
+constexpr float P_POSITION_KP = 0.5;  // P軸位置PID (振動抑制のため下げた 0.7→0.5)
+constexpr float P_VELOCITY_KP = 0.1;  // P軸速度I-Pの比例ゲイン (積分ゲイン低下の補償で上げた 0.3→0.4)
+constexpr float P_VELOCITY_KI = 0.1;  // P軸速度I-Pの積分ゲイン (振動抑制のため大幅に下げた 1.0→0.4)
 
 // 制御器の制限値設定
 namespace ControlLimits {
 // R軸（ベース回転）制御制限
 namespace R_Axis {
-constexpr double MAX_VELOCITY = 0.7 * TrajectoryLimits::R_MAX_VELOCITY;       // 位置PID出力の最大速度制限 [rad/s] - 軌道生成より小さく設定
-constexpr double INTEGRAL_VELOCITY = 0.6 * TrajectoryLimits::R_MAX_VELOCITY;  // 位置PID積分制限 [rad/s] - 最大角速度の60%に設定
-constexpr double MAX_TORQUE = TrajectoryLimits::R_MAX_TORQUE;                 // 速度I-P出力の最大トルク制限 [Nm] - 軌道生成と共通
-constexpr double INTEGRAL_TORQUE = 0.8 * TrajectoryLimits::R_MAX_TORQUE;      // 速度I-P積分制限 [Nm] 最大トルクの80%に設定
+constexpr float MAX_VELOCITY = 0.7 * TrajectoryLimits::R_MAX_VELOCITY;       // 位置PID出力の最大速度制限 [rad/s] - 軌道生成より小さく設定
+constexpr float INTEGRAL_VELOCITY = 0.6 * TrajectoryLimits::R_MAX_VELOCITY;  // 位置PID積分制限 [rad/s] - 最大角速度の60%に設定
+constexpr float MAX_TORQUE = TrajectoryLimits::R_MAX_TORQUE;                 // 速度I-P出力の最大トルク制限 [Nm] - 軌道生成と共通
+constexpr float INTEGRAL_TORQUE = 0.8 * TrajectoryLimits::R_MAX_TORQUE;      // 速度I-P積分制限 [Nm] 最大トルクの80%に設定
 }  // namespace R_Axis
 
 // P軸（アーム直動）制御制限
 namespace P_Axis {
-constexpr double MAX_VELOCITY = 0.7 * TrajectoryLimits::P_MAX_VELOCITY;       // 位置PID出力の最大速度制限 [rad/s] - 軌道生成より小さく設定
-constexpr double INTEGRAL_VELOCITY = 0.6 * TrajectoryLimits::P_MAX_VELOCITY;  // 位置PID積分制限 [rad/s]
-constexpr double MAX_TORQUE = TrajectoryLimits::P_MAX_TORQUE;                 // 速度I-P出力の最大トルク制限 [Nm] - 軌道生成と共通
-constexpr double INTEGRAL_TORQUE = 0.8 * TrajectoryLimits::P_MAX_TORQUE;      // 速度I-P積分制限 [Nm]
+constexpr float MAX_VELOCITY = 0.7 * TrajectoryLimits::P_MAX_VELOCITY;       // 位置PID出力の最大速度制限 [rad/s] - 軌道生成より小さく設定
+constexpr float INTEGRAL_VELOCITY = 0.6 * TrajectoryLimits::P_MAX_VELOCITY;  // 位置PID積分制限 [rad/s]
+constexpr float MAX_TORQUE = TrajectoryLimits::P_MAX_TORQUE;                 // 速度I-P出力の最大トルク制限 [Nm] - 軌道生成と共通
+constexpr float INTEGRAL_TORQUE = 0.8 * TrajectoryLimits::P_MAX_TORQUE;      // 速度I-P積分制限 [Nm]
 }  // namespace P_Axis
 
 // フィードフォワード制御ゲイン
 namespace FeedForward {
-constexpr double POSITION_GAIN = 0.3;              // 位置フィードフォワードゲイン [0~1.0]
-constexpr double R_VELOCITY_GAIN = R_VELOCITY_KP;  // R軸速度フィードフォワードゲイン [0~VELOCITY_KP]
-constexpr double P_VELOCITY_GAIN = P_VELOCITY_KP;  // P軸速度フィードフォワードゲイン [0~VELOCITY_KP]
+constexpr float POSITION_GAIN = 0.3;              // 位置フィードフォワードゲイン [0~1.0]
+constexpr float R_VELOCITY_GAIN = R_VELOCITY_KP;  // R軸速度フィードフォワードゲイン [0~VELOCITY_KP]
+constexpr float P_VELOCITY_GAIN = P_VELOCITY_KP;  // P軸速度フィードフォワードゲイン [0~VELOCITY_KP]
 }  // namespace FeedForward
 }  // namespace ControlLimits
 
@@ -146,52 +146,52 @@ typedef struct
     int sensor_value;
 
     // 制御目標値（Core0→Core1）
-    double target_position_R;  // R軸最終目標位置 [rad]
-    double target_position_P;  // P軸最終目標位置 [rad]
-    bool new_target_R;         // R軸新しい目標値フラグ
-    bool new_target_P;         // P軸新しい目標値フラグ
+    float target_position_R;  // R軸最終目標位置 [rad]
+    float target_position_P;  // P軸最終目標位置 [rad]
+    bool new_target_R;        // R軸新しい目標値フラグ
+    bool new_target_P;        // P軸新しい目標値フラグ
 
     // 制御状態
-    double current_position_R;  // R軸現在位置 [rad]
-    double current_position_P;  // P軸現在位置 [rad]
-    double current_velocity_R;  // R軸現在速度 [rad/s]
-    double current_velocity_P;  // P軸現在速度 [rad/s]
+    float current_position_R;  // R軸現在位置 [rad]
+    float current_position_P;  // P軸現在位置 [rad]
+    float current_velocity_R;  // R軸現在速度 [rad/s]
+    float current_velocity_P;  // P軸現在速度 [rad/s]
 
     // 台形プロファイル制御出力
-    double trajectory_target_position_R;  // R軸台形プロファイル目標位置 [rad]
-    double trajectory_target_position_P;  // P軸台形プロファイル目標位置 [rad]
-    double trajectory_target_velocity_R;  // R軸台形プロファイル目標速度 [rad/s]
-    double trajectory_target_velocity_P;  // P軸台形プロファイル目標速度 [rad/s]
+    float trajectory_target_position_R;  // R軸台形プロファイル目標位置 [rad]
+    float trajectory_target_position_P;  // P軸台形プロファイル目標位置 [rad]
+    float trajectory_target_velocity_R;  // R軸台形プロファイル目標速度 [rad/s]
+    float trajectory_target_velocity_P;  // P軸台形プロファイル目標速度 [rad/s]
 
     // 制御出力
-    double target_velocity_R;  // R軸目標速度 [rad/s]（位置PIDの出力）
-    double target_velocity_P;  // P軸目標速度 [rad/s]（位置PIDの出力）
-    double target_torque_R;    // R軸目標トルク [Nm]（速度I-Pの出力）
-    double target_torque_P;    // P軸目標トルク [Nm]（速度I-Pの出力）
+    float target_velocity_R;  // R軸目標速度 [rad/s]（位置PIDの出力）
+    float target_velocity_P;  // P軸目標速度 [rad/s]（位置PIDの出力）
+    float target_torque_R;    // R軸目標トルク [Nm]（速度I-Pの出力）
+    float target_torque_P;    // P軸目標トルク [Nm]（速度I-Pの出力）
 
     // エンコーダ詳細情報（Core1→Core0）
-    int16_t encoder_p_turn_count;           // P軸エンコーダ回転回数
-    double encoder_p_single_angle_deg;      // P軸エンコーダ単回転角度[deg]
-    double encoder_p_continuous_angle_rad;  // P軸エンコーダ連続角度[rad]
-    double encoder_r_angle_deg;             // R軸エンコーダ角度[deg]
-    bool encoder_r_valid;                   // R軸エンコーダデータ有効性
-    bool encoder_p_valid;                   // P軸エンコーダデータ有効性
+    int16_t encoder_p_turn_count;          // P軸エンコーダ回転回数
+    float encoder_p_single_angle_deg;      // P軸エンコーダ単回転角度[deg]
+    float encoder_p_continuous_angle_rad;  // P軸エンコーダ連続角度[rad]
+    float encoder_r_angle_deg;             // R軸エンコーダ角度[deg]
+    bool encoder_r_valid;                  // R軸エンコーダデータ有効性
+    bool encoder_p_valid;                  // P軸エンコーダデータ有効性
 
     // デバッグ・制御タイミング情報
-    double target_current_R;     // R軸目標電流 [A]
-    double target_current_P;     // P軸目標電流 [A]
+    float target_current_R;      // R軸目標電流 [A]
+    float target_current_P;      // P軸目標電流 [A]
     int timing_violation_count;  // 制御周期違反回数
     led_mode_t led_status;       // LED状態
     int can_error_count;         // CAN送信エラー回数
 
     // 軌道実行管理（Core1専用）
-    bool trajectory_active_R;        // R軸軌道実行中フラグ
-    bool trajectory_active_P;        // P軸軌道実行中フラグ
-    double trajectory_start_time_R;  // R軸軌道開始時刻 [s]
-    double trajectory_start_time_P;  // P軸軌道開始時刻 [s]
-    double trajectory_start_pos_R;   // R軸軌道開始位置 [rad]
-    double trajectory_start_pos_P;   // P軸軌道開始位置 [rad]
-    double current_time;             // 現在時刻 [s]
+    bool trajectory_active_R;       // R軸軌道実行中フラグ
+    bool trajectory_active_P;       // P軸軌道実行中フラグ
+    float trajectory_start_time_R;  // R軸軌道開始時刻 [s]
+    float trajectory_start_time_P;  // P軸軌道開始時刻 [s]
+    float trajectory_start_pos_R;   // R軸軌道開始位置 [rad]
+    float trajectory_start_pos_P;   // P軸軌道開始位置 [rad]
+    float current_time;             // 現在時刻 [s]
 } robot_state_t;
 
 // SPI初期化関数
@@ -313,14 +313,14 @@ static robot_state_t g_robot_state;
 static mutex_t g_state_mutex;
 
 // 目標値設定用ヘルパー関数（Core0専用）
-void set_target_position_R(double target_pos) {
+void set_target_position_R(float target_pos) {
     mutex_enter_blocking(&g_state_mutex);
     g_robot_state.target_position_R = target_pos;
     g_robot_state.new_target_R = true;
     mutex_exit(&g_state_mutex);
 }
 
-void set_target_position_P(double target_pos) {
+void set_target_position_P(float target_pos) {
     mutex_enter_blocking(&g_state_mutex);
     g_robot_state.target_position_P = target_pos;
     g_robot_state.new_target_P = true;
@@ -363,7 +363,7 @@ void core1_entry(void) {
         sleep_ms(10);
     }
     // 初期化成功はCore0で表示済み
-    double target_current[4] = {0.0, 0.0, 0.0, 0.0};  // モータ1~4の目標電流値(A)
+    float target_current[4] = {0.0, 0.0, 0.0, 0.0};  // モータ1~4の目標電流値(A)
 
     // 制御周期管理構造体の初期化
     control_timing_t control_timing;
@@ -378,19 +378,19 @@ void core1_entry(void) {
 
         // 現在時刻を計算（制御開始からの経過時間）
         absolute_time_t current_abs_time = get_absolute_time();
-        double current_time_s = absolute_time_diff_us(control_start_time, current_abs_time) / 1000000.0;
+        float current_time_s = absolute_time_diff_us(control_start_time, current_abs_time) / 1000000.0;
 
         // --- エンコーダ読み取り処理 ---
-        double motor_position_R = 0.0, motor_position_P = 0.0;
-        double motor_velocity_R = 0.0, motor_velocity_P = 0.0;
+        float motor_position_R = 0.0, motor_position_P = 0.0;
+        float motor_velocity_R = 0.0, motor_velocity_P = 0.0;
         bool enc1_ok = encoder_manager.read_encoder(0);  // エンコーダ0 (R軸)
         bool enc2_ok = encoder_manager.read_encoder(1);  // エンコーダ1 (P軸)
 
         // エンコーダデータの取得
-        double encoder_r_angle_deg = 0.0;
+        float encoder_r_angle_deg = 0.0;
         int16_t encoder_p_turn_count = 0;
-        double encoder_p_single_angle_deg = 0.0;
-        double encoder_p_continuous_angle_rad = 0.0;
+        float encoder_p_single_angle_deg = 0.0;
+        float encoder_p_continuous_angle_rad = 0.0;
 
         if (enc1_ok) {
             motor_position_R = encoder_manager.get_encoder_angle_rad(0) * ENCODER_R_DIRECTION;
@@ -410,7 +410,7 @@ void core1_entry(void) {
         }
 
         // // --- モータフィードバック受信 ---
-        // double motor_velocity_R = 0.0, motor_velocity_P = 0.0;
+        // float motor_velocity_R = 0.0, motor_velocity_P = 0.0;
         // if (motor1.receive_feedback()) {
         //     // motor_position_R = motor1.get_continuous_angle() * MOTOR_R_DIRECTION; //  位置は外付けエンコーダの方を使う
         //     motor_velocity_R = motor1.get_angular_velocity();
@@ -421,11 +421,11 @@ void core1_entry(void) {
         // }
 
         // --- 共有データから目標値取得と状態更新 ---
-        double target_pos_R, target_pos_P;
+        float target_pos_R, target_pos_P;
         bool new_target_R, new_target_P;
         bool trajectory_active_R, trajectory_active_P;
-        double trajectory_start_time_R, trajectory_start_time_P;
-        double trajectory_start_pos_R, trajectory_start_pos_P;
+        float trajectory_start_time_R, trajectory_start_time_P;
+        float trajectory_start_pos_R, trajectory_start_pos_P;
 
         mutex_enter_blocking(&g_state_mutex);
         target_pos_R = g_robot_state.target_position_R;
@@ -490,8 +490,8 @@ void core1_entry(void) {
             trajectory_P_local.calculate_trapezoidal_params();
 
             // 軌道計算後の検証
-            double debug_total_dist = trajectory_P_local.get_total_dist();
-            double debug_total_time = trajectory_P_local.get_total_time();
+            float debug_total_dist = trajectory_P_local.get_total_dist();
+            float debug_total_time = trajectory_P_local.get_total_time();
 
             // 軌道開始をCore0に通知（簡易的にprintfなしで処理）
         }
@@ -499,15 +499,15 @@ void core1_entry(void) {
         mutex_exit(&g_state_mutex);
 
         // --- 制御計算 ---
-        double trajectory_target_pos_R, trajectory_target_pos_P;
-        double trajectory_target_vel_R = 0.0;
-        double trajectory_target_vel_P = 0.0;
-        double trajectory_target_accel_R = 0.0;
-        double trajectory_target_accel_P = 0.0;
+        float trajectory_target_pos_R, trajectory_target_pos_P;
+        float trajectory_target_vel_R = 0.0;
+        float trajectory_target_vel_P = 0.0;
+        float trajectory_target_accel_R = 0.0;
+        float trajectory_target_accel_P = 0.0;
 
         // R軸の台形プロファイル計算
         if (trajectory_active_R) {
-            double elapsed_time = current_time_s - trajectory_start_time_R;
+            float elapsed_time = current_time_s - trajectory_start_time_R;
             trajectory_R_local.get_trapezoidal_state(elapsed_time, &trajectory_target_pos_R, &trajectory_target_vel_R, &trajectory_target_accel_R);
 
             // 軌道完了チェック
@@ -526,13 +526,13 @@ void core1_entry(void) {
 
         // P軸の台形プロファイル計算
         if (trajectory_active_P) {
-            double elapsed_time = current_time_s - trajectory_start_time_P;
+            float elapsed_time = current_time_s - trajectory_start_time_P;
             trajectory_P_local.get_trapezoidal_state(elapsed_time, &trajectory_target_pos_P, &trajectory_target_vel_P, &trajectory_target_accel_P);
 
             // printf("R Trajectory: Pos=%.4f, Vel=%.4f, Accel=%.4f\n", trajectory_target_pos_P, trajectory_target_vel_P, trajectory_target_accel_P);
 
             // 軌道結果の異常値検出とリセット処理
-            constexpr double MAX_REASONABLE_POS = 100.0;  // 100 rad = 約25 m（明らかに異常な値）
+            constexpr float MAX_REASONABLE_POS = 100.0;  // 100 rad = 約25 m（明らかに異常な値）
             if (std::abs(trajectory_target_pos_P) > MAX_REASONABLE_POS) {
                 // 異常な軌道計算結果を検出した場合、軌道を停止
                 mutex_enter_blocking(&g_state_mutex);
@@ -560,15 +560,15 @@ void core1_entry(void) {
         }
 
         // 位置PID制御（位置偏差 → 速度補正）
-        double vel_correction_R = position_pid_R.computePosition(trajectory_target_pos_R, motor_position_R);
-        double vel_correction_P = position_pid_P.computePosition(trajectory_target_pos_P, motor_position_P);
+        float vel_correction_R = position_pid_R.computePosition(trajectory_target_pos_R, motor_position_R);
+        float vel_correction_P = position_pid_P.computePosition(trajectory_target_pos_P, motor_position_P);
 
         // デッドゾーン適用（小さな偏差では制御出力をゼロにする）
-        constexpr double DEADZONE_R = 0.02;   // R軸デッドゾーン [rad] (約1度)
-        constexpr double DEADZONE_P = 0.001;  // P軸デッドゾーン [rad] (約25μm相当)
+        constexpr float DEADZONE_R = 0.02;   // R軸デッドゾーン [rad] (約1度)
+        constexpr float DEADZONE_P = 0.001;  // P軸デッドゾーン [rad] (約25μm相当)
 
-        double position_error_R = trajectory_target_pos_R - motor_position_R;
-        double position_error_P = trajectory_target_pos_P - motor_position_P;
+        float position_error_R = trajectory_target_pos_R - motor_position_R;
+        float position_error_P = trajectory_target_pos_P - motor_position_P;
 
         if (std::abs(position_error_R) < DEADZONE_R) {
             vel_correction_R = 0.0;
@@ -578,16 +578,16 @@ void core1_entry(void) {
         }
 
         // 最終目標速度 = 台形プロファイル目標速度 + 位置偏差による速度補正
-        double final_target_vel_R = ControlLimits::FeedForward::POSITION_GAIN * trajectory_target_vel_R + vel_correction_R;
-        double final_target_vel_P = ControlLimits::FeedForward::POSITION_GAIN * trajectory_target_vel_P + vel_correction_P;
-        // double final_target_vel_R = vel_correction_R;
-        // double final_target_vel_P = vel_correction_P;
+        float final_target_vel_R = ControlLimits::FeedForward::POSITION_GAIN * trajectory_target_vel_R + vel_correction_R;
+        float final_target_vel_P = ControlLimits::FeedForward::POSITION_GAIN * trajectory_target_vel_P + vel_correction_P;
+        // float final_target_vel_R = vel_correction_R;
+        // float final_target_vel_P = vel_correction_P;
 
         // 速度I-P制御（速度偏差 → 目標トルク）
-        double target_torque_R = velocity_ip_R.computeVelocity(final_target_vel_R, motor_velocity_R) + ControlLimits::FeedForward::R_VELOCITY_GAIN * final_target_vel_R;
-        double target_torque_P = velocity_ip_P.computeVelocity(final_target_vel_P, motor_velocity_P) + ControlLimits::FeedForward::P_VELOCITY_GAIN * final_target_vel_P;
-        // double target_torque_R = velocity_ip_R.computeVelocity(final_target_vel_R, motor_velocity_R);
-        // double target_torque_P = velocity_ip_P.computeVelocity(final_target_vel_P, motor_velocity_P);
+        float target_torque_R = velocity_ip_R.computeVelocity(final_target_vel_R, motor_velocity_R) + ControlLimits::FeedForward::R_VELOCITY_GAIN * final_target_vel_R;
+        float target_torque_P = velocity_ip_P.computeVelocity(final_target_vel_P, motor_velocity_P) + ControlLimits::FeedForward::P_VELOCITY_GAIN * final_target_vel_P;
+        // float target_torque_R = velocity_ip_R.computeVelocity(final_target_vel_R, motor_velocity_R);
+        // float target_torque_P = velocity_ip_P.computeVelocity(final_target_vel_P, motor_velocity_P);
 
         // --- 制御出力の制限 ---
         // R軸のトルク制限
@@ -605,9 +605,9 @@ void core1_entry(void) {
 
         // // トルクから電流への変換
         // target_current[0] = target_torque_R / dynamics_R.get_torque_constant();  // Motor1 (R軸)
-        target_current[1] = target_torque_P / dynamics_P.get_torque_constant();  // Motor2 (P軸)
-        target_current[0] = 0.0;                                                 // Motor1 (R軸)
-        // target_current[1] = 0.0;  // Motor2 (P軸)
+        // target_current[1] = target_torque_P / dynamics_P.get_torque_constant();  // Motor2 (P軸)
+        target_current[0] = 0.0;  // Motor1 (R軸)
+        target_current[1] = 0.0;  // Motor2 (P軸)
 
         // --- 制御結果を共有データに保存 ---
         mutex_enter_blocking(&g_state_mutex);
@@ -723,33 +723,33 @@ int main(void) {
     printf("Starting control loop at %.1f ms (%.0f Hz)\n", CONTROL_PERIOD_MS, 1000.0 / CONTROL_PERIOD_MS);
 
     absolute_time_t next_main_time = get_absolute_time();
-    double main_start_time = 0.0;
+    float main_start_time = 0.0;
 
     while (1) {
         next_main_time = delayed_by_us(next_main_time, 100'000);  // 100ms周期
 
         // 現在時刻を取得
-        double current_main_time = 0.0;
+        float current_main_time = 0.0;
         mutex_enter_blocking(&g_state_mutex);
         current_main_time = g_robot_state.current_time;
         mutex_exit(&g_state_mutex);
 
         // 軌道制御のテスト（10秒ごとに往復）
-        static double time_counter = 0.0;
+        static float time_counter = 0.0;
         time_counter += 0.1;  // 100ms周期で0.1秒ずつ増加
 
         // 10秒ごとに軌道を切り替え（往復動作）
         static bool trajectory_started = false;
         static bool forward_direction = true;  // true: 前進, false: 後退
-        static double last_trajectory_time = 0.0;
-        static double initial_pos_R = 0.0;    // R軸の基準位置
-        static double initial_pos_P = 0.0;    // P軸の基準位置
+        static float last_trajectory_time = 0.0;
+        static float initial_pos_R = 0.0;     // R軸の基準位置
+        static float initial_pos_P = 0.0;     // P軸の基準位置
         static bool initial_pos_set = false;  // 基準位置設定フラグ
 
         // 10秒経過ごとに軌道を開始
         if (time_counter >= 2.0 && (time_counter - last_trajectory_time >= 10.0 || !trajectory_started)) {
             // 現在位置を取得
-            double current_pos_R, current_pos_P;
+            float current_pos_R, current_pos_P;
             mutex_enter_blocking(&g_state_mutex);
             current_pos_R = g_robot_state.current_position_R;
             current_pos_P = g_robot_state.current_position_P;
@@ -768,13 +768,13 @@ int main(void) {
             if (forward_direction) {
                 // 前進方向の軌道（基準位置 → +550mm）
                 // R軸: 基準位置から(1/2)π rad（90度）回転
-                double target_R = initial_pos_R + 1.0 / 2.0 * M_PI;
+                float target_R = initial_pos_R + 1.0 / 2.0 * M_PI;
                 set_target_position_R(target_R);
 
                 // P軸: 基準位置から550mm移動 一番遠いワークまでの距離 - 一番近いワークまでの距離
-                double target_P_m = 0.55;  // 550mm
-                double target_P_rad = target_P_m / gear_radius_P;
-                double target_P = initial_pos_P + target_P_rad;
+                float target_P_m = 0.55;  // 550mm
+                float target_P_rad = target_P_m / gear_radius_P;
+                float target_P = initial_pos_P + target_P_rad;
                 set_target_position_P(target_P);
 
                 printf("Started FORWARD trajectory at t=%.1fs:\n", time_counter);
@@ -810,28 +810,28 @@ int main(void) {
         // 状態を取得してデバッグ出力（排他制御あり）
         mutex_enter_blocking(&g_state_mutex);
         // デバッグ用に現在状態も取得
-        double current_pos_R = g_robot_state.current_position_R;
-        double current_pos_P = g_robot_state.current_position_P;
-        double current_vel_R = g_robot_state.current_velocity_R;
-        double current_vel_P = g_robot_state.current_velocity_P;
-        double target_vel_R = g_robot_state.target_velocity_R;
-        double target_vel_P = g_robot_state.target_velocity_P;
-        double target_torque_R = g_robot_state.target_torque_R;
-        double target_torque_P = g_robot_state.target_torque_P;
-        double target_cur_R = g_robot_state.target_current_R;
-        double target_cur_P = g_robot_state.target_current_P;
+        float current_pos_R = g_robot_state.current_position_R;
+        float current_pos_P = g_robot_state.current_position_P;
+        float current_vel_R = g_robot_state.current_velocity_R;
+        float current_vel_P = g_robot_state.current_velocity_P;
+        float target_vel_R = g_robot_state.target_velocity_R;
+        float target_vel_P = g_robot_state.target_velocity_P;
+        float target_torque_R = g_robot_state.target_torque_R;
+        float target_torque_P = g_robot_state.target_torque_P;
+        float target_cur_R = g_robot_state.target_current_R;
+        float target_cur_P = g_robot_state.target_current_P;
 
         // 台形プロファイル制御情報
-        double traj_target_pos_R = g_robot_state.trajectory_target_position_R;
-        double traj_target_pos_P = g_robot_state.trajectory_target_position_P;
-        double traj_target_vel_R = g_robot_state.trajectory_target_velocity_R;
-        double traj_target_vel_P = g_robot_state.trajectory_target_velocity_P;
+        float traj_target_pos_R = g_robot_state.trajectory_target_position_R;
+        float traj_target_pos_P = g_robot_state.trajectory_target_position_P;
+        float traj_target_vel_R = g_robot_state.trajectory_target_velocity_R;
+        float traj_target_vel_P = g_robot_state.trajectory_target_velocity_P;
         bool traj_active_R = g_robot_state.trajectory_active_R;
         bool traj_active_P = g_robot_state.trajectory_active_P;
 
         // 最終目標位置（Core0→Core1）
-        double final_target_pos_R = g_robot_state.target_position_R;
-        double final_target_pos_P = g_robot_state.target_position_P;
+        float final_target_pos_R = g_robot_state.target_position_R;
+        float final_target_pos_P = g_robot_state.target_position_P;
 
         int timing_violations = g_robot_state.timing_violation_count;
         led_mode_t led_status = g_robot_state.led_status;
@@ -839,8 +839,8 @@ int main(void) {
 
         // エンコーダ詳細情報を共有変数から取得
         int16_t p_turn_count = g_robot_state.encoder_p_turn_count;
-        double p_single_angle = g_robot_state.encoder_p_single_angle_deg;
-        double r_angle_deg = g_robot_state.encoder_r_angle_deg;
+        float p_single_angle = g_robot_state.encoder_p_single_angle_deg;
+        float r_angle_deg = g_robot_state.encoder_r_angle_deg;
         bool encoder_r_valid = g_robot_state.encoder_r_valid;
         bool encoder_p_valid = g_robot_state.encoder_p_valid;
         mutex_exit(&g_state_mutex);
@@ -879,12 +879,12 @@ int main(void) {
         prev_trajectory_active_P = traj_active_P;
 
         // rad単位からm単位への変換
-        double current_pos_P_m = current_pos_P * gear_radius_P;
-        double current_vel_P_m = current_vel_P * gear_radius_P;
-        double target_vel_P_m = target_vel_P * gear_radius_P;
-        double traj_target_pos_P_m = traj_target_pos_P * gear_radius_P;
-        double traj_target_vel_P_m = traj_target_vel_P * gear_radius_P;
-        double final_target_pos_P_m = final_target_pos_P * gear_radius_P;
+        float current_pos_P_m = current_pos_P * gear_radius_P;
+        float current_vel_P_m = current_vel_P * gear_radius_P;
+        float target_vel_P_m = target_vel_P * gear_radius_P;
+        float traj_target_pos_P_m = traj_target_pos_P * gear_radius_P;
+        float traj_target_vel_P_m = traj_target_vel_P * gear_radius_P;
+        float final_target_pos_P_m = final_target_pos_P * gear_radius_P;
 
         // 1秒毎のステータス出力（Core0で実行 - 重いprintf処理）
         printf("\n=== Trapezoidal Profile Control Status ===\n");

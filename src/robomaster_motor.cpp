@@ -1,6 +1,6 @@
 #include "robomaster_motor.hpp"
 
-bool send_all_motor_currents(mcp25625_t* can, double currents[4]) {
+bool send_all_motor_currents(mcp25625_t* can, float currents[4]) {
     can_frame_t tx_frame;
     tx_frame.can_id = 0x200;  // モータ1~4制御ID
     tx_frame.can_dlc = 8;
@@ -17,7 +17,7 @@ bool send_all_motor_currents(mcp25625_t* can, double currents[4]) {
     return can->send_can_message(&tx_frame);
 }
 
-robomaster_motor_t::robomaster_motor_t(mcp25625_t* can, int16_t motor_id, double gear_ratio)
+robomaster_motor_t::robomaster_motor_t(mcp25625_t* can, int16_t motor_id, float gear_ratio)
     : can_(can),
       motor_id_(motor_id),
       gear_ratio_(gear_ratio),
@@ -26,7 +26,7 @@ robomaster_motor_t::robomaster_motor_t(mcp25625_t* can, int16_t motor_id, double
       continuous_angle_(0.0),
       angular_velocity_(0.0) {}
 
-bool robomaster_motor_t::send_current(double current_amp) {
+bool robomaster_motor_t::send_current(float current_amp) {
     can_frame_t tx_frame;
     tx_frame.can_id = 0x200;  // 例: モータ1~4制御ID
     tx_frame.can_dlc = 8;
@@ -58,7 +58,7 @@ bool robomaster_motor_t::receive_feedback() {
     return true;
 }
 
-double robomaster_motor_t::update_encoder_angle(int16_t encoder_raw) {
+float robomaster_motor_t::update_encoder_angle(int16_t encoder_raw) {
     // エンコーダ値の差分を計算
     int16_t diff = encoder_raw - prev_encoder_raw_;
 
@@ -82,18 +82,18 @@ double robomaster_motor_t::update_encoder_angle(int16_t encoder_raw) {
     return continuous_angle_;
 }
 
-double robomaster_motor_t::rpm_to_angular_velocity(int16_t rpm) {
+float robomaster_motor_t::rpm_to_angular_velocity(int16_t rpm) {
     // RPMをラジアン/秒に変換（ギア比を考慮）
     angular_velocity_ = rpm * 2.0 * 3.14159265359 / 60.0 / gear_ratio_;
     return angular_velocity_;
 }
 
-double robomaster_motor_t::raw_to_current(int16_t current_raw) {
+float robomaster_motor_t::raw_to_current(int16_t current_raw) {
     // 生の電流値をアンペアに変換
     return current_raw * CURRENT_CONVERSION_FACTOR;
 }
 
-int16_t robomaster_motor_t::current_to_raw(double current_amp) {
+int16_t robomaster_motor_t::current_to_raw(float current_amp) {
     // 電流値（アンペア）を生値に変換
     return (int16_t)(current_amp / CURRENT_CONVERSION_FACTOR);
 }

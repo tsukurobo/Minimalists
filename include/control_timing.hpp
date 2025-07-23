@@ -43,7 +43,7 @@ void init_control_timing(control_timing_t* timing);
  * @param timing 制御タイミング構造体のポインタ
  * @param control_period_ms 制御周期 [ms]
  */
-void control_timing_start(control_timing_t* timing, double control_period_ms);
+void control_timing_start(control_timing_t* timing, float control_period_ms);
 
 /**
  * @brief LED制御処理
@@ -56,7 +56,7 @@ void update_led_control(control_timing_t* timing);
  * @param timing 制御タイミング構造体のポインタ
  * @param control_period_ms 制御周期 [ms]
  */
-void control_timing_end(control_timing_t* timing, double control_period_ms);
+void control_timing_end(control_timing_t* timing, float control_period_ms);
 
 /**
  * @brief 制御状態のデバッグ情報文字列取得

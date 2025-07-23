@@ -14,7 +14,7 @@ void init_control_timing(control_timing_t* timing) {
 }
 
 // 制御周期開始処理（ループの最初に呼ぶ）
-void control_timing_start(control_timing_t* timing, double control_period_ms) {
+void control_timing_start(control_timing_t* timing, float control_period_ms) {
     timing->loop_start_time = get_absolute_time();
 
     // 次回の制御時刻を設定
@@ -35,7 +35,7 @@ void update_led_control(control_timing_t* timing) {
 }
 
 // 制御周期終了処理（ループの最後に呼ぶ）
-void control_timing_end(control_timing_t* timing, double control_period_ms) {
+void control_timing_end(control_timing_t* timing, float control_period_ms) {
     // 制御周期調整
     absolute_time_t processing_end_time = get_absolute_time();
     int64_t processing_time_us = absolute_time_diff_us(timing->loop_start_time, processing_end_time);
