@@ -19,22 +19,22 @@ class AMT223V {
     spi_inst_t* spi_port;
     int cs_pin;
     uint16_t raw_angle;
-    double angle_rad;
-    double angle_deg;
+    float angle_rad;
+    float angle_deg;
 
     // マルチターン対応変数
-    bool is_multiturn;            // マルチターン対応エンコーダかどうか
-    int16_t turn_count;           // 回転回数（14ビット符号付き）
-    int16_t initial_turn_count;   // 初期化時の回転回数
-    double continuous_angle_rad;  // 連続角度[rad]
-    double continuous_angle_deg;  // 連続角度[deg]
+    bool is_multiturn;           // マルチターン対応エンコーダかどうか
+    int16_t turn_count;          // 回転回数（14ビット符号付き）
+    int16_t initial_turn_count;  // 初期化時の回転回数
+    float continuous_angle_rad;  // 連続角度[rad]
+    float continuous_angle_deg;  // 連続角度[deg]
 
     // 角速度計算用変数
-    double previous_angle_rad;    // 前回の角度[rad]
-    double angular_velocity_rad;  // 角速度[rad/s]
-    double angular_velocity_deg;  // 角速度[deg/s]
-    uint64_t previous_time_us;    // 前回の測定時刻[μs]
-    bool velocity_initialized;    // 角速度初期化フラグ
+    float previous_angle_rad;    // 前回の角度[rad]
+    float angular_velocity_rad;  // 角速度[rad/s]
+    float angular_velocity_deg;  // 角速度[deg/s]
+    uint64_t previous_time_us;   // 前回の測定時刻[μs]
+    bool velocity_initialized;   // 角速度初期化フラグ
 
     // AMT223-V コマンド定義
     static const uint8_t CMD_READ_ANGLE = 0x00;  // 角度読み取りコマンド
@@ -48,7 +48,7 @@ class AMT223V {
     static const uint16_t TURN_MASK = 0x3FFF;    // 14ビット回転数マスク
 
    public:
-    static constexpr double COUNTS_PER_REV = 16384.0;  // 2^14 = 16384 counts per revolution
+    static constexpr float COUNTS_PER_REV = 16384.0;  // 2^14 = 16384 counts per revolution
     /**
      * @brief コンストラクタ
      * @param spi_instance SPI インスタンス
@@ -87,13 +87,13 @@ class AMT223V {
      * @brief ラジアン単位の角度を取得（0-2π）
      * @return 角度[rad]
      */
-    double get_angle_rad() const { return angle_rad; }
+    float get_angle_rad() const { return angle_rad; }
 
     /**
      * @brief 度単位の角度を取得（0-360）
      * @return 角度[deg]
      */
-    double get_angle_deg() const { return angle_deg; }
+    float get_angle_deg() const { return angle_deg; }
 
     /**
      * @brief マルチターン対応かどうか確認
@@ -111,25 +111,25 @@ class AMT223V {
      * @brief 連続角度を取得（マルチターン対応時のみ）
      * @return 連続角度[rad]
      */
-    double get_continuous_angle_rad() const { return continuous_angle_rad; }
+    float get_continuous_angle_rad() const { return continuous_angle_rad; }
 
     /**
      * @brief 連続角度を取得（マルチターン対応時のみ）
      * @return 連続角度[deg]
      */
-    double get_continuous_angle_deg() const { return continuous_angle_deg; }
+    float get_continuous_angle_deg() const { return continuous_angle_deg; }
 
     /**
      * @brief 角速度を取得（ラジアン/秒）
      * @return 角速度[rad/s]
      */
-    double get_angular_velocity_rad() const { return angular_velocity_rad; }
+    float get_angular_velocity_rad() const { return angular_velocity_rad; }
 
     /**
      * @brief 角速度を取得（度/秒）
      * @return 角速度[deg/s]
      */
-    double get_angular_velocity_deg() const { return angular_velocity_deg; }
+    float get_angular_velocity_deg() const { return angular_velocity_deg; }
 
     /**
      * @brief 回転回数をリセット（マルチターン対応時のみ）
@@ -169,7 +169,7 @@ class AMT223V {
      * @param current_angle_rad 現在の角度[rad]
      * @param current_time_us 現在の時刻[μs]
      */
-    void calculate_angular_velocity(double current_angle_rad, uint64_t current_time_us);
+    void calculate_angular_velocity(float current_angle_rad, uint64_t current_time_us);
 };
 
 /**
@@ -237,14 +237,14 @@ class AMT223V_Manager {
      * @param encoder_index エンコーダインデックス
      * @return 角度[rad]（失敗時は-1.0）
      */
-    double get_encoder_angle_rad(int encoder_index) const;
+    float get_encoder_angle_rad(int encoder_index) const;
 
     /**
      * @brief 指定したエンコーダの角度取得
      * @param encoder_index エンコーダインデックス
      * @return 角度[deg]（失敗時は-1.0）
      */
-    double get_encoder_angle_deg(int encoder_index) const;
+    float get_encoder_angle_deg(int encoder_index) const;
 
     /**
      * @brief 指定したエンコーダの回転回数取得（マルチターン対応時のみ）
@@ -258,14 +258,14 @@ class AMT223V_Manager {
      * @param encoder_index エンコーダインデックス
      * @return 連続角度[rad]（失敗時は0.0）
      */
-    double get_encoder_continuous_angle_rad(int encoder_index) const;
+    float get_encoder_continuous_angle_rad(int encoder_index) const;
 
     /**
      * @brief 指定したエンコーダの連続角度取得（マルチターン対応時のみ）
      * @param encoder_index エンコーダインデックス
      * @return 連続角度[deg]（失敗時は0.0）
      */
-    double get_encoder_continuous_angle_deg(int encoder_index) const;
+    float get_encoder_continuous_angle_deg(int encoder_index) const;
 
     /**
      * @brief 指定したエンコーダのゼロ位置をセット（単回転エンコーダのみ）
@@ -279,14 +279,14 @@ class AMT223V_Manager {
      * @param encoder_index エンコーダインデックス
      * @return 角速度[rad/s]（失敗時は0.0）
      */
-    double get_encoder_angular_velocity_rad(int encoder_index) const;
+    float get_encoder_angular_velocity_rad(int encoder_index) const;
 
     /**
      * @brief 指定したエンコーダの角速度取得
      * @param encoder_index エンコーダインデックス
      * @return 角速度[deg/s]（失敗時は0.0）
      */
-    double get_encoder_angular_velocity_deg(int encoder_index) const;
+    float get_encoder_angular_velocity_deg(int encoder_index) const;
 
     /**
      * @brief 指定したエンコーダの回転回数をリセット（マルチターン対応時のみ）
