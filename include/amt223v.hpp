@@ -235,6 +235,13 @@ class AMT223V_Manager {
     /**
      * @brief 指定したエンコーダの角度取得
      * @param encoder_index エンコーダインデックス
+     * @return 角度(raw)（失敗時は0）
+     */
+    uint16_t get_encoder_raw_angle(int encoder_index) const;
+
+    /**
+     * @brief 指定したエンコーダの角度取得
+     * @param encoder_index エンコーダインデックス
      * @return 角度[rad]（失敗時は-1.0）
      */
     float get_encoder_angle_rad(int encoder_index) const;

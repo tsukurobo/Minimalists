@@ -452,6 +452,13 @@ int AMT223V_Manager::read_all_encoders() {
     return success_count;
 }
 
+uint16_t AMT223V_Manager::get_encoder_raw_angle(int encoder_index) const {
+    if (encoder_index < 0 || encoder_index >= num_encoders || !encoders[encoder_index]) {
+        return 0;
+    }
+    return encoders[encoder_index]->get_raw_angle();
+}
+
 float AMT223V_Manager::get_encoder_angle_rad(int encoder_index) const {
     if (encoder_index < 0 || encoder_index >= num_encoders || !encoders[encoder_index]) {
         return -1.0;
