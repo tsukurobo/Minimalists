@@ -178,15 +178,19 @@ class AMT223V {
  * 複数のAMT223-Vエンコーダを管理し、SPI設定を統一します
  */
 class AMT223V_Manager {
+   public:
+    // 最大エンコーダ数の定義（変更しやすいように定数として定義）
+    static const int MAX_ENCODERS = 2;
+
    private:
     spi_inst_t* spi_port;
     uint32_t baudrate;
     int pin_miso;
     int pin_sck;
     int pin_mosi;
-    std::array<int, 4> cs_pins;  // 最大4つのCSピン
+    std::array<int, MAX_ENCODERS> cs_pins;  // 最大エンコーダ数分のCSピン
     int num_encoders;
-    std::array<AMT223V*, 4> encoders;  // エンコーダインスタンス
+    std::array<AMT223V*, MAX_ENCODERS> encoders;  // エンコーダインスタンス
 
    public:
     /**
@@ -300,6 +304,28 @@ class AMT223V_Manager {
      * @return エンコーダ数
      */
     int get_encoder_count() const { return num_encoders; }
+
+    /**
+     * @brief 最大エンコーダ数を取得
+     * @return 最大エンコーダ数
+     */
+    static constexpr int get_max_encoders() { return MAX_ENCODERS; }
+
+    /**
+     * @brief 現在登録されているエンコーダ数を取得
+     * @return 現在のエンコーダ数
+     */
+    int get_current_encoder_count() const { return num_encoders; }
+
+   private:
+    /**
+     * @brief エンコーダインデックスの有効性をチェック
+     * @param encoder_index チェックするインデックス
+     * @return 有効な場合true
+     */
+    bool is_valid_encoder_index(int encoder_index) const {
+        return (encoder_index >= 0 && encoder_index < num_encoders && encoders[encoder_index] != nullptr);
+    }
 };
 
 #endif  // AMT223V_HPP

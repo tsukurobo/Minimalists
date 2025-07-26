@@ -384,8 +384,8 @@ AMT223V_Manager::AMT223V_Manager(spi_inst_t* spi_instance, uint32_t baud, int mi
 }
 
 int AMT223V_Manager::add_encoder(int cs_pin, bool multiturn_support) {
-    if (num_encoders >= 4) {
-        printf("Error: Maximum 4 encoders supported\n");
+    if (num_encoders >= MAX_ENCODERS) {
+        printf("Error: Maximum %d encoders supported, current count: %d\n", MAX_ENCODERS, num_encoders);
         return -1;
     }
 
@@ -395,6 +395,7 @@ int AMT223V_Manager::add_encoder(int cs_pin, bool multiturn_support) {
 
     printf("Added encoder %d with CS pin %d (multiturn: %s)\n",
            num_encoders - 1, cs_pin, multiturn_support ? "yes" : "no");
+    printf("Current encoder count: %d/%d\n", num_encoders, MAX_ENCODERS);
     return num_encoders - 1;
 }
 
@@ -413,13 +414,13 @@ bool AMT223V_Manager::init_spi() {
         printf("Encoder SPI CS%d pin %d initialized\n", i, cs_pins[i]);
     }
 
-    printf("Encoder SPI initialized: %d encoders on SPI%d at %d Hz\n",
-           num_encoders, spi_port == spi0 ? 0 : 1, baudrate);
+    printf("Encoder SPI initialized: %d/%d encoders on SPI%d at %d Hz\n",
+           num_encoders, MAX_ENCODERS, spi_port == spi0 ? 0 : 1, baudrate);
     return true;
 }
 
 bool AMT223V_Manager::init_all_encoders() {
-    printf("Initializing %d AMT223-V encoders...\n", num_encoders);
+    printf("Initializing %d/%d AMT223-V encoders...\n", num_encoders, MAX_ENCODERS);
 
     for (int i = 0; i < num_encoders; i++) {
         if (!encoders[i]->init()) {
@@ -428,12 +429,14 @@ bool AMT223V_Manager::init_all_encoders() {
         }
     }
 
-    printf("All %d encoders initialized successfully!\n", num_encoders);
+    printf("All %d encoders initialized successfully! (Max capacity: %d)\n",
+           num_encoders, MAX_ENCODERS);
     return true;
 }
 
 bool AMT223V_Manager::read_encoder(int encoder_index) {
-    if (encoder_index < 0 || encoder_index >= num_encoders || !encoders[encoder_index]) {
+    if (!is_valid_encoder_index(encoder_index)) {
+        printf("Error: Invalid encoder index %d (valid range: 0-%d)\n", encoder_index, num_encoders - 1);
         return false;
     }
 
@@ -452,16 +455,18 @@ int AMT223V_Manager::read_all_encoders() {
     return success_count;
 }
 
-float AMT223V_Manager::get_encoder_angle_rad(int encoder_index) const {
-    if (encoder_index < 0 || encoder_index >= num_encoders || !encoders[encoder_index]) {
+double AMT223V_Manager::get_encoder_angle_rad(int encoder_index) const {
+    if (!is_valid_encoder_index(encoder_index)) {
+        printf("Error: Invalid encoder index %d (valid range: 0-%d)\n", encoder_index, num_encoders - 1);
         return -1.0;
     }
 
     return encoders[encoder_index]->get_angle_rad();
 }
 
-float AMT223V_Manager::get_encoder_angle_deg(int encoder_index) const {
-    if (encoder_index < 0 || encoder_index >= num_encoders || !encoders[encoder_index]) {
+double AMT223V_Manager::get_encoder_angle_deg(int encoder_index) const {
+    if (!is_valid_encoder_index(encoder_index)) {
+        printf("Error: Invalid encoder index %d (valid range: 0-%d)\n", encoder_index, num_encoders - 1);
         return -1.0;
     }
 
@@ -469,23 +474,26 @@ float AMT223V_Manager::get_encoder_angle_deg(int encoder_index) const {
 }
 
 int16_t AMT223V_Manager::get_encoder_turn_count(int encoder_index) const {
-    if (encoder_index < 0 || encoder_index >= num_encoders || !encoders[encoder_index]) {
+    if (!is_valid_encoder_index(encoder_index)) {
+        printf("Error: Invalid encoder index %d (valid range: 0-%d)\n", encoder_index, num_encoders - 1);
         return 0;
     }
 
     return encoders[encoder_index]->get_turn_count();
 }
 
-float AMT223V_Manager::get_encoder_continuous_angle_rad(int encoder_index) const {
-    if (encoder_index < 0 || encoder_index >= num_encoders || !encoders[encoder_index]) {
+double AMT223V_Manager::get_encoder_continuous_angle_rad(int encoder_index) const {
+    if (!is_valid_encoder_index(encoder_index)) {
+        printf("Error: Invalid encoder index %d (valid range: 0-%d)\n", encoder_index, num_encoders - 1);
         return 0.0;
     }
 
     return encoders[encoder_index]->get_continuous_angle_rad();
 }
 
-float AMT223V_Manager::get_encoder_continuous_angle_deg(int encoder_index) const {
-    if (encoder_index < 0 || encoder_index >= num_encoders || !encoders[encoder_index]) {
+double AMT223V_Manager::get_encoder_continuous_angle_deg(int encoder_index) const {
+    if (!is_valid_encoder_index(encoder_index)) {
+        printf("Error: Invalid encoder index %d (valid range: 0-%d)\n", encoder_index, num_encoders - 1);
         return 0.0;
     }
 
@@ -493,8 +501,8 @@ float AMT223V_Manager::get_encoder_continuous_angle_deg(int encoder_index) const
 }
 
 bool AMT223V_Manager::set_encoder_zero_position(int encoder_index) {
-    if (encoder_index < 0 || encoder_index >= num_encoders || !encoders[encoder_index]) {
-        printf("Error: Invalid encoder index %d\n", encoder_index);
+    if (!is_valid_encoder_index(encoder_index)) {
+        printf("Error: Invalid encoder index %d (valid range: 0-%d)\n", encoder_index, num_encoders - 1);
         return false;
     }
 
@@ -502,16 +510,18 @@ bool AMT223V_Manager::set_encoder_zero_position(int encoder_index) {
     return encoders[encoder_index]->set_zero_position();
 }
 
-float AMT223V_Manager::get_encoder_angular_velocity_rad(int encoder_index) const {
-    if (encoder_index < 0 || encoder_index >= num_encoders || !encoders[encoder_index]) {
+double AMT223V_Manager::get_encoder_angular_velocity_rad(int encoder_index) const {
+    if (!is_valid_encoder_index(encoder_index)) {
+        printf("Error: Invalid encoder index %d (valid range: 0-%d)\n", encoder_index, num_encoders - 1);
         return 0.0;
     }
 
     return encoders[encoder_index]->get_angular_velocity_rad();
 }
 
-float AMT223V_Manager::get_encoder_angular_velocity_deg(int encoder_index) const {
-    if (encoder_index < 0 || encoder_index >= num_encoders || !encoders[encoder_index]) {
+double AMT223V_Manager::get_encoder_angular_velocity_deg(int encoder_index) const {
+    if (!is_valid_encoder_index(encoder_index)) {
+        printf("Error: Invalid encoder index %d (valid range: 0-%d)\n", encoder_index, num_encoders - 1);
         return 0.0;
     }
 
@@ -519,8 +529,8 @@ float AMT223V_Manager::get_encoder_angular_velocity_deg(int encoder_index) const
 }
 
 bool AMT223V_Manager::reset_encoder_turn_count(int encoder_index) {
-    if (encoder_index < 0 || encoder_index >= num_encoders || !encoders[encoder_index]) {
-        printf("Error: Invalid encoder index %d\n", encoder_index);
+    if (!is_valid_encoder_index(encoder_index)) {
+        printf("Error: Invalid encoder index %d (valid range: 0-%d)\n", encoder_index, num_encoders - 1);
         return false;
     }
 
