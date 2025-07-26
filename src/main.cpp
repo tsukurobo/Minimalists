@@ -235,13 +235,21 @@ bool init_all_spi_devices() {
 
 // エンコーダの初期化関数
 bool init_encoders() {
-    // エンコーダを追加
-    int encoder1_index = encoder_manager.add_encoder(7, false);  // CS pin 7 (R軸: 単回転)
-    int encoder2_index = encoder_manager.add_encoder(6, true);   // CS pin 6 (P軸: マルチターン対応)
+    static int encoder1_index = -1;  // R軸エンコーダのインデックス
+    static int encoder2_index = -1;  // P軸エンコーダのインデックス
 
-    if (encoder1_index < 0 || encoder2_index < 0) {
-        printf("Failed to add encoders!\n");
-        return false;
+    // エンコーダが未登録の場合のみ追加
+    if (encoder_manager.get_current_encoder_count() == 0) {
+        printf("Adding encoders to manager...\n");
+        // エンコーダを追加
+        encoder1_index = encoder_manager.add_encoder(7, false);  // CS pin 7 (R軸: 単回転)
+        encoder2_index = encoder_manager.add_encoder(6, true);   // CS pin 6 (P軸: マルチターン対応)
+
+        if (encoder1_index < 0 || encoder2_index < 0) {
+            printf("Failed to add encoders!\n");
+            return false;
+        }
+        printf("Encoders added successfully: R=%d, P=%d\n", encoder1_index, encoder2_index);
     }
 
     // SPI初期化
@@ -250,12 +258,14 @@ bool init_encoders() {
         return false;
     }
 
-    // 全エンコーダ初期化
+    // 全エンコーダ初期化（安定化時間を含む）
+    printf("Starting encoder initialization with extended stabilization...\n");
     if (!encoder_manager.init_all_encoders()) {
         printf("Failed to initialize encoders!\n");
         return false;
     }
 
+    printf("All encoders initialized successfully!\n");
     return true;
 }
 
