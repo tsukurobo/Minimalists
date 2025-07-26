@@ -756,6 +756,31 @@ int main(void) {
         // 軌道制御のテスト（10秒ごとに往復）
         g_debug_manager->update_time_counter(0.1);  // 100ms周期で0.1秒ずつ増加
 
+        // システム起動後の初期軌道設定
+        if (g_debug_manager->should_set_initial_trajectory()) {
+            // 現在位置を取得
+            float current_pos_R, current_pos_P;
+            mutex_enter_blocking(&g_state_mutex);
+            current_pos_R = g_robot_state.current_position_R;
+            current_pos_P = g_robot_state.current_position_P;
+            mutex_exit(&g_state_mutex);
+
+            // 基準位置を設定
+            g_debug_manager->set_initial_positions(current_pos_R, current_pos_P);
+
+            // 初期軌道を設定（前進方向）
+            float target_R, target_P;
+            g_debug_manager->get_test_trajectory_targets(true, target_R, target_P);
+
+            // 目標値を設定
+            set_target_position_R(target_R);
+            set_target_position_P(target_P);
+
+            // 初期軌道設定情報を表示
+            g_debug_manager->info("Initial trajectory set - Moving to forward position");
+            g_debug_manager->print_trajectory_test_info(true, current_pos_P, target_P, gear_radius_P);
+        }
+
         // 10秒ごとに軌道を切り替え（往復動作）
         if (g_debug_manager->should_start_trajectory_test(current_main_time)) {
             // 現在位置を取得

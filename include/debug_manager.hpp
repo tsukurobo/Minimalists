@@ -203,6 +203,13 @@ class DebugManager {
     bool should_start_trajectory_test(float current_time);
 
     /**
+     * @brief 初期軌道の即座設定
+     * システム起動後すぐに初期軌道を設定したい場合に使用
+     * @return 初期軌道を設定すべき場合true
+     */
+    bool should_set_initial_trajectory();
+
+    /**
      * @brief テスト軌道の目標値取得
      * @param is_forward 前進方向フラグ
      * @param target_R R軸目標位置 [rad] (出力)
