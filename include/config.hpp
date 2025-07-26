@@ -16,31 +16,35 @@
 #include "trajectory.hpp"
 
 // PIN設定
-constexpr int PUMP_PIN1 = 10;
+constexpr int PUMP_PIN1 = 4;
 constexpr int PUMP_PIN2 = 11;
-constexpr int SOLENOID_PIN1 = 12;
+constexpr int SOLENOID_PIN1 = 3;
 constexpr int SOLENOID_PIN2 = 13;
 
 // 手先のmotorに与えるduty比
 constexpr int PUMP_PWM = 0.80;
 
+// dynamixelの初期化角度　
+constexpr float START_HAND_ANGLE = 255.0f;
+constexpr float START_UP_ANGLE = 90.0f;
+
 // 手先のdynamixcelの角度定数 0~360°
 constexpr float GRAB_ANGLE = 210.0f;
 constexpr float RELEASE_ANGLE = 300.0f;
 // 昇降用dynamixcelの角度定数　
-constexpr float UP_ANGLE = 10.0f;
-constexpr float DOWN_ANGLE = 150.0f;
+constexpr float UP_ANGLE = 20.0f;
+constexpr float DOWN_ANGLE = 160.0f;
 
 // dynamixelのID
 constexpr short DXL_ID1 = 0x01;  // 手先
 constexpr short DXL_ID2 = 0x02;  // 昇降
 
 extern mutex_t g_hand_mutex;
-extern volatile bool g_hand_requested;
-extern volatile bool g_has_work;
+extern bool g_hand_requested;
+extern bool g_has_work;
 extern hand_state_t g_hand_state;
 extern absolute_time_t g_hand_timer;
 
-void hand_tick(hand_state_t hand_state, volatile bool has_work, volatile bool hand_requested, absolute_time_t hand_timer);
+void hand_tick(hand_state_t* hand_state, bool* has_work, bool* hand_requested, absolute_time_t* hand_timer);
 
 #endif  // HEADER_H

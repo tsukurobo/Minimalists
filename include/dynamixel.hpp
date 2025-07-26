@@ -16,7 +16,7 @@ constexpr int PROTOCOL_VERSION = 2;
 constexpr short POLY = 0x8005;
 extern unsigned short crc_table[256];  // CRC-tabel 除算演算の事前演算結果
 
-constexpr uint BAUD_RATE = 57600;
+constexpr uint BAUD_RATE = 57600;  // 1,000,000bpsに調整
 constexpr uint LED_PIN = 25;
 constexpr float CURRENT_UNIT = 2.69 * 0.001;  //[A]
 constexpr uint32_t PERIOD_US = 500;           // 1ms周期
@@ -35,9 +35,9 @@ typedef struct {
 
 const uart_config_t UART0 = {
     .uart_number = uart0,
-    .tx_pin = 16,
-    .rx_pin = 17,
-    .de_pin = 18};
+    .tx_pin = 0,
+    .rx_pin = 1,
+    .de_pin = 2};
 
 const uart_config_t UART1 = {
     .uart_number = uart1,
@@ -64,9 +64,11 @@ int write_operatingMode(const uart_config_t* config, uint8_t id, bool currentCon
 int write_torqueEnable(const uart_config_t* config, uint8_t id, bool on);
 int write_dxl_led(const uart_config_t* config, uint8_t id, uint8_t on);
 int write_goalCurrent(const uart_config_t* config, uint8_t id, int16_t value);
-int write_statusReturnLevel(const uart_config_t* config, uint8_t id, bool read_only);
+int write_statusReturnLevel(const uart_config_t* config, uint8_t id, uint8_t level);
 int read_position(const uart_config_t* config, uint8_t id, uint32_t* position);
 int control_position(const uart_config_t* config, uint8_t id, float angle);
+// int return_DelayTime(const uart_config_t* config, uint8_t id, uint8_t time);
+int control_SyncWrite(const uart_config_t* config, uint8_t id1, uint8_t id2, float angle1, float angle2);
 float control_current_limit(float present_current);
 
 #endif

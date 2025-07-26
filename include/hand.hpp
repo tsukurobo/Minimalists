@@ -19,7 +19,7 @@ void pump_set_speed(uint pump_pin, float duty);  // PWM デューティ設定（
 void pump_set_direction_pin(int dir_pin);        // 方向ピン初期化＋正転出力
 
 // ---- ソレノイド制御 ----
-void solenoid_init(int solenoid_pin);
+void solenoid_init(int solenoid_pin1, int solenoid_pin2);
 void solenoid_input(int state, int solenoid_pin, int solenoid_pin2, uint slice_num);
 
 #endif

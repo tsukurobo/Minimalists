@@ -63,13 +63,13 @@ void set_rx_mode(const uart_config_t* config) {
 void send_packet(const uart_config_t* config, const uint8_t* data, size_t length) {
     uart_clear_rx_buffer_safe(config);
     set_tx_mode(config);
-    sleep_us(1);  // DEピン安定化待ち
+    sleep_us(10);  // DEピン安定化待ち
     uart_write_blocking(config->uart_number, data, length);
     uart_hw_t* uart_hw = (config->uart_number == uart0) ? uart0_hw : uart1_hw;
     while (uart_hw->fr & UART_UARTFR_BUSY_BITS) {
         tight_loop_contents();
     }
-    // set_rx_mode(config);
+    set_rx_mode(config);
 }
 
 int receive_packet(const uart_config_t* config, uint8_t* rx_buf, size_t expected_len) {
@@ -211,7 +211,45 @@ int write_goalCurrent(const uart_config_t* config, uint8_t id, int16_t value) {
     return 0;
 }
 
-int write_statusReturnLevel(const uart_config_t* config, uint8_t id, bool read_only) {
+int control_SyncWrite(const uart_config_t* config, uint8_t id1, uint8_t id2, float angle1, float angle2) {
+    uint8_t packet[24];
+    uint16_t crc;
+
+    uint32_t position1 = static_cast<uint32_t>((angle1 / 360.0f) * 4095.0f);
+    uint32_t position2 = static_cast<uint32_t>((angle2 / 360.0f) * 4095.0f);
+
+    packet[0] = 0xFF;  // Header
+    packet[1] = 0xFF;
+    packet[2] = 0xFD;
+    packet[3] = 0x00;
+    packet[4] = 0xFE;  // ID
+    packet[5] = 0x11;  // Length L = 17
+    packet[6] = 0x00;  // Length H = 0
+    packet[7] = 0x83;  // Instruction
+    packet[8] = 0x74;  // Goal Position
+    packet[9] = 0x00;
+    packet[10] = 0x0;
+    packet[11] = 0x00;
+    packet[12] = id1;
+    packet[13] = position1 & 0xFF;
+    packet[14] = (position1 >> 8) & 0xFF;
+    packet[15] = (position1 >> 16) & 0xFF;
+    packet[16] = (position1 >> 24) & 0xFF;
+    packet[17] = id2;
+    packet[18] = position2 & 0xFF;
+    packet[19] = (position2 >> 8) & 0xFF;
+    packet[20] = (position2 >> 16) & 0xFF;
+    packet[21] = (position2 >> 24) & 0xFF;
+
+    crc = update_crc(0, packet, 22);
+    packet[22] = crc & 0xFF;
+    packet[23] = (crc >> 8) & 0xFF;
+
+    send_packet(config, packet, 24);
+    return 0;
+}
+
+int return_DelayTime(const uart_config_t* config, uint8_t id, uint8_t time) {
     uint8_t packet[13];
     uint16_t crc;
 
@@ -219,13 +257,37 @@ int write_statusReturnLevel(const uart_config_t* config, uint8_t id, bool read_o
     packet[1] = 0xFF;
     packet[2] = 0xFD;
     packet[3] = 0x00;
-    packet[4] = id;                        // ID
-    packet[5] = 0x06;                      // LEN_L = 6
-    packet[6] = 0x00;                      // LEN_H
-    packet[7] = 0x03;                      // Instruction: WRITE
-    packet[8] = 0x44;                      // Address L
-    packet[9] = 0x00;                      // Address H
-    packet[10] = read_only ? 0x01 : 0x02;  // LED value
+    packet[4] = id;
+    packet[5] = 0x06;  // 長さ: パラメータ1バイト + 3
+    packet[6] = 0x00;
+    packet[7] = 0x03;   // WRITE
+    packet[8] = 0x09;   // Address L (return delay time = 0x0009)
+    packet[9] = 0x00;   // Address H
+    packet[10] = time;  // 0~254
+
+    crc = update_crc(0, packet, 11);
+    packet[11] = crc & 0xFF;
+    packet[12] = (crc >> 8) & 0xFF;
+
+    send_packet(config, packet, 13);
+    return 0;
+}
+
+int write_statusReturnLevel(const uart_config_t* config, uint8_t id, uint8_t level) {
+    uint8_t packet[13];
+    uint16_t crc;
+
+    packet[0] = 0xFF;
+    packet[1] = 0xFF;
+    packet[2] = 0xFD;
+    packet[3] = 0x00;
+    packet[4] = id;    // ID
+    packet[5] = 0x06;  // LEN_L = 6
+    packet[6] = 0x00;  // LEN_H
+    packet[7] = 0x03;  // Instruction: WRITE
+    packet[8] = 0x44;  // Address L
+    packet[9] = 0x00;  // Address H
+    packet[10] = level;
 
     crc = update_crc(0, packet, 11);
     packet[11] = crc & 0xFF;
