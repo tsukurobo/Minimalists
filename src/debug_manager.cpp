@@ -182,10 +182,19 @@ void DebugManager::set_initial_positions(float pos_R, float pos_P) {
 bool DebugManager::should_start_trajectory_test(float current_time) {
     if (!trajectory_test_enabled) return false;
 
-    // 2秒後から、10秒間隔で軌道テストを実行
+    // 初回テスト用の状態管理
+    static bool first_test_done = false;
     static float last_test_time = 0.0f;
 
-    if (time_counter >= 2.0 && (time_counter - last_test_time >= 10.0)) {
+    // 初回は2秒後に実行
+    if (!first_test_done && time_counter >= 2.0) {
+        first_test_done = true;
+        last_test_time = time_counter;
+        return true;
+    }
+
+    // 2回目以降は10秒間隔で実行
+    if (first_test_done && (time_counter - last_test_time >= 10.0)) {
         last_test_time = time_counter;
         return true;
     }
@@ -193,6 +202,19 @@ bool DebugManager::should_start_trajectory_test(float current_time) {
     return false;
 }
 
+bool DebugManager::should_set_initial_trajectory() {
+    if (!trajectory_test_enabled) return false;
+
+    // 0.5秒後に初期軌道を設定（システム安定化を待つ）
+    static bool initial_trajectory_set = false;
+
+    if (!initial_trajectory_set && time_counter >= 0.5) {
+        initial_trajectory_set = true;
+        return true;
+    }
+
+    return false;
+}
 void DebugManager::get_test_trajectory_targets(bool is_forward, float& target_R, float& target_P) {
     const float gear_radius_P = 0.025;  // 25mm
 
