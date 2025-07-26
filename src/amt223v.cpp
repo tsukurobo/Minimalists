@@ -93,7 +93,7 @@ bool AMT223V::read_angle() {
 
         // 次の2バイトから回転回数を抽出（14ビット符号付き）
         uint16_t received_turn = (static_cast<uint16_t>(rx_data[2]) << 8) | static_cast<uint16_t>(rx_data[3]);
-        received_turn = 0x0FFF & received_turn;  // 14ビットでマスクとるとなんか動かなかったから12ビットマスクをとってる
+        received_turn = TURN_MASK & received_turn;  // 14ビットでマスク
 
         // // 受信したデータとマスク後のデータを表示
         // printf("Received hex: 0x%02X 0x%02X 0x%02X 0x%02X\n",
@@ -224,20 +224,20 @@ bool AMT223V::reset_turn_count() {
 
 void AMT223V::select() {
     gpio_put(cs_pin, 0);  // CSをLOWにして選択
-    sleep_us(3);          // セットアップ時間
+    sleep_us(10);         // セットアップ時間
 }
 
 void AMT223V::deselect() {
-    sleep_us(3);          // time before CS can be released
+    sleep_us(10);         // time before CS can be released
     gpio_put(cs_pin, 1);  // CSをHIGHにして非選択
-    sleep_us(40);         // time between reads
+    sleep_us(100);        // time between reads
 }
 
 void AMT223V::spi_transfer(const uint8_t* tx_data, uint8_t* rx_buffer, size_t length) {
     // SPI通信実行
     for (size_t i = 0; i < length; i++) {
         spi_write_read_blocking(spi_port, &tx_data[i], &rx_buffer[i], 1);
-        sleep_us(3);  // time between bytes
+        sleep_us(10);  // time between bytes
     }
 }
 
