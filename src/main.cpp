@@ -99,9 +99,9 @@ robomaster_motor_t motor2(&can, 2, gear_ratio_P);  // motor_id=2
 
 // PIDコントローラ（モータ1: 回転軸、モータ2: 直動軸）
 // 位置PID制御器（位置[rad] → 目標速度[rad/s]）
-constexpr float R_POSITION_KP = 5.0;  // R軸位置PIDの比例ゲイン
-constexpr float R_VELOCITY_KP = 5.0;  // R軸速度I-Pの比例ゲイン
-constexpr float R_VELOCITY_KI = 1.0;  // R軸速度I-Pの積分ゲイン
+constexpr float R_POSITION_KP = 1.0;  // R軸位置PIDの比例ゲイン
+constexpr float R_VELOCITY_KP = 0.2;  // R軸速度I-Pの比例ゲイン
+constexpr float R_VELOCITY_KI = 0.2;  // R軸速度I-Pの積分ゲイン
 // 27 * R_POSITION_KP * R_POSITION_KP * dynamics_R.get_inertia_mass();                           // R軸速度I-Pの積分ゲイン
 constexpr float P_POSITION_KP = 0.5;  // P軸位置PID (振動抑制のため下げた 0.7→0.5)
 constexpr float P_VELOCITY_KP = 0.1;  // P軸速度I-Pの比例ゲイン (積分ゲイン低下の補償で上げた 0.3→0.4)
@@ -618,10 +618,10 @@ void core1_entry(void) {
         }
 
         // // トルクから電流への変換
-        // target_current[0] = target_torque_R / dynamics_R.get_torque_constant();  // Motor1 (R軸)
-        // target_current[1] = target_torque_P / dynamics_P.get_torque_constant();  // Motor2 (P軸)
-        target_current[0] = 0.0;  // Motor1 (R軸)
-        target_current[1] = 0.0;  // Motor2 (P軸)
+        target_current[0] = target_torque_R / dynamics_R.get_torque_constant();  // Motor1 (R軸)
+        target_current[1] = target_torque_P / dynamics_P.get_torque_constant();  // Motor2 (P軸)
+        // target_current[0] = 0.0;  // Motor1 (R軸)
+        // target_current[1] = 0.0;  // Motor2 (P軸)
 
         // --- 制御結果を共有データに保存 ---
         mutex_enter_blocking(&g_state_mutex);
@@ -660,7 +660,7 @@ int main(void) {
     sleep_ms(2000);             // 少し待機して安定化
 
     // デバッグマネージャの初期化
-    g_debug_manager = new DebugManager(DebugLevel::INFO, 0.1f);
+    g_debug_manager = new DebugManager(DebugLevel::OFF, 0.1f);
 
     // 全SPIデバイスの初期化
     while (!init_all_spi_devices()) {
