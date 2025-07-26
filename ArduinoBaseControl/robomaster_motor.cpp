@@ -1,6 +1,6 @@
 #include "robomaster_motor.hpp"
 
-robomaster_motor_t::robomaster_motor_t(int16_t motor_id, double gear_ratio)
+robomaster_motor_t::robomaster_motor_t(int16_t motor_id, float gear_ratio)
     : motor_id_(motor_id),
       gear_ratio_(gear_ratio),
       prev_encoder_raw_(0),
@@ -9,7 +9,7 @@ robomaster_motor_t::robomaster_motor_t(int16_t motor_id, double gear_ratio)
       angular_velocity_(0.0) {
 }
 
-double robomaster_motor_t::update_encoder_angle(int16_t encoder_raw) {
+float robomaster_motor_t::update_encoder_angle(int16_t encoder_raw) {
     // エンコーダ値の差分を計算
     int16_t diff = encoder_raw - prev_encoder_raw_;
 
@@ -33,18 +33,18 @@ double robomaster_motor_t::update_encoder_angle(int16_t encoder_raw) {
     return continuous_angle_;
 }
 
-double robomaster_motor_t::rpm_to_angular_velocity(int16_t rpm) {
+float robomaster_motor_t::rpm_to_angular_velocity(int16_t rpm) {
     // RPMをラジアン/秒に変換（ギア比を考慮）
     angular_velocity_ = rpm * 2.0 * 3.14159265359 / 60.0 / gear_ratio_;
     return angular_velocity_;
 }
 
-double robomaster_motor_t::raw_to_current(int16_t current_raw) {
+float robomaster_motor_t::raw_to_current(int16_t current_raw) {
     // 生の電流値をアンペアに変換
     return current_raw * CURRENT_CONVERSION_FACTOR;
 }
 
-int16_t robomaster_motor_t::current_to_raw(double current_amp) {
+int16_t robomaster_motor_t::current_to_raw(float current_amp) {
     // 電流値（アンペア）を生値に変換
     return (int16_t)(current_amp / CURRENT_CONVERSION_FACTOR);
 }

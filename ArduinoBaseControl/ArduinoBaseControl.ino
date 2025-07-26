@@ -7,9 +7,9 @@
 #include "trajectory.hpp"
 
 // 制御関連の定数
-constexpr double MAX_CURRENT = 20.0;  // (A)
+constexpr float MAX_CURRENT = 20.0;  // (A)
 
-double g_start_time;  // 開始時刻（秒）
+float g_start_time;  // 開始時刻（秒）
 
 long unsigned int rxId;
 unsigned char len = 0;
@@ -19,9 +19,9 @@ long Pre_millis;
 MCP_CAN CAN0(53);
 
 // ベースのモータから出力軸までのギア比
-double gear_ratio_R = 3591.0 / 187.0 * 3.0;  // M3508(3591.0/187.0) * M3508出力軸からベース根本(3.0)
-double gear_ratio_P = 36.0;                  // M2006 P36のギア比
-double gear_radius_P = 0.025;                // ギアの半径 (m) - M2006の出力軸からラックまでの距離が25mm
+float gear_ratio_R = 3591.0 / 187.0 * 3.0;  // M3508(3591.0/187.0) * M3508出力軸からベース根本(3.0)
+float gear_ratio_P = 36.0;                  // M2006 P36のギア比
+float gear_radius_P = 0.025;                // ギアの半径 (m) - M2006の出力軸からラックまでの距離が25mm
 
 // RoboMasterモータインスタンス
 robomaster_motor_t motor_R(0x201, gear_ratio_R);  // ベース回転用M3508
@@ -96,15 +96,15 @@ void loop() {
     static bool auto_repeat_R = false, auto_repeat_P = false;    // 自動往復フラグ
     static bool target_is_180_R = true, target_is_out_P = true;  // 現在の目標状態
     static bool manual_mode_R = false, manual_mode_P = false;    // 手動制御フラグ
-    double total_current_R = 0.0, total_current_P = 0.0;         // 総電流制御量
+    float total_current_R = 0.0, total_current_P = 0.0;          // 総電流制御量
     // 軌道生成による目標値の計算
-    static double target_pos_R = 0, target_vel_R = 0, target_accel_R = 0;
-    static double target_pos_P = 0, target_vel_P = 0, target_accel_P = 0;
+    static float target_pos_R = 0, target_vel_R = 0, target_accel_R = 0;
+    static float target_pos_P = 0, target_vel_P = 0, target_accel_P = 0;
     static char mode = '\0';  // 現在のコマンドモードを保持
 
     if (Serial.available() > 0) {
         mode = Serial.read();
-        double val = Serial.readStringUntil('\n').toDouble();
+        float val = Serial.readStringUntil('\n').toDouble();
 
         if (mode == 'r') {   // R軸：回転軸コマンド（角度指定）
             if (val == 0) {  // r0: R軸往復動作開始
@@ -202,11 +202,11 @@ void loop() {
             String param = Serial.readStringUntil('\n');
             char axis = param.charAt(0);
             param = param.substring(1);  // "R,3.0,0.5,0.0" など
-            double kp = param.substring(1, param.indexOf(',', 1)).toDouble();
+            float kp = param.substring(1, param.indexOf(',', 1)).toDouble();
             int idx2 = param.indexOf(',', 1);
-            double ki = param.substring(idx2 + 1, param.indexOf(',', idx2 + 1)).toDouble();
+            float ki = param.substring(idx2 + 1, param.indexOf(',', idx2 + 1)).toDouble();
             int idx3 = param.indexOf(',', idx2 + 1);
-            double kd = param.substring(idx3 + 1).toDouble();
+            float kd = param.substring(idx3 + 1).toDouble();
 
             if (axis == 'R') {
                 pid_R_vel.set_kp(kp);
@@ -256,12 +256,12 @@ void loop() {
     }
 
     // R軸（回転軸）制御
-    double ff_current_R = 0;
+    float ff_current_R = 0;
     if (is_started_R) {
-        double current_time = millis() / 1000.0 - g_start_time;
+        float current_time = millis() / 1000.0 - g_start_time;
         trajectory_R.get_trapezoidal_state(current_time, &target_pos_R, &target_vel_R, &target_accel_R);
 
-        double ff_control_R = dynamics_R.calculate_feedforward_control(target_vel_R, target_accel_R);
+        float ff_control_R = dynamics_R.calculate_feedforward_control(target_vel_R, target_accel_R);
         ff_current_R = dynamics_R.convert_to_current_command(ff_control_R);
 
         if (current_time >= trajectory_R.get_total_time()) {
@@ -290,12 +290,12 @@ void loop() {
     }
 
     // P軸（直動軸）制御
-    double ff_current_P = 0;
+    float ff_current_P = 0;
     if (is_started_P) {
-        double current_time = millis() / 1000.0 - g_start_time;
+        float current_time = millis() / 1000.0 - g_start_time;
         trajectory_P.get_trapezoidal_state(current_time, &target_pos_P, &target_vel_P, &target_accel_P);
 
-        double ff_control_P = dynamics_P.calculate_feedforward_control(target_vel_P, target_accel_P);
+        float ff_control_P = dynamics_P.calculate_feedforward_control(target_vel_P, target_accel_P);
         ff_current_P = dynamics_P.convert_to_current_command(ff_control_P);
 
         if (current_time >= trajectory_P.get_total_time()) {
@@ -324,16 +324,16 @@ void loop() {
     }
 
     // PIDフィードバック制御量の計算（速度型PID使用）
-    double fb_current_R = 0.0, fb_current_P = 0.0;
+    float fb_current_R = 0.0, fb_current_P = 0.0;
 
     // R軸の制御量計算
     if (is_started_R) {
         // 自動軌道制御
         // 速度型PIDでフィードバック制御量を計算
-        double pid_output_R = pid_R_vel.calculate(target_vel_R, motor_R.get_angular_velocity(), 0.02);
+        float pid_output_R = pid_R_vel.calculate(target_vel_R, motor_R.get_angular_velocity(), 0.02);
 
         // フィードフォワード制御量を追加（PIDの出力制限内で）
-        double combined_current = pid_output_R + ff_current_R;
+        float combined_current = pid_output_R + ff_current_R;
         if (combined_current > 20.0) {
             total_current_R = 20.0;
         } else if (combined_current < -20.0) {
@@ -358,10 +358,10 @@ void loop() {
     if (is_started_P) {
         // 自動軌道制御
         // 速度型PIDでフィードバック制御量を計算
-        double pid_output_P = pid_P_vel.calculate(target_vel_P, motor_P.get_angular_velocity(), 0.02);
+        float pid_output_P = pid_P_vel.calculate(target_vel_P, motor_P.get_angular_velocity(), 0.02);
 
         // フィードフォワード制御量を追加（PIDの出力制限内で）
-        double combined_current = pid_output_P + ff_current_P;
+        float combined_current = pid_output_P + ff_current_P;
         if (combined_current > 10.0) {
             total_current_P = 10.0;
         } else if (combined_current < -10.0) {
