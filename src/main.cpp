@@ -646,18 +646,21 @@ int main(void) {
     sleep_ms(2000);             // 少し待機して安定化
 
     // 全SPIデバイスの初期化
-    if (!init_all_spi_devices()) {
-        return -1;
+    while (!init_all_spi_devices()) {
+        printf("SPI initialization failed, retrying...\n");
+        sleep_ms(1000);  // 1000ms待機して再試行
     }
 
     // エンコーダの初期化
-    if (!init_encoders()) {
-        return -1;
+    while (!init_encoders()) {
+        printf("Encoder initialization failed, retrying...\n");
+        sleep_ms(1000);  // 1000ms待機して再試行
     }
 
     // PIDコントローラの初期化
-    if (!init_pid_controllers()) {
-        return -1;
+    while (!init_pid_controllers()) {
+        printf("PID controller initialization failed, retrying...\n");
+        sleep_ms(1000);  // 1000ms待機して再試行
     }
 
     sleep_ms(2000);  // シリアル接続待ち
