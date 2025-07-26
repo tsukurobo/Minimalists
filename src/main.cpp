@@ -5,6 +5,7 @@
 
 #include "amt223v.hpp"
 #include "control_timing.hpp"
+#include "debug_manager.hpp"
 #include "dynamics.hpp"
 #include "mcp25625.hpp"
 #include "pico/multicore.h"
@@ -321,6 +322,9 @@ bool init_pid_controllers() {
 // 共有状態とミューテックス
 static robot_state_t g_robot_state;
 static mutex_t g_state_mutex;
+
+// グローバルデバッグマネージャ
+static DebugManager* g_debug_manager = nullptr;
 
 // 目標値設定用ヘルパー関数（Core0専用）
 void set_target_position_R(float target_pos) {
@@ -655,21 +659,24 @@ int main(void) {
     gpio_put(SHUTDOWN_PIN, 0);  // HIGHにしておくとPicoが動かないのでLOWに設定
     sleep_ms(2000);             // 少し待機して安定化
 
+    // デバッグマネージャの初期化
+    g_debug_manager = new DebugManager(DebugLevel::INFO, 0.1f);
+
     // 全SPIデバイスの初期化
     while (!init_all_spi_devices()) {
-        printf("SPI initialization failed, retrying...\n");
+        g_debug_manager->error("SPI initialization failed, retrying...");
         sleep_ms(1000);  // 1000ms待機して再試行
     }
 
     // エンコーダの初期化
     while (!init_encoders()) {
-        printf("Encoder initialization failed, retrying...\n");
+        g_debug_manager->error("Encoder initialization failed, retrying...");
         sleep_ms(1000);  // 1000ms待機して再試行
     }
 
     // PIDコントローラの初期化
     while (!init_pid_controllers()) {
-        printf("PID controller initialization failed, retrying...\n");
+        g_debug_manager->error("PID controller initialization failed, retrying...");
         sleep_ms(1000);  // 1000ms待機して再試行
     }
 
@@ -732,11 +739,10 @@ int main(void) {
 
     // Core1の初期化完了を待つ
     sleep_ms(1000);
-    printf("MCP25625 Initialized successfully!\n");
-    printf("Starting control loop at %.1f ms (%.0f Hz)\n", CONTROL_PERIOD_MS, 1000.0 / CONTROL_PERIOD_MS);
+    g_debug_manager->info("MCP25625 Initialized successfully!");
+    g_debug_manager->info("Starting control loop at %.1f ms (%.0f Hz)", CONTROL_PERIOD_MS, 1000.0 / CONTROL_PERIOD_MS);
 
     absolute_time_t next_main_time = get_absolute_time();
-    float main_start_time = 0.0;
 
     while (1) {
         next_main_time = delayed_by_us(next_main_time, 100'000);  // 100ms周期
@@ -748,19 +754,10 @@ int main(void) {
         mutex_exit(&g_state_mutex);
 
         // 軌道制御のテスト（10秒ごとに往復）
-        static float time_counter = 0.0;
-        time_counter += 0.1;  // 100ms周期で0.1秒ずつ増加
+        g_debug_manager->update_time_counter(0.1);  // 100ms周期で0.1秒ずつ増加
 
         // 10秒ごとに軌道を切り替え（往復動作）
-        static bool trajectory_started = false;
-        static bool forward_direction = true;  // true: 前進, false: 後退
-        static float last_trajectory_time = 0.0;
-        static float initial_pos_R = 0.0;     // R軸の基準位置
-        static float initial_pos_P = 0.0;     // P軸の基準位置
-        static bool initial_pos_set = false;  // 基準位置設定フラグ
-
-        // 10秒経過ごとに軌道を開始
-        if (time_counter >= 2.0 && (time_counter - last_trajectory_time >= 10.0 || !trajectory_started)) {
+        if (g_debug_manager->should_start_trajectory_test(current_main_time)) {
             // 現在位置を取得
             float current_pos_R, current_pos_P;
             mutex_enter_blocking(&g_state_mutex);
@@ -768,56 +765,23 @@ int main(void) {
             current_pos_P = g_robot_state.current_position_P;
             mutex_exit(&g_state_mutex);
 
-            // 初回のみ基準位置を設定（現在位置を基準として固定）
-            if (!initial_pos_set) {
-                initial_pos_R = current_pos_R;
-                initial_pos_P = current_pos_P;
-                initial_pos_set = true;
-                printf("Set initial positions: R=%.3f rad, P=%.3f rad (%.1f mm)\n",
-                       initial_pos_R, initial_pos_P, initial_pos_P * gear_radius_P * 1000.0);
-                printf("NOTE: This position will be used as the reference (0mm) for all movements\n");
-            }
+            // 初回のみ基準位置を設定
+            g_debug_manager->set_initial_positions(current_pos_R, current_pos_P);
 
-            if (forward_direction) {
-                // 前進方向の軌道（基準位置 → +550mm）
-                // R軸: 基準位置から(1/2)π rad（90度）回転
-                float target_R = initial_pos_R + 1.0 / 2.0 * M_PI;
-                set_target_position_R(target_R);
+            // 軌道目標値を取得
+            float target_R, target_P;
+            bool is_forward = g_debug_manager->is_forward_direction();
+            g_debug_manager->get_test_trajectory_targets(is_forward, target_R, target_P);
 
-                // P軸: 基準位置から550mm移動 一番遠いワークまでの距離 - 一番近いワークまでの距離
-                float target_P_m = 0.55;  // 550mm
-                float target_P_rad = target_P_m / gear_radius_P;
-                float target_P = initial_pos_P + target_P_rad;
-                set_target_position_P(target_P);
+            // 目標値を設定
+            set_target_position_R(target_R);
+            set_target_position_P(target_P);
 
-                printf("Started FORWARD trajectory at t=%.1fs:\n", time_counter);
-                printf("  Current position: P=%.3f rad (%.1f mm)\n",
-                       current_pos_P, current_pos_P * gear_radius_P * 1000.0);
-                printf("  Initial position: P=%.3f rad (%.1f mm)\n",
-                       initial_pos_P, initial_pos_P * gear_radius_P * 1000.0);
-                printf("  Target position:  P=%.3f rad (%.1f mm)\n",
-                       target_P, target_P * gear_radius_P * 1000.0);
-                printf("  Movement distance: %.1f mm\n", target_P_m * 1000.0);
-            } else {
-                // 後退方向の軌道（550mm → 基準位置）
-                // R軸: 基準位置に戻る
-                set_target_position_R(initial_pos_R);
+            // テスト情報を表示
+            g_debug_manager->print_trajectory_test_info(is_forward, current_pos_P, target_P, gear_radius_P);
 
-                // P軸: 基準位置に戻る
-                set_target_position_P(initial_pos_P);
-
-                printf("Started BACKWARD trajectory at t=%.1fs:\n", time_counter);
-                printf("  Current position: P=%.3f rad (%.1f mm)\n",
-                       current_pos_P, current_pos_P * gear_radius_P * 1000.0);
-                printf("  Target position:  P=%.3f rad (%.1f mm)\n",
-                       initial_pos_P, initial_pos_P * gear_radius_P * 1000.0);
-                printf("  Movement distance: %.1f mm\n",
-                       (initial_pos_P - current_pos_P) * gear_radius_P * 1000.0);
-            }
-
-            trajectory_started = true;
-            last_trajectory_time = time_counter;
-            forward_direction = !forward_direction;  // 次回は逆方向
+            // 次回は逆方向
+            g_debug_manager->toggle_direction();
         }
 
         // 状態を取得してデバッグ出力（排他制御あり）
@@ -858,104 +822,65 @@ int main(void) {
         bool encoder_p_valid = g_robot_state.encoder_p_valid;
         mutex_exit(&g_state_mutex);
 
-        // 軌道完了チェック（Core1で自動停止されるため、ここでは表示のみ）
-        static bool prev_trajectory_active_R = false;
-        static bool prev_trajectory_active_P = false;
+        // 軌道状態変化の検出
+        g_debug_manager->check_trajectory_state_changes(traj_active_R, traj_active_P,
+                                                        current_pos_R, current_pos_P,
+                                                        final_target_pos_R, final_target_pos_P,
+                                                        gear_radius_P);
 
-        // 軌道開始検出
-        if (!prev_trajectory_active_R && traj_active_R) {
-            printf("R-axis trajectory STARTED: %.3f → %.3f rad (%.1f° → %.1f°)\n",
-                   current_pos_R, final_target_pos_R,
-                   current_pos_R * 180.0 / M_PI, final_target_pos_R * 180.0 / M_PI);
-        }
-        if (!prev_trajectory_active_P && traj_active_P) {
-            printf("P-axis trajectory STARTED: %.3f → %.3f rad (%.1f → %.1f mm)\n",
-                   current_pos_P, final_target_pos_P,
-                   current_pos_P * gear_radius_P * 1000.0, final_target_pos_P * gear_radius_P * 1000.0);
-            printf("DEBUG: P-axis trajectory params - dist=%.3f rad (%.1f mm), max_vel=%.3f rad/s (%.1f mm/s)\n",
-                   final_target_pos_P - current_pos_P,
-                   (final_target_pos_P - current_pos_P) * gear_radius_P * 1000.0,
-                   TrajectoryLimits::P_MAX_VELOCITY,
-                   TrajectoryLimits::P_MAX_VELOCITY * gear_radius_P * 1000.0);
-        }
+        // 軌道制限値の表示（1回のみ）
+        g_debug_manager->print_trajectory_limits(TrajectoryLimits::R_MAX_VELOCITY, TrajectoryLimits::R_MAX_ACCELERATION,
+                                                 TrajectoryLimits::P_MAX_VELOCITY, TrajectoryLimits::P_MAX_ACCELERATION,
+                                                 gear_radius_P);
 
-        // 軌道完了検出
-        if (prev_trajectory_active_R && !traj_active_R) {
-            printf("R-axis trajectory COMPLETED\n");
-        }
-        if (prev_trajectory_active_P && !traj_active_P) {
-            printf("P-axis trajectory COMPLETED\n");
-        }
+        // 異常値検出
+        g_debug_manager->check_abnormal_values(traj_target_pos_P, gear_radius_P);
 
-        // 前回状態を保存
-        prev_trajectory_active_R = traj_active_R;
-        prev_trajectory_active_P = traj_active_P;
+        // 定期ステータス出力（1秒毎）
+        if (g_debug_manager->should_output_status(current_main_time)) {
+            // 軌道デバッグ情報構造体の作成
+            TrajectoryDebugInfo r_info = {
+                .final_target_pos = final_target_pos_R,
+                .trajectory_target_pos = traj_target_pos_R,
+                .trajectory_target_vel = traj_target_vel_R,
+                .current_pos = current_pos_R,
+                .current_vel = current_vel_R,
+                .final_target_vel = target_vel_R,
+                .trajectory_active = traj_active_R,
+                .gear_radius = 1.0f,  // R軸はrad単位なのでギア半径は使わない
+                .unit_name = "rad",
+                .axis_name = "R"};
 
-        // rad単位からm単位への変換
-        float current_pos_P_m = current_pos_P * gear_radius_P;
-        float current_vel_P_m = current_vel_P * gear_radius_P;
-        float target_vel_P_m = target_vel_P * gear_radius_P;
-        float traj_target_pos_P_m = traj_target_pos_P * gear_radius_P;
-        float traj_target_vel_P_m = traj_target_vel_P * gear_radius_P;
-        float final_target_pos_P_m = final_target_pos_P * gear_radius_P;
+            TrajectoryDebugInfo p_info = {
+                .final_target_pos = final_target_pos_P,
+                .trajectory_target_pos = traj_target_pos_P,
+                .trajectory_target_vel = traj_target_vel_P,
+                .current_pos = current_pos_P,
+                .current_vel = current_vel_P,
+                .final_target_vel = target_vel_P,
+                .trajectory_active = traj_active_P,
+                .gear_radius = gear_radius_P,
+                .unit_name = "rad",
+                .axis_name = "P"};
 
-        // 1秒毎のステータス出力（Core0で実行 - 重いprintf処理）
-        printf("\n=== Trapezoidal Profile Control Status ===\n");
-        printf("Trajectory Status: R=%s, P=%s\n",
-               traj_active_R ? "ACTIVE" : "STOPPED",
-               traj_active_P ? "ACTIVE" : "STOPPED");
+            // システム状態デバッグ情報構造体の作成
+            SystemDebugInfo sys_info = {
+                .timing_violations = timing_violations,
+                .can_errors = can_errors,
+                .led_status = led_status,
+                .encoder_r_valid = encoder_r_valid,
+                .encoder_p_valid = encoder_p_valid,
+                .target_torque_R = target_torque_R,
+                .target_torque_P = target_torque_P,
+                .target_current_R = target_cur_R,
+                .target_current_P = target_cur_P,
+                .encoder_p_turn_count = p_turn_count,
+                .encoder_p_single_angle_deg = p_single_angle,
+                .encoder_r_angle_deg = r_angle_deg};
 
-        // 軌道制限値の表示（デバッグ用）
-        static bool limits_displayed = false;
-        if (!limits_displayed) {
-            printf("=== Trajectory Limits ===\n");
-            printf("P_MAX_VELOCITY: %.3f rad/s (%.1f mm/s)\n",
-                   TrajectoryLimits::P_MAX_VELOCITY,
-                   TrajectoryLimits::P_MAX_VELOCITY * gear_radius_P * 1000.0);
-            printf("P_MAX_ACCELERATION: %.3f rad/s^2 (%.1f mm/s^2)\n",
-                   TrajectoryLimits::P_MAX_ACCELERATION,
-                   TrajectoryLimits::P_MAX_ACCELERATION * gear_radius_P * 1000.0);
-            limits_displayed = true;
-        }
-
-        printf("Final Target:      R=%.3f [rad] (%.1f°), P=%.3f [rad] (%.1f mm)\n",
-               final_target_pos_R, final_target_pos_R * 180.0 / M_PI,
-               final_target_pos_P, final_target_pos_P_m * 1000.0);
-        printf("Trajectory Target: R=%.3f [rad] (%.1f°), P=%.3f [rad] (%.1f mm)\n",
-               traj_target_pos_R, traj_target_pos_R * 180.0 / M_PI,
-               traj_target_pos_P, traj_target_pos_P_m * 1000.0);
-
-        // 異常な軌道目標位置の警告表示
-        if (std::abs(traj_target_pos_P) > 1000.0) {
-            printf("WARNING: Abnormal P-axis trajectory target detected! Value=%.3f rad (%.1f mm)\n",
-                   traj_target_pos_P, traj_target_pos_P_m * 1000.0);
-        }
-
-        printf("Current Position:  R=%.3f [rad] (%.1f°), P=%.3f [rad] (%.1f mm)\n",
-               current_pos_R, current_pos_R * 180.0 / M_PI,
-               current_pos_P, current_pos_P_m * 1000.0);
-        printf("Target Velocity:   R=%.2f [rad/s], P=%.2f [rad/s] (%.1f mm/s)\n",
-               traj_target_vel_R, traj_target_vel_P, traj_target_vel_P_m * 1000.0);
-        printf("Current Velocity:  R=%.2f [rad/s], P=%.2f [rad/s] (%.1f mm/s)\n",
-               current_vel_R, current_vel_P, current_vel_P_m * 1000.0);
-        printf("Final Target Vel:  R=%.2f [rad/s], P=%.2f [rad/s] (%.1f mm/s)\n",
-               target_vel_R, target_vel_P, target_vel_P_m * 1000.0);
-
-        // P軸マルチターン情報（共有変数から取得）
-        printf("P-axis multiturn: %d turns, single angle: %.1f°, continuous: %.3f rad (%.1f mm) [Valid: R=%s P=%s]\n",
-               p_turn_count, p_single_angle, current_pos_P, current_pos_P_m * 1000.0,
-               encoder_r_valid ? "OK" : "ERR", encoder_p_valid ? "OK" : "ERR");
-
-        // 制御詳細情報
-        printf("Control Output: TorqR=%.2f CurR=%.2fA TorqP=%.2f CurP=%.2fA [LED:%s]\n",
-               target_torque_R, target_cur_R, target_torque_P, target_cur_P,
-               get_led_status_string(led_status));
-        printf("Control Status: Violations:%d CAN_Errors:%d\n",
-               timing_violations, can_errors);
-
-        // エラー情報
-        if (can_errors > 0) {
-            printf("WARNING: CAN transmission errors: %d\n", can_errors);
+            // デバッグ情報出力
+            g_debug_manager->print_trajectory_status(r_info, p_info);
+            g_debug_manager->print_system_status(sys_info);
         }
 
         busy_wait_until(next_main_time);  // 1秒待機
