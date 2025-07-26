@@ -9,6 +9,16 @@ enum led_mode_t {
     LED_ON    // LED点灯（処理時間超過時）
 };
 
+// 制御タイミング統計構造体
+typedef struct {
+    uint64_t processing_time_us;  // 処理時間（マイクロ秒）
+    float processing_time_ms;     // 処理時間（ミリ秒）
+    float control_period_ms;      // 制御周期（ミリ秒）
+    uint32_t violation_count;     // 超過回数
+    bool is_violation;            // 現在の周期で超過したか
+    float cpu_usage_percent;      // CPU使用率（%）
+} timing_stats_t;
+
 // 制御周期超過時の動作モード
 enum timing_overflow_mode_t {
     OVERFLOW_MIN_WAIT,    // 最小待機時間を設ける（推奨）
@@ -66,11 +76,12 @@ void control_timing_end(control_timing_t* timing, float control_period_ms);
 const char* get_led_status_string(led_mode_t mode);
 
 /**
- * @brief 制御状態のデバッグ情報文字列取得
- * @param mode LED制御モード
- * @return LED状態を表す文字列
+ * @brief 詳細なタイミング統計情報を取得（必要時のみ呼び出し）
+ * @param timing 制御タイミング構造体のポインタ
+ * @param control_period_ms 制御周期（ミリ秒）
+ * @param stats 結果を格納する統計構造体のポインタ
  */
-const char* get_led_status_string(led_mode_t mode);
+void get_timing_stats(const control_timing_t* timing, float control_period_ms, timing_stats_t* stats);
 
 /**
  * @brief 制御周期超過時の動作モードを設定

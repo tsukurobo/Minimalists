@@ -15,7 +15,7 @@
 #include "trajectory.hpp"
 
 // 制御周期定数
-constexpr float CONTROL_PERIOD_MS = 2.0;                        // 制御周期 [ms]
+constexpr float CONTROL_PERIOD_MS = 1.0;                        // 制御周期 [ms]
 constexpr float CONTROL_PERIOD_S = CONTROL_PERIOD_MS / 1000.0;  // 制御周期 [s]
 
 // システム設定定数
@@ -384,7 +384,7 @@ void core1_entry(void) {
 
     while (true) {
         // 制御周期開始処理
-        control_timing_start(&control_timing, OVERFLOW_CONTINUOUS);
+        control_timing_start(&control_timing, CONTROL_PERIOD_MS);
 
         // 現在時刻を計算（制御開始からの経過時間）
         absolute_time_t current_abs_time = get_absolute_time();
