@@ -597,8 +597,8 @@ void core1_entry(void) {
         // float final_target_vel_P = vel_correction_P;
 
         // 速度I-P制御（速度偏差 → 目標トルク）
-        float target_torque_R = velocity_ip_R.computeVelocity(final_target_vel_R, motor_velocity_R) + ControlLimits::FeedForward::R_VELOCITY_GAIN * final_target_vel_R;
-        float target_torque_P = velocity_ip_P.computeVelocity(final_target_vel_P, motor_velocity_P) + ControlLimits::FeedForward::P_VELOCITY_GAIN * final_target_vel_P;
+        float target_torque_R = velocity_ip_R.computeVelocity(final_target_vel_R, motor_velocity_R) + ControlLimits::FeedForward::R_VELOCITY_GAIN * trajectory_target_vel_R;
+        float target_torque_P = velocity_ip_P.computeVelocity(final_target_vel_P, motor_velocity_P) + ControlLimits::FeedForward::P_VELOCITY_GAIN * trajectory_target_vel_P;
         // float target_torque_R = velocity_ip_R.computeVelocity(final_target_vel_R, motor_velocity_R);
         // float target_torque_P = velocity_ip_P.computeVelocity(final_target_vel_P, motor_velocity_P);
 
