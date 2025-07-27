@@ -67,16 +67,16 @@ constexpr float gear_radius_P = 0.025;  // ギアの半径 (m) - M2006の出力�
 
 // R軸（ベース回転）の動力学パラメータ
 dynamics_t dynamics_R(
-    0.024371,                 // 等価慣性モーメント (kg·m^2)
-    0.036437,                 // 等価粘性摩擦係数 (N·m·s/rad)
-    0.3 * gear_ratio_R * 0.7  // 等価トルク定数（M3508のトルク定数xギア比x伝達効率）(Nm/A)
+    0.3279,             // 等価慣性モーメント (kg·m^2)
+    0.4084,             // 等価粘性摩擦係数 (N·m·s/rad)
+    0.3 * gear_ratio_R  // 等価トルク定数（M3508のトルク定数xギア比）(Nm/A)
 );
 
 // P軸（アーム直動）の動力学パラメータ
 dynamics_t dynamics_P(
-    0.3,                        // 等価慣性モーメント (kg·m^2)
-    0.002651,                   // 粘性摩擦係数 (N·m·s/rad)
-    0.18 * gear_ratio_P * 0.66  // 等価トルク定数（M2006のトルク定数xギア比x伝達効率）(Nm/A)
+    0.017,               // 等価慣性モーメント (kg·m^2)
+    0.068,               // 粘性摩擦係数 (N·m·s/rad)
+    0.18 * gear_ratio_P  // 等価トルク定数（M2006のトルク定数xギア比）(Nm/A)
 );
 
 // 軌道生成と制御器で共通の制限定数
@@ -99,13 +99,12 @@ robomaster_motor_t motor2(&can, 2, gear_ratio_P);  // motor_id=2
 
 // PIDコントローラ（モータ1: 回転軸、モータ2: 直動軸）
 // 位置PID制御器（位置[rad] → 目標速度[rad/s]）
-constexpr float R_POSITION_KP = 1.0;  // R軸位置PIDの比例ゲイン
-constexpr float R_VELOCITY_KP = 0.2;  // R軸速度I-Pの比例ゲイン
-constexpr float R_VELOCITY_KI = 0.2;  // R軸速度I-Pの積分ゲイン
-// 27 * R_POSITION_KP * R_POSITION_KP * dynamics_R.get_inertia_mass();                           // R軸速度I-Pの積分ゲイン
-constexpr float P_POSITION_KP = 0.5;  // P軸位置PID (振動抑制のため下げた 0.7→0.5)
-constexpr float P_VELOCITY_KP = 0.1;  // P軸速度I-Pの比例ゲイン (積分ゲイン低下の補償で上げた 0.3→0.4)
-constexpr float P_VELOCITY_KI = 0.1;  // P軸速度I-Pの積分ゲイン (振動抑制のため大幅に下げた 1.0→0.4)
+constexpr float R_POSITION_KP = 16.0;  // R軸位置PIDの比例ゲイン
+constexpr float R_VELOCITY_KP = 8.0;   // R軸速度I-Pの比例ゲイン
+constexpr float R_VELOCITY_KI = 64.0;  // R軸速度I-Pの積分ゲイン
+constexpr float P_POSITION_KP = 16.0;  // P軸位置PIDの比例ゲイン
+constexpr float P_VELOCITY_KP = 3.0;   // P軸速度I-Pの比例ゲイン
+constexpr float P_VELOCITY_KI = 32.0;  // P軸速度I-Pの積分ゲイン
 
 // 制御器の制限値設定
 namespace ControlLimits {
