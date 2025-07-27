@@ -77,13 +77,13 @@ constexpr float P_TORQUE_CONSTANT = 0.18f * gear_ratio_P;  // 等価トルク定
 // 軌道生成と制御器で共通の制限定数
 namespace TrajectoryLimits {
 constexpr float R_MAX_VELOCITY = 482.0 / 60.0 * 2.0 * M_PI / gear_ratio_R;        // R軸最大速度制限 [rad/s] 無負荷回転数482rpm
-constexpr float P_MAX_VELOCITY = 0.4 * 500.0 / 60.0 * 2.0 * M_PI / gear_ratio_P;  // P軸最大速度制限 [rad/s] 無負荷回転数500rpm
+constexpr float P_MAX_VELOCITY = 0.2 * 500.0 / 60.0 * 2.0 * M_PI / gear_ratio_P;  // P軸最大速度制限 [rad/s] 無負荷回転数500rpm
 
 // 動力学パラメータとトルク制限から計算した最大角加速度
-constexpr float R_MAX_TORQUE = 3.0 * gear_ratio_R;                 // R軸最大トルク制限 [Nm] (M3508最大連続トルク 3.0Nm)
-constexpr float P_MAX_TORQUE = 1.0 * gear_ratio_P;                 // P軸最大トルク制限 [Nm] (M2006最大連続トルク 1.0Nm)
-constexpr float R_MAX_ACCELERATION = R_MAX_TORQUE / R_EQ_INERTIA;  // R軸最大角加速度 [rad/s^2]
-constexpr float P_MAX_ACCELERATION = P_MAX_TORQUE / P_EQ_INERTIA;  // P軸最大角加速度 [rad/s^2]
+constexpr float R_MAX_TORQUE = 3.0 * gear_ratio_R;                       // R軸最大トルク制限 [Nm] (M3508最大連続トルク 3.0Nm)
+constexpr float P_MAX_TORQUE = 1.0 * gear_ratio_P;                       // P軸最大トルク制限 [Nm] (M2006最大連続トルク 1.0Nm)
+constexpr float R_MAX_ACCELERATION = R_MAX_TORQUE / R_EQ_INERTIA * 0.2;  // R軸最大角加速度 [rad/s^2]
+constexpr float P_MAX_ACCELERATION = P_MAX_TORQUE / P_EQ_INERTIA * 0.2;  // P軸最大角加速度 [rad/s^2]
 }  // namespace TrajectoryLimits
 
 // RoboMasterモータオブジェクト
@@ -95,9 +95,9 @@ robomaster_motor_t motor2(&can, 2, gear_ratio_P);  // motor_id=2
 constexpr float R_POSITION_KP = 16.0;  // R軸位置PIDの比例ゲイン
 constexpr float R_VELOCITY_KP = 8.0;   // R軸速度I-Pの比例ゲイン
 constexpr float R_VELOCITY_KI = 64.0;  // R軸速度I-Pの積分ゲイン
-constexpr float P_POSITION_KP = 16.0;  // P軸位置PIDの比例ゲイン
-constexpr float P_VELOCITY_KP = 3.0;   // P軸速度I-Pの比例ゲイン
-constexpr float P_VELOCITY_KI = 32.0;  // P軸速度I-Pの積分ゲイン
+constexpr float P_POSITION_KP = 0.0;   // P軸位置PIDの比例ゲイン
+constexpr float P_VELOCITY_KP = 0.08;   // P軸速度I-Pの比例ゲイン
+constexpr float P_VELOCITY_KI = 2.8;   // P軸速度I-Pの積分ゲイン
 
 // 制御器の制限値設定
 namespace ControlLimits {
@@ -114,12 +114,12 @@ namespace P_Axis {
 constexpr float MAX_VELOCITY = 0.7 * TrajectoryLimits::P_MAX_VELOCITY;       // 位置PID出力の最大速度制限 [rad/s] - 軌道生成より小さく設定
 constexpr float INTEGRAL_VELOCITY = 0.6 * TrajectoryLimits::P_MAX_VELOCITY;  // 位置PID積分制限 [rad/s]
 constexpr float MAX_TORQUE = TrajectoryLimits::P_MAX_TORQUE;                 // 速度I-P出力の最大トルク制限 [Nm] - 軌道生成と共通
-constexpr float INTEGRAL_TORQUE = 0.8 * TrajectoryLimits::P_MAX_TORQUE;      // 速度I-P積分制限 [Nm]
+constexpr float INTEGRAL_TORQUE = 0.3 * TrajectoryLimits::P_MAX_TORQUE;      // 速度I-P積分制限 [Nm]
 }  // namespace P_Axis
 
 // フィードフォワード制御ゲイン
 namespace FeedForward {
-constexpr float POSITION_GAIN = 0.3;              // 位置フィードフォワードゲイン [0~1.0]
+constexpr float POSITION_GAIN = 1.0;              // 位置フィードフォワードゲイン [0~1.0]
 constexpr float R_VELOCITY_GAIN = R_VELOCITY_KP;  // R軸速度フィードフォワードゲイン [0~VELOCITY_KP]
 constexpr float P_VELOCITY_GAIN = P_VELOCITY_KP;  // P軸速度フィードフォワードゲイン [0~VELOCITY_KP]
 }  // namespace FeedForward
@@ -590,10 +590,10 @@ void core1_entry(void) {
         // float final_target_vel_P = vel_correction_P;
 
         // 速度I-P制御（速度偏差 → 目標トルク）
-        float target_torque_R = velocity_ip_R.computeVelocity(final_target_vel_R, motor_velocity_R) + ControlLimits::FeedForward::R_VELOCITY_GAIN * trajectory_target_vel_R;
-        float target_torque_P = velocity_ip_P.computeVelocity(final_target_vel_P, motor_velocity_P) + ControlLimits::FeedForward::P_VELOCITY_GAIN * trajectory_target_vel_P;
-        // float target_torque_R = velocity_ip_R.computeVelocity(final_target_vel_R, motor_velocity_R);
-        // float target_torque_P = velocity_ip_P.computeVelocity(final_target_vel_P, motor_velocity_P);
+        // float target_torque_R = velocity_ip_R.computeVelocity(final_target_vel_R, motor_velocity_R) + ControlLimits::FeedForward::R_VELOCITY_GAIN * trajectory_target_vel_R;
+        // float target_torque_P = velocity_ip_P.computeVelocity(final_target_vel_P, motor_velocity_P) + ControlLimits::FeedForward::P_VELOCITY_GAIN * trajectory_target_vel_P;
+        float target_torque_R = velocity_ip_R.computeVelocity(final_target_vel_R, motor_velocity_R);
+        float target_torque_P = velocity_ip_P.computeVelocity(final_target_vel_P, motor_velocity_P);
 
         // --- 制御出力の制限 ---
         // R軸のトルク制限
