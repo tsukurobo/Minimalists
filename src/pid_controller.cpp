@@ -98,8 +98,8 @@ float PIDController::computeIP(float setpoint, float input) {
     // I項は目標値、P項は偏差
     float output = ki * integral - kp * input;
 
-    // 出力制限
-    output = std::clamp(output, output_min, output_max);
+    // // 出力制限
+    // output = std::clamp(output, output_min, output_max);
 
     // 次回のために現在値を保存
     prev_error = error;
@@ -125,8 +125,8 @@ float PIDController::computePID(float setpoint, float input) {
     // PI-D出力計算
     float output = kp * error + ki * integral + kd * derivative;
 
-    // 出力制限
-    output = std::clamp(output, output_min, output_max);
+    // // 出力制限
+    // output = std::clamp(output, output_min, output_max);
 
     // 次回のために現在値を保存
     prev_error = error;
