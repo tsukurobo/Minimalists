@@ -6,7 +6,6 @@
 #include "amt223v.hpp"
 #include "control_timing.hpp"
 #include "debug_manager.hpp"
-#include "dynamics.hpp"
 #include "mcp25625.hpp"
 #include "pico/multicore.h"
 #include "pico/mutex.h"
@@ -65,19 +64,15 @@ constexpr float gear_ratio_R = 3.0;     // M3508出力軸からベース根本(3
 constexpr float gear_ratio_P = 1.0;     // M2006 P36出力軸からラックまで(ギアなし)
 constexpr float gear_radius_P = 0.025;  // ギアの半径 (m) - M2006の出力軸からラックまでの距離が25mm
 
-// R軸（ベース回転）の動力学パラメータ
-dynamics_t dynamics_R(
-    0.3279,             // 等価慣性モーメント (kg·m^2)
-    0.4084,             // 等価粘性摩擦係数 (N·m·s/rad)
-    0.3 * gear_ratio_R  // 等価トルク定数（M3508のトルク定数xギア比）(Nm/A)
-);
+// R軸（ベース回転）の動力学パラメータ（定数で表現）
+constexpr float R_EQ_INERTIA = 0.3279f;                   // 等価慣性モーメント (kg·m^2)
+constexpr float R_EQ_DAMPING = 0.4084f;                   // 等価粘性摩擦係数 (N·m·s/rad)
+constexpr float R_TORQUE_CONSTANT = 0.3f * gear_ratio_R;  // 等価トルク定数（M3508のトルク定数xギア比） (Nm/A)
 
-// P軸（アーム直動）の動力学パラメータ
-dynamics_t dynamics_P(
-    0.017,               // 等価慣性モーメント (kg·m^2)
-    0.068,               // 粘性摩擦係数 (N·m·s/rad)
-    0.18 * gear_ratio_P  // 等価トルク定数（M2006のトルク定数xギア比）(Nm/A)
-);
+// P軸（アーム直動）の動力学パラメータ（定数で表現）
+constexpr float P_EQ_INERTIA = 0.017f;                     // 等価慣性モーメント (kg·m^2)
+constexpr float P_EQ_DAMPING = 0.068f;                     // 粘性摩擦係数 (N·m·s/rad)
+constexpr float P_TORQUE_CONSTANT = 0.18f * gear_ratio_P;  // 等価トルク定数（M2006のトルク定数xギア比） (Nm/A)
 
 // 軌道生成と制御器で共通の制限定数
 namespace TrajectoryLimits {
@@ -85,12 +80,10 @@ constexpr float R_MAX_VELOCITY = 482.0 / 60.0 * 2.0 * M_PI / gear_ratio_R;      
 constexpr float P_MAX_VELOCITY = 0.4 * 500.0 / 60.0 * 2.0 * M_PI / gear_ratio_P;  // P軸最大速度制限 [rad/s] 無負荷回転数500rpm
 
 // 動力学パラメータとトルク制限から計算した最大角加速度
-constexpr float R_MAX_TORQUE = 3.0 * gear_ratio_R;              // R軸最大トルク制限 [Nm] (M3508最大連続トルク 3.0Nm)
-constexpr float P_MAX_TORQUE = 1.0 * gear_ratio_P;              // P軸最大トルク制限 [Nm] (M2006最大連続トルク 1.0Nm)
-constexpr float R_INERTIA = 0.024371;                           // R軸等価慣性モーメント [kg·m^2] - dynamics_R.get_inertia_mass()と同じ値
-constexpr float P_INERTIA = 0.3;                                // P軸等価慣性モーメント [kg·m^2] - dynamics_P.get_inertia_mass()と同じ値
-constexpr float R_MAX_ACCELERATION = R_MAX_TORQUE / R_INERTIA;  // R軸最大角加速度 [rad/s^2]
-constexpr float P_MAX_ACCELERATION = P_MAX_TORQUE / P_INERTIA;  // P軸最大角加速度 [rad/s^2]
+constexpr float R_MAX_TORQUE = 3.0 * gear_ratio_R;                 // R軸最大トルク制限 [Nm] (M3508最大連続トルク 3.0Nm)
+constexpr float P_MAX_TORQUE = 1.0 * gear_ratio_P;                 // P軸最大トルク制限 [Nm] (M2006最大連続トルク 1.0Nm)
+constexpr float R_MAX_ACCELERATION = R_MAX_TORQUE / R_EQ_INERTIA;  // R軸最大角加速度 [rad/s^2]
+constexpr float P_MAX_ACCELERATION = P_MAX_TORQUE / P_EQ_INERTIA;  // P軸最大角加速度 [rad/s^2]
 }  // namespace TrajectoryLimits
 
 // RoboMasterモータオブジェクト
@@ -617,8 +610,8 @@ void core1_entry(void) {
         }
 
         // // トルクから電流への変換
-        target_current[0] = target_torque_R / dynamics_R.get_torque_constant();  // Motor1 (R軸)
-        target_current[1] = target_torque_P / dynamics_P.get_torque_constant();  // Motor2 (P軸)
+        target_current[0] = target_torque_R / R_TORQUE_CONSTANT;  // Motor1 (R軸)
+        target_current[1] = target_torque_P / P_TORQUE_CONSTANT;  // Motor2 (P軸)
         // target_current[0] = 0.0;  // Motor1 (R軸)
         // target_current[1] = 0.0;  // Motor2 (P軸)
 
