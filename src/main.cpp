@@ -22,6 +22,30 @@ constexpr float CONTROL_PERIOD_S = CONTROL_PERIOD_MS / 1000.0;  // 制御周期 
 constexpr int SYNC_EVERY_N_LOOPS = 100;  // 100ループごとにCore0に同期信号を送信
 constexpr uint32_t SYNC_SIGNAL = 1;      // 同期信号の値
 
+// 軌道データ配列設定
+constexpr int MAX_TRAJECTORY_POINTS = 1000;         // 最大軌道点数
+constexpr uint32_t TRAJECTORY_DATA_SIGNAL = 2;      // 軌道データ送信信号
+constexpr uint32_t TRAJECTORY_COMPLETE_SIGNAL = 3;  // 軌道完了信号
+
+// 軌道データ点の構造体
+typedef struct {
+    float position_R;      // R軸目標位置 [rad]
+    float velocity_R;      // R軸目標速度 [rad/s]
+    float acceleration_R;  // R軸目標加速度 [rad/s^2]
+    float position_P;      // P軸目標位置 [rad]
+    float velocity_P;      // P軸目標速度 [rad/s]
+    float acceleration_P;  // P軸目標加速度 [rad/s^2]
+} trajectory_point_t;
+
+// 軌道データ管理構造体
+typedef struct {
+    trajectory_point_t points[MAX_TRAJECTORY_POINTS];
+    int point_count;
+    int current_index;
+    bool active;
+    bool complete;
+} trajectory_data_t;
+
 // システム設定定数
 constexpr int SHUTDOWN_PIN = 27;  // 明示的にLOWにしないとPicoが動かない
 
@@ -319,6 +343,10 @@ bool init_pid_controllers() {
 static robot_state_t g_robot_state;
 static mutex_t g_state_mutex;
 
+// 軌道データとミューテックス
+static trajectory_data_t g_trajectory_data;
+static mutex_t g_trajectory_mutex;
+
 // グローバルデバッグマネージャ
 static DebugManager* g_debug_manager = nullptr;
 
@@ -350,6 +378,69 @@ bool is_trajectory_completed_P() {
     bool active = g_robot_state.trajectory_active_P;
     mutex_exit(&g_state_mutex);
     return !active;
+}
+
+// Core0用軌道計算関数
+bool calculate_trajectory_core0(float current_pos_R, float current_pos_P, float target_pos_R, float target_pos_P) {
+    // Core0専用の軌道生成インスタンス
+    trajectory_t trajectory_R_core0(
+        TrajectoryLimits::R_MAX_VELOCITY,
+        TrajectoryLimits::R_MAX_ACCELERATION,
+        current_pos_R, target_pos_R);
+    trajectory_t trajectory_P_core0(
+        TrajectoryLimits::P_MAX_VELOCITY,
+        TrajectoryLimits::P_MAX_ACCELERATION,
+        current_pos_P, target_pos_P);
+
+    // 軌道パラメータを計算
+    trajectory_R_core0.calculate_trapezoidal_params();
+    trajectory_P_core0.calculate_trapezoidal_params();
+
+    // より長い軌道時間を取得
+    float total_time_R = trajectory_R_core0.get_total_time();
+    float total_time_P = trajectory_P_core0.get_total_time();
+    float max_time = std::max(total_time_R, total_time_P);
+
+    // 軌道点数を計算（制御周期ベース）
+    int point_count = static_cast<int>(max_time / CONTROL_PERIOD_S) + 1;
+    if (point_count > MAX_TRAJECTORY_POINTS) {
+        g_debug_manager->error("Trajectory too long: %d points (max: %d)", point_count, MAX_TRAJECTORY_POINTS);
+        return false;
+    }
+
+    // 軌道データを計算して配列に格納
+    mutex_enter_blocking(&g_trajectory_mutex);
+    g_trajectory_data.point_count = point_count;
+    g_trajectory_data.current_index = 0;
+    g_trajectory_data.active = false;
+    g_trajectory_data.complete = false;
+
+    for (int i = 0; i < point_count; i++) {
+        float time = i * CONTROL_PERIOD_S;
+
+        // R軸の軌道状態を計算
+        float pos_R, vel_R, accel_R;
+        trajectory_R_core0.get_trapezoidal_state(time, &pos_R, &vel_R, &accel_R);
+
+        // P軸の軌道状態を計算
+        float pos_P, vel_P, accel_P;
+        trajectory_P_core0.get_trapezoidal_state(time, &pos_P, &vel_P, &accel_P);
+
+        // 配列に格納
+        g_trajectory_data.points[i].position_R = pos_R;
+        g_trajectory_data.points[i].velocity_R = vel_R;
+        g_trajectory_data.points[i].acceleration_R = accel_R;
+        g_trajectory_data.points[i].position_P = pos_P;
+        g_trajectory_data.points[i].velocity_P = vel_P;
+        g_trajectory_data.points[i].acceleration_P = accel_P;
+    }
+    mutex_exit(&g_trajectory_mutex);
+
+    g_debug_manager->info("Trajectory calculated: %d points, max_time=%.2fs", point_count, max_time);
+    g_debug_manager->info("  R: %.3f → %.3f rad, P: %.3f → %.3f rad",
+                          current_pos_R, target_pos_R, current_pos_P, target_pos_P);
+
+    return true;
 }
 
 // Core 1: 通信・制御担当
@@ -388,6 +479,19 @@ void core1_entry(void) {
     while (true) {
         // 制御周期開始処理
         control_timing_start(&control_timing, CONTROL_PERIOD_MS);
+
+        // FIFOから軌道開始信号をチェック（ノンブロッキング）
+        uint32_t trajectory_signal;
+        if (multicore_fifo_pop_timeout_us(0, &trajectory_signal)) {
+            if (trajectory_signal == TRAJECTORY_DATA_SIGNAL) {
+                // 軌道データの実行を開始
+                mutex_enter_blocking(&g_trajectory_mutex);
+                g_trajectory_data.active = true;
+                g_trajectory_data.current_index = 0;
+                g_trajectory_data.complete = false;
+                mutex_exit(&g_trajectory_mutex);
+            }
+        }
 
         // 現在時刻を計算（制御開始からの経過時間）
         absolute_time_t current_abs_time = get_absolute_time();
@@ -470,107 +574,59 @@ void core1_entry(void) {
         g_robot_state.encoder_p_valid = enc2_ok;
 
         // 新しい目標値が設定された場合の軌道開始処理
-        if (new_target_R) {
-            g_robot_state.new_target_R = false;  // フラグをクリア
-            g_robot_state.trajectory_active_R = true;
-            g_robot_state.trajectory_start_time_R = current_time_s;
-            g_robot_state.trajectory_start_pos_R = motor_position_R;
-            trajectory_active_R = true;
-            trajectory_start_time_R = current_time_s;
-            trajectory_start_pos_R = motor_position_R;
+        if (new_target_R || new_target_P) {
+            // フラグをクリア
+            if (new_target_R) g_robot_state.new_target_R = false;
+            if (new_target_P) g_robot_state.new_target_P = false;
 
-            // R軸軌道を計算
-            trajectory_R_local.set_start_pos(motor_position_R);
-            trajectory_R_local.set_end_pos(target_pos_R);
-            trajectory_R_local.calculate_trapezoidal_params();
-
-            // 軌道開始をCore0に通知（簡易的にprintfなしで処理）
-        }
-
-        if (new_target_P) {
-            g_robot_state.new_target_P = false;  // フラグをクリア
-            g_robot_state.trajectory_active_P = true;
-            g_robot_state.trajectory_start_time_P = current_time_s;
-            g_robot_state.trajectory_start_pos_P = motor_position_P;
-            trajectory_active_P = true;
-            trajectory_start_time_P = current_time_s;
-            trajectory_start_pos_P = motor_position_P;
-
-            // P軸軌道計算前の状態をデバッグ出力（Core1では簡易出力のみ）
-            // P軸軌道を計算
-            trajectory_P_local.set_start_pos(motor_position_P);
-            trajectory_P_local.set_end_pos(target_pos_P);
-            trajectory_P_local.calculate_trapezoidal_params();
-
-            // 軌道計算後の検証
-            float debug_total_dist = trajectory_P_local.get_total_dist();
-            float debug_total_time = trajectory_P_local.get_total_time();
-
-            // 軌道開始をCore0に通知（簡易的にprintfなしで処理）
+            // 軌道データの準備完了を待つ（Core0からの軌道データ信号待ち）
+            // この処理は後で実装
         }
 
         mutex_exit(&g_state_mutex);
 
-        // --- 制御計算 ---
-        float trajectory_target_pos_R, trajectory_target_pos_P;
+        // --- 軌道データベースの制御計算 ---
+        float trajectory_target_pos_R = motor_position_R;  // デフォルトは現在位置
+        float trajectory_target_pos_P = motor_position_P;
         float trajectory_target_vel_R = 0.0;
         float trajectory_target_vel_P = 0.0;
         float trajectory_target_accel_R = 0.0;
         float trajectory_target_accel_P = 0.0;
 
-        // R軸の台形プロファイル計算
-        if (trajectory_active_R) {
-            float elapsed_time = current_time_s - trajectory_start_time_R;
-            trajectory_R_local.get_trapezoidal_state(elapsed_time, &trajectory_target_pos_R, &trajectory_target_vel_R, &trajectory_target_accel_R);
+        // 軌道データから目標値を取得
+        mutex_enter_blocking(&g_trajectory_mutex);
+        if (g_trajectory_data.active && g_trajectory_data.current_index < g_trajectory_data.point_count) {
+            int idx = g_trajectory_data.current_index;
+            trajectory_target_pos_R = g_trajectory_data.points[idx].position_R;
+            trajectory_target_vel_R = g_trajectory_data.points[idx].velocity_R;
+            trajectory_target_accel_R = g_trajectory_data.points[idx].acceleration_R;
+            trajectory_target_pos_P = g_trajectory_data.points[idx].position_P;
+            trajectory_target_vel_P = g_trajectory_data.points[idx].velocity_P;
+            trajectory_target_accel_P = g_trajectory_data.points[idx].acceleration_P;
+
+            // インデックスを進める
+            g_trajectory_data.current_index++;
 
             // 軌道完了チェック
-            if (elapsed_time >= trajectory_R_local.get_total_time()) {
-                mutex_enter_blocking(&g_state_mutex);
-                g_robot_state.trajectory_active_R = false;
-                mutex_exit(&g_state_mutex);
-                trajectory_active_R = false;
+            if (g_trajectory_data.current_index >= g_trajectory_data.point_count) {
+                g_trajectory_data.active = false;
+                g_trajectory_data.complete = true;
+
+                // Core0に完了信号を送信
+                if (!multicore_fifo_push_timeout_us(TRAJECTORY_COMPLETE_SIGNAL, 0)) {
+                    // FIFO満杯の場合は次回再試行
+                }
             }
-        } else {
-            // 軌道停止時は最後の目標値を保持
+        } else if (!g_trajectory_data.active) {
+            // 軌道停止時は最終目標位置を保持
             trajectory_target_pos_R = target_pos_R;
             trajectory_target_vel_R = 0.0;
             trajectory_target_accel_R = 0.0;
-        }
-
-        // P軸の台形プロファイル計算
-        if (trajectory_active_P) {
-            float elapsed_time = current_time_s - trajectory_start_time_P;
-            trajectory_P_local.get_trapezoidal_state(elapsed_time, &trajectory_target_pos_P, &trajectory_target_vel_P, &trajectory_target_accel_P);
-
-            // printf("R Trajectory: Pos=%.4f, Vel=%.4f, Accel=%.4f\n", trajectory_target_pos_P, trajectory_target_vel_P, trajectory_target_accel_P);
-
-            // 軌道結果の異常値検出とリセット処理
-            constexpr float MAX_REASONABLE_POS = 100.0;  // 100 rad = 約25 m（明らかに異常な値）
-            if (std::abs(trajectory_target_pos_P) > MAX_REASONABLE_POS) {
-                // 異常な軌道計算結果を検出した場合、軌道を停止
-                mutex_enter_blocking(&g_state_mutex);
-                g_robot_state.trajectory_active_P = false;
-                mutex_exit(&g_state_mutex);
-                trajectory_active_P = false;
-                trajectory_target_pos_P = motor_position_P;  // 現在位置で保持
-                trajectory_target_vel_P = 0.0;
-                trajectory_target_accel_P = 0.0;
-            }
-
-            // 軌道完了チェック
-            if (elapsed_time >= trajectory_P_local.get_total_time()) {
-                mutex_enter_blocking(&g_state_mutex);
-                g_robot_state.trajectory_active_P = false;
-                mutex_exit(&g_state_mutex);
-                trajectory_active_P = false;
-            }
-
-        } else {
-            // 軌道停止時は最後の目標値を保持
             trajectory_target_pos_P = target_pos_P;
             trajectory_target_vel_P = 0.0;
             trajectory_target_accel_P = 0.0;
         }
+        mutex_exit(&g_trajectory_mutex);
 
         // 位置PID制御（位置偏差 → 速度補正）
         float vel_correction_R = position_pid_R.computePosition(trajectory_target_pos_R, motor_position_R);
@@ -695,10 +751,19 @@ int main(void) {
     // LEDのGPIO初期化
     gpio_init(PICO_DEFAULT_LED_PIN);
     gpio_set_dir(PICO_DEFAULT_LED_PIN, GPIO_OUT);
+
     // ミューテックス初期化
     mutex_init(&g_state_mutex);
+    mutex_init(&g_trajectory_mutex);
+
     g_robot_state.motor_speed = 0;
     g_robot_state.sensor_value = 0;
+
+    // 軌道データの初期化
+    g_trajectory_data.point_count = 0;
+    g_trajectory_data.current_index = 0;
+    g_trajectory_data.active = false;
+    g_trajectory_data.complete = false;
 
     // 制御初期値
     g_robot_state.target_position_R = 0.0;  // 初期目標位置
@@ -756,12 +821,24 @@ int main(void) {
     // Core0メインループのカウンタ
     int core0_loop_count = 0;
 
+    // 軌道状態管理
+    enum trajectory_state_t {
+        TRAJECTORY_IDLE,         // アイドル状態
+        TRAJECTORY_CALCULATING,  // 軌道計算中
+        TRAJECTORY_EXECUTING,    // 軌道実行中
+        TRAJECTORY_WAITING       // 到達後の待機中
+    };
+
+    trajectory_state_t traj_state = TRAJECTORY_IDLE;
+    float wait_start_time = 0.0;
+    constexpr float WAIT_DURATION = 2.0;  // 到達後の待機時間 [s]
+
     while (1) {
         // FIFOから同期信号を待機（ブロッキング）
-        uint32_t sync_signal = multicore_fifo_pop_blocking();
+        uint32_t signal = multicore_fifo_pop_blocking();
 
         // 同期信号を受信したら処理を実行
-        if (sync_signal == SYNC_SIGNAL) {
+        if (signal == SYNC_SIGNAL) {
             core0_loop_count++;
 
             // 現在時刻を取得
@@ -775,58 +852,96 @@ int main(void) {
             float sync_period_s = (CONTROL_PERIOD_S * SYNC_EVERY_N_LOOPS);
             g_debug_manager->update_time_counter(sync_period_s);
 
-            // システム起動後の初期軌道設定
-            if (g_debug_manager->should_set_initial_trajectory()) {
-                // 現在位置を取得
-                float current_pos_R, current_pos_P;
-                mutex_enter_blocking(&g_state_mutex);
-                current_pos_R = g_robot_state.current_position_R;
-                current_pos_P = g_robot_state.current_position_P;
-                mutex_exit(&g_state_mutex);
+            // 軌道状態機械による処理
+            switch (traj_state) {
+                case TRAJECTORY_IDLE:
+                    // システム起動後の初期軌道設定
+                    if (g_debug_manager->should_set_initial_trajectory()) {
+                        // 現在位置を取得
+                        float current_pos_R, current_pos_P;
+                        mutex_enter_blocking(&g_state_mutex);
+                        current_pos_R = g_robot_state.current_position_R;
+                        current_pos_P = g_robot_state.current_position_P;
+                        mutex_exit(&g_state_mutex);
 
-                // 基準位置を設定
-                g_debug_manager->set_initial_positions(current_pos_R, current_pos_P);
+                        // 基準位置を設定
+                        g_debug_manager->set_initial_positions(current_pos_R, current_pos_P);
 
-                // 初期軌道を設定（前進方向）
-                float target_R, target_P;
-                g_debug_manager->get_test_trajectory_targets(true, target_R, target_P);
+                        // 初期軌道を設定（前進方向）
+                        float target_R, target_P;
+                        g_debug_manager->get_test_trajectory_targets(true, target_R, target_P);
 
-                // 目標値を設定
-                set_target_position_R(target_R);
-                set_target_position_P(target_P);
+                        // 軌道を計算
+                        if (calculate_trajectory_core0(current_pos_R, current_pos_P, target_R, target_P)) {
+                            // Core1に軌道開始信号を送信
+                            if (multicore_fifo_push_timeout_us(TRAJECTORY_DATA_SIGNAL, 0)) {
+                                traj_state = TRAJECTORY_EXECUTING;
+                                g_debug_manager->info("Initial trajectory sent to Core1");
+                            }
+                        }
+                    }
 
-                // 初期軌道設定情報を表示
-                g_debug_manager->info("Initial trajectory set - Moving to forward position");
-                g_debug_manager->print_trajectory_test_info(true, current_pos_P, target_P, gear_radius_P);
+                    // 10秒ごとに軌道を切り替え（往復動作）
+                    else if (g_debug_manager->should_start_trajectory_test(current_main_time)) {
+                        // 現在位置を取得
+                        float current_pos_R, current_pos_P;
+                        mutex_enter_blocking(&g_state_mutex);
+                        current_pos_R = g_robot_state.current_position_R;
+                        current_pos_P = g_robot_state.current_position_P;
+                        mutex_exit(&g_state_mutex);
+
+                        // 軌道目標値を取得
+                        float target_R, target_P;
+                        bool is_forward = g_debug_manager->is_forward_direction();
+                        g_debug_manager->get_test_trajectory_targets(is_forward, target_R, target_P);
+
+                        // 軌道を計算
+                        if (calculate_trajectory_core0(current_pos_R, current_pos_P, target_R, target_P)) {
+                            // Core1に軌道開始信号を送信
+                            if (multicore_fifo_push_timeout_us(TRAJECTORY_DATA_SIGNAL, 0)) {
+                                traj_state = TRAJECTORY_EXECUTING;
+                                g_debug_manager->print_trajectory_test_info(is_forward, current_pos_P, target_P, gear_radius_P);
+                                g_debug_manager->toggle_direction();  // 次回は逆方向
+                            }
+                        }
+                    }
+                    break;
+
+                case TRAJECTORY_EXECUTING:
+                    // 軌道実行中は何もしない（完了信号待ち）
+                    break;
+
+                case TRAJECTORY_WAITING:
+                    // 待機時間終了チェック
+                    if (current_main_time - wait_start_time >= WAIT_DURATION) {
+                        traj_state = TRAJECTORY_IDLE;
+                        g_debug_manager->info("Wait completed, returning to idle");
+                    }
+                    break;
             }
 
-            // 10秒ごとに軌道を切り替え（往復動作）
-            if (g_debug_manager->should_start_trajectory_test(current_main_time)) {
-                // 現在位置を取得
-                float current_pos_R, current_pos_P;
+        } else if (signal == TRAJECTORY_COMPLETE_SIGNAL) {
+            // 軌道完了信号を受信
+            if (traj_state == TRAJECTORY_EXECUTING) {
+                traj_state = TRAJECTORY_WAITING;
+
+                float current_main_time = 0.0;
                 mutex_enter_blocking(&g_state_mutex);
-                current_pos_R = g_robot_state.current_position_R;
-                current_pos_P = g_robot_state.current_position_P;
+                current_main_time = g_robot_state.current_time;
                 mutex_exit(&g_state_mutex);
 
-                // 初回のみ基準位置を設定
-                g_debug_manager->set_initial_positions(current_pos_R, current_pos_P);
-
-                // 軌道目標値を取得
-                float target_R, target_P;
-                bool is_forward = g_debug_manager->is_forward_direction();
-                g_debug_manager->get_test_trajectory_targets(is_forward, target_R, target_P);
-
-                // 目標値を設定
-                set_target_position_R(target_R);
-                set_target_position_P(target_P);
-
-                // テスト情報を表示
-                g_debug_manager->print_trajectory_test_info(is_forward, current_pos_P, target_P, gear_radius_P);
-
-                // 次回は逆方向
-                g_debug_manager->toggle_direction();
+                wait_start_time = current_main_time;
+                g_debug_manager->info("Trajectory completed, starting wait (%.1fs)", WAIT_DURATION);
             }
+        }
+
+        // 通常の状態監視とデバッグ出力（同期信号受信時のみ）
+        if (signal == SYNC_SIGNAL) {
+            // 現在時刻を再取得
+            float current_main_time = 0.0;
+            mutex_enter_blocking(&g_state_mutex);
+            current_main_time = g_robot_state.current_time;
+            mutex_exit(&g_state_mutex);
 
             // 状態を取得してデバッグ出力（排他制御あり）
             mutex_enter_blocking(&g_state_mutex);
