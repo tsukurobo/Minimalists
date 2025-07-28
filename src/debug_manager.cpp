@@ -262,6 +262,30 @@ bool DebugManager::should_output_status(float current_time) {
     return false;
 }
 
+void DebugManager::print_trajectory_progress(float current_pos_R, float current_pos_P,
+                                             float trajectory_final_target_R, float trajectory_final_target_P,
+                                             bool trajectory_position_reached,
+                                             int trajectory_current_index, int trajectory_point_count,
+                                             float gear_radius_P) {
+    // 位置誤差計算
+    float position_error_R = std::abs(trajectory_final_target_R - current_pos_R);
+    float position_error_P = std::abs(trajectory_final_target_P - current_pos_P);
+
+    // 軌道進行状況の出力
+    if (trajectory_point_count > 0) {
+        info("Trajectory progress: %d/%d points, Position errors: R=%.4f rad, P=%.1f μm",
+             trajectory_current_index, trajectory_point_count,
+             position_error_R, position_error_P * gear_radius_P * 1000000.0);
+
+        if (trajectory_current_index >= trajectory_point_count) {
+            info("Trajectory completion: Target R=%.3f rad, P=%.1f mm, Reached=%s",
+                 trajectory_final_target_R,
+                 trajectory_final_target_P * gear_radius_P * 1000.0,
+                 trajectory_position_reached ? "Yes" : "No");
+        }
+    }
+}
+
 void DebugManager::print_with_level_prefix(DebugLevel level, const char* format, va_list args) {
     printf("[%s] ", get_level_string(level));
     vprintf(format, args);

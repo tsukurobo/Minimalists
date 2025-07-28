@@ -22,6 +22,11 @@ constexpr float CONTROL_PERIOD_S = CONTROL_PERIOD_MS / 1000.0;  // 制御周期 
 constexpr int SYNC_EVERY_N_LOOPS = 100;  // 100ループごとにCore0に同期信号を送信
 constexpr uint32_t SYNC_SIGNAL = 1;      // 同期信号の値
 
+// 軌道完了判定の許容誤差
+constexpr float TRAJECTORY_COMPLETION_TOLERANCE_R = 0.01;        // R軸完了判定許容誤差 [rad] (約0.6度)
+constexpr float TRAJECTORY_COMPLETION_TOLERANCE_P = 0.0005;      // P軸完了判定許容誤差 [rad] (約12.5μm相当)
+constexpr float TRAJECTORY_COMPLETION_VELOCITY_THRESHOLD = 0.1;  // 完了判定時の速度閾値 [rad/s]
+
 // 軌道データ配列設定
 constexpr int MAX_TRAJECTORY_POINTS = 1000;         // 最大軌道点数
 constexpr uint32_t TRAJECTORY_DATA_SIGNAL = 2;      // 軌道データ送信信号
@@ -64,6 +69,9 @@ typedef struct {
     int current_index;
     bool active;
     bool complete;
+    float final_target_R;   // 最終目標位置 R軸 [rad]
+    float final_target_P;   // 最終目標位置 P軸 [rad]
+    bool position_reached;  // 位置到達フラグ
 } trajectory_data_t;
 
 // システム設定定数
@@ -557,6 +565,9 @@ bool calculate_trajectory_core0(float current_pos_R, float current_pos_P, float 
     g_trajectory_data.current_index = 0;
     g_trajectory_data.active = false;
     g_trajectory_data.complete = false;
+    g_trajectory_data.final_target_R = target_pos_R;  // 最終目標位置を保存
+    g_trajectory_data.final_target_P = target_pos_P;
+    g_trajectory_data.position_reached = false;
 
     for (int i = 0; i < point_count; i++) {
         float time = i * CONTROL_PERIOD_S;
@@ -632,6 +643,7 @@ void core1_entry(void) {
                 g_trajectory_data.active = true;
                 g_trajectory_data.current_index = 0;
                 g_trajectory_data.complete = false;
+                g_trajectory_data.position_reached = false;  // 位置到達フラグをリセット
                 mutex_exit(&g_trajectory_mutex);
             }
         }
@@ -738,6 +750,7 @@ void core1_entry(void) {
 
         // 軌道データから目標値を取得
         mutex_enter_blocking(&g_trajectory_mutex);
+        bool trajectory_completed = false;
         if (g_trajectory_data.active && g_trajectory_data.current_index < g_trajectory_data.point_count) {
             int idx = g_trajectory_data.current_index;
             trajectory_target_pos_R = g_trajectory_data.points[idx].position_R;
@@ -750,14 +763,31 @@ void core1_entry(void) {
             // インデックスを進める
             g_trajectory_data.current_index++;
 
-            // 軌道完了チェック
+            // 軌道の時系列が完了した場合、位置ベースの完了判定に移行
             if (g_trajectory_data.current_index >= g_trajectory_data.point_count) {
-                g_trajectory_data.active = false;
-                g_trajectory_data.complete = true;
+                // 最終目標位置を設定し、位置到達判定モードに移行
+                trajectory_target_pos_R = g_trajectory_data.final_target_R;
+                trajectory_target_pos_P = g_trajectory_data.final_target_P;
+                trajectory_target_vel_R = 0.0;
+                trajectory_target_vel_P = 0.0;
+                trajectory_target_accel_R = 0.0;
+                trajectory_target_accel_P = 0.0;
 
-                // Core0に完了信号を送信
-                if (!multicore_fifo_push_timeout_us(TRAJECTORY_COMPLETE_SIGNAL, 0)) {
-                    // FIFO満杯の場合は次回再試行
+                // 位置到達判定
+                float position_error_R = std::abs(g_trajectory_data.final_target_R - motor_position_R);
+                float position_error_P = std::abs(g_trajectory_data.final_target_P - motor_position_P);
+                float velocity_magnitude_R = std::abs(motor_velocity_R);
+                float velocity_magnitude_P = std::abs(motor_velocity_P);
+
+                // 位置誤差と速度が両方とも許容範囲内の場合に完了とする
+                if (position_error_R < TRAJECTORY_COMPLETION_TOLERANCE_R &&
+                    position_error_P < TRAJECTORY_COMPLETION_TOLERANCE_P &&
+                    velocity_magnitude_R < TRAJECTORY_COMPLETION_VELOCITY_THRESHOLD &&
+                    velocity_magnitude_P < TRAJECTORY_COMPLETION_VELOCITY_THRESHOLD) {
+                    g_trajectory_data.active = false;
+                    g_trajectory_data.complete = true;
+                    g_trajectory_data.position_reached = true;
+                    trajectory_completed = true;
                 }
             }
         } else if (!g_trajectory_data.active) {
@@ -770,6 +800,13 @@ void core1_entry(void) {
             trajectory_target_accel_P = 0.0;
         }
         mutex_exit(&g_trajectory_mutex);
+
+        // 軌道完了信号の送信（mutex外で実行）
+        if (trajectory_completed) {
+            if (!multicore_fifo_push_timeout_us(TRAJECTORY_COMPLETE_SIGNAL, 0)) {
+                // FIFO満杯の場合は次回再試行
+            }
+        }
 
         // 位置PID制御（位置偏差 → 速度補正）
         float vel_correction_R = position_pid_R.computePosition(trajectory_target_pos_R, motor_position_R);
@@ -908,6 +945,9 @@ int main(void) {
     g_trajectory_data.current_index = 0;
     g_trajectory_data.active = false;
     g_trajectory_data.complete = false;
+    g_trajectory_data.final_target_R = 0.0;
+    g_trajectory_data.final_target_P = 0.0;
+    g_trajectory_data.position_reached = false;
 
     // 制御初期値
     g_robot_state.target_position_R = 0.0;  // 初期目標位置
@@ -1163,7 +1203,25 @@ int main(void) {
                 // Core0同期回数情報を追加
                 g_debug_manager->info("Core0 sync count: %d (every %d Core1 loops)", core0_loop_count, SYNC_EVERY_N_LOOPS);
 
-                // 軌道デバッグ情報構造体の作成
+                // 軌道完了状況の詳細情報を取得
+                float trajectory_final_target_R = 0.0, trajectory_final_target_P = 0.0;
+                bool trajectory_position_reached = false;
+                int trajectory_current_index = 0, trajectory_point_count = 0;
+
+                mutex_enter_blocking(&g_trajectory_mutex);
+                trajectory_final_target_R = g_trajectory_data.final_target_R;
+                trajectory_final_target_P = g_trajectory_data.final_target_P;
+                trajectory_position_reached = g_trajectory_data.position_reached;
+                trajectory_current_index = g_trajectory_data.current_index;
+                trajectory_point_count = g_trajectory_data.point_count;
+                mutex_exit(&g_trajectory_mutex);
+
+                // 軌道進行状況の出力（debug_managerに委譲）
+                g_debug_manager->print_trajectory_progress(current_pos_R, current_pos_P,
+                                                           trajectory_final_target_R, trajectory_final_target_P,
+                                                           trajectory_position_reached,
+                                                           trajectory_current_index, trajectory_point_count,
+                                                           gear_radius_P);  // 軌道デバッグ情報構造体の作成
                 TrajectoryDebugInfo r_info = {
                     .final_target_pos = final_target_pos_R,
                     .trajectory_target_pos = traj_target_pos_R,

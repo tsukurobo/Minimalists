@@ -237,6 +237,23 @@ class DebugManager {
     bool should_output_status(float current_time);
 
     /**
+     * @brief 軌道進行状況のデバッグ出力
+     * @param current_pos_R 現在のR軸位置 [rad]
+     * @param current_pos_P 現在のP軸位置 [rad]
+     * @param trajectory_final_target_R 最終目標R軸位置 [rad]
+     * @param trajectory_final_target_P 最終目標P軸位置 [rad]
+     * @param trajectory_position_reached 位置到達フラグ
+     * @param trajectory_current_index 現在の軌道インデックス
+     * @param trajectory_point_count 軌道点総数
+     * @param gear_radius_P P軸のギア半径 [m]
+     */
+    void print_trajectory_progress(float current_pos_R, float current_pos_P,
+                                   float trajectory_final_target_R, float trajectory_final_target_P,
+                                   bool trajectory_position_reached,
+                                   int trajectory_current_index, int trajectory_point_count,
+                                   float gear_radius_P);
+
+    /**
      * @brief デバッグレベルの設定
      * @param level 新しいデバッグレベル
      */
