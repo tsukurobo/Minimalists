@@ -18,6 +18,10 @@
 constexpr float CONTROL_PERIOD_MS = 1.0;                        // 制御周期 [ms]
 constexpr float CONTROL_PERIOD_S = CONTROL_PERIOD_MS / 1000.0;  // 制御周期 [s]
 
+// Core間同期設定
+constexpr int SYNC_EVERY_N_LOOPS = 100;  // 100ループごとにCore0に同期信号を送信
+constexpr uint32_t SYNC_SIGNAL = 1;      // 同期信号の値
+
 // システム設定定数
 constexpr int SHUTDOWN_PIN = 27;  // 明示的にLOWにしないとPicoが動かない
 
@@ -378,6 +382,9 @@ void core1_entry(void) {
     // 制御開始時刻を記録
     absolute_time_t control_start_time = get_absolute_time();
 
+    // ループカウンタの初期化
+    int loop_counter = 0;
+
     while (true) {
         // 制御周期開始処理
         control_timing_start(&control_timing, CONTROL_PERIOD_MS);
@@ -639,6 +646,17 @@ void core1_entry(void) {
             mutex_exit(&g_state_mutex);
         }
 
+        // ループカウンタを更新し、指定回数に達したらCore0に同期信号を送信
+        loop_counter++;
+        if (loop_counter >= SYNC_EVERY_N_LOOPS) {
+            loop_counter = 0;  // カウンタをリセット
+
+            // FIFOに同期信号を送信（ノンブロッキング）
+            if (!multicore_fifo_push_timeout_us(SYNC_SIGNAL, 0)) {
+                // FIFO満杯の場合は何もしない（次回再試行）
+            }
+        }
+
         // 制御周期終了処理
         control_timing_end(&control_timing, CONTROL_PERIOD_MS);
     }
@@ -733,174 +751,185 @@ int main(void) {
     sleep_ms(1000);
     g_debug_manager->info("MCP25625 Initialized successfully!");
     g_debug_manager->info("Starting control loop at %.1f ms (%.0f Hz)", CONTROL_PERIOD_MS, 1000.0 / CONTROL_PERIOD_MS);
+    g_debug_manager->info("Core sync enabled: Core0 processes every %d Core1 loops (%.1f ms)", SYNC_EVERY_N_LOOPS, CONTROL_PERIOD_MS * SYNC_EVERY_N_LOOPS);
 
-    absolute_time_t next_main_time = get_absolute_time();
+    // Core0メインループのカウンタ
+    int core0_loop_count = 0;
 
     while (1) {
-        next_main_time = delayed_by_us(next_main_time, 100'000);  // 100ms周期
+        // FIFOから同期信号を待機（ブロッキング）
+        uint32_t sync_signal = multicore_fifo_pop_blocking();
 
-        // 現在時刻を取得
-        float current_main_time = 0.0;
-        mutex_enter_blocking(&g_state_mutex);
-        current_main_time = g_robot_state.current_time;
-        mutex_exit(&g_state_mutex);
+        // 同期信号を受信したら処理を実行
+        if (sync_signal == SYNC_SIGNAL) {
+            core0_loop_count++;
 
-        // 軌道制御のテスト（10秒ごとに往復）
-        g_debug_manager->update_time_counter(0.1);  // 100ms周期で0.1秒ずつ増加
-
-        // システム起動後の初期軌道設定
-        if (g_debug_manager->should_set_initial_trajectory()) {
-            // 現在位置を取得
-            float current_pos_R, current_pos_P;
+            // 現在時刻を取得
+            float current_main_time = 0.0;
             mutex_enter_blocking(&g_state_mutex);
-            current_pos_R = g_robot_state.current_position_R;
-            current_pos_P = g_robot_state.current_position_P;
+            current_main_time = g_robot_state.current_time;
             mutex_exit(&g_state_mutex);
 
-            // 基準位置を設定
-            g_debug_manager->set_initial_positions(current_pos_R, current_pos_P);
+            // 軌道制御のテスト（10秒ごとに往復）
+            // Core1の制御周期に基づいてタイミングを計算
+            float sync_period_s = (CONTROL_PERIOD_S * SYNC_EVERY_N_LOOPS);
+            g_debug_manager->update_time_counter(sync_period_s);
 
-            // 初期軌道を設定（前進方向）
-            float target_R, target_P;
-            g_debug_manager->get_test_trajectory_targets(true, target_R, target_P);
+            // システム起動後の初期軌道設定
+            if (g_debug_manager->should_set_initial_trajectory()) {
+                // 現在位置を取得
+                float current_pos_R, current_pos_P;
+                mutex_enter_blocking(&g_state_mutex);
+                current_pos_R = g_robot_state.current_position_R;
+                current_pos_P = g_robot_state.current_position_P;
+                mutex_exit(&g_state_mutex);
 
-            // 目標値を設定
-            set_target_position_R(target_R);
-            set_target_position_P(target_P);
+                // 基準位置を設定
+                g_debug_manager->set_initial_positions(current_pos_R, current_pos_P);
 
-            // 初期軌道設定情報を表示
-            g_debug_manager->info("Initial trajectory set - Moving to forward position");
-            g_debug_manager->print_trajectory_test_info(true, current_pos_P, target_P, gear_radius_P);
-        }
+                // 初期軌道を設定（前進方向）
+                float target_R, target_P;
+                g_debug_manager->get_test_trajectory_targets(true, target_R, target_P);
 
-        // 10秒ごとに軌道を切り替え（往復動作）
-        if (g_debug_manager->should_start_trajectory_test(current_main_time)) {
-            // 現在位置を取得
-            float current_pos_R, current_pos_P;
+                // 目標値を設定
+                set_target_position_R(target_R);
+                set_target_position_P(target_P);
+
+                // 初期軌道設定情報を表示
+                g_debug_manager->info("Initial trajectory set - Moving to forward position");
+                g_debug_manager->print_trajectory_test_info(true, current_pos_P, target_P, gear_radius_P);
+            }
+
+            // 10秒ごとに軌道を切り替え（往復動作）
+            if (g_debug_manager->should_start_trajectory_test(current_main_time)) {
+                // 現在位置を取得
+                float current_pos_R, current_pos_P;
+                mutex_enter_blocking(&g_state_mutex);
+                current_pos_R = g_robot_state.current_position_R;
+                current_pos_P = g_robot_state.current_position_P;
+                mutex_exit(&g_state_mutex);
+
+                // 初回のみ基準位置を設定
+                g_debug_manager->set_initial_positions(current_pos_R, current_pos_P);
+
+                // 軌道目標値を取得
+                float target_R, target_P;
+                bool is_forward = g_debug_manager->is_forward_direction();
+                g_debug_manager->get_test_trajectory_targets(is_forward, target_R, target_P);
+
+                // 目標値を設定
+                set_target_position_R(target_R);
+                set_target_position_P(target_P);
+
+                // テスト情報を表示
+                g_debug_manager->print_trajectory_test_info(is_forward, current_pos_P, target_P, gear_radius_P);
+
+                // 次回は逆方向
+                g_debug_manager->toggle_direction();
+            }
+
+            // 状態を取得してデバッグ出力（排他制御あり）
             mutex_enter_blocking(&g_state_mutex);
-            current_pos_R = g_robot_state.current_position_R;
-            current_pos_P = g_robot_state.current_position_P;
+            // デバッグ用に現在状態も取得
+            float current_pos_R = g_robot_state.current_position_R;
+            float current_pos_P = g_robot_state.current_position_P;
+            float current_vel_R = g_robot_state.current_velocity_R;
+            float current_vel_P = g_robot_state.current_velocity_P;
+            float target_vel_R = g_robot_state.target_velocity_R;
+            float target_vel_P = g_robot_state.target_velocity_P;
+            float target_torque_R = g_robot_state.target_torque_R;
+            float target_torque_P = g_robot_state.target_torque_P;
+            float target_cur_R = g_robot_state.target_current_R;
+            float target_cur_P = g_robot_state.target_current_P;
+
+            // 台形プロファイル制御情報
+            float traj_target_pos_R = g_robot_state.trajectory_target_position_R;
+            float traj_target_pos_P = g_robot_state.trajectory_target_position_P;
+            float traj_target_vel_R = g_robot_state.trajectory_target_velocity_R;
+            float traj_target_vel_P = g_robot_state.trajectory_target_velocity_P;
+            bool traj_active_R = g_robot_state.trajectory_active_R;
+            bool traj_active_P = g_robot_state.trajectory_active_P;
+
+            // 最終目標位置（Core0→Core1）
+            float final_target_pos_R = g_robot_state.target_position_R;
+            float final_target_pos_P = g_robot_state.target_position_P;
+
+            int timing_violations = g_robot_state.timing_violation_count;
+            led_mode_t led_status = g_robot_state.led_status;
+            int can_errors = g_robot_state.can_error_count;
+
+            // エンコーダ詳細情報を共有変数から取得
+            int16_t p_turn_count = g_robot_state.encoder_p_turn_count;
+            float p_single_angle = g_robot_state.encoder_p_single_angle_deg;
+            float r_angle_deg = g_robot_state.encoder_r_angle_deg;
+            bool encoder_r_valid = g_robot_state.encoder_r_valid;
+            bool encoder_p_valid = g_robot_state.encoder_p_valid;
             mutex_exit(&g_state_mutex);
 
-            // 初回のみ基準位置を設定
-            g_debug_manager->set_initial_positions(current_pos_R, current_pos_P);
+            // 軌道状態変化の検出
+            g_debug_manager->check_trajectory_state_changes(traj_active_R, traj_active_P,
+                                                            current_pos_R, current_pos_P,
+                                                            final_target_pos_R, final_target_pos_P,
+                                                            gear_radius_P);
 
-            // 軌道目標値を取得
-            float target_R, target_P;
-            bool is_forward = g_debug_manager->is_forward_direction();
-            g_debug_manager->get_test_trajectory_targets(is_forward, target_R, target_P);
+            // 軌道制限値の表示（1回のみ）
+            g_debug_manager->print_trajectory_limits(TrajectoryLimits::R_MAX_VELOCITY, TrajectoryLimits::R_MAX_ACCELERATION,
+                                                     TrajectoryLimits::P_MAX_VELOCITY, TrajectoryLimits::P_MAX_ACCELERATION,
+                                                     gear_radius_P);
 
-            // 目標値を設定
-            set_target_position_R(target_R);
-            set_target_position_P(target_P);
+            // 異常値検出
+            g_debug_manager->check_abnormal_values(traj_target_pos_P, gear_radius_P);
 
-            // テスト情報を表示
-            g_debug_manager->print_trajectory_test_info(is_forward, current_pos_P, target_P, gear_radius_P);
+            // 定期ステータス出力（同期信号に基づく周期で）
+            if (g_debug_manager->should_output_status(current_main_time)) {
+                // Core0同期回数情報を追加
+                g_debug_manager->info("Core0 sync count: %d (every %d Core1 loops)", core0_loop_count, SYNC_EVERY_N_LOOPS);
 
-            // 次回は逆方向
-            g_debug_manager->toggle_direction();
+                // 軌道デバッグ情報構造体の作成
+                TrajectoryDebugInfo r_info = {
+                    .final_target_pos = final_target_pos_R,
+                    .trajectory_target_pos = traj_target_pos_R,
+                    .trajectory_target_vel = traj_target_vel_R,
+                    .current_pos = current_pos_R,
+                    .current_vel = current_vel_R,
+                    .final_target_vel = target_vel_R,
+                    .trajectory_active = traj_active_R,
+                    .gear_radius = 1.0f,  // R軸はrad単位なのでギア半径は使わない
+                    .unit_name = "rad",
+                    .axis_name = "R"};
+
+                TrajectoryDebugInfo p_info = {
+                    .final_target_pos = final_target_pos_P,
+                    .trajectory_target_pos = traj_target_pos_P,
+                    .trajectory_target_vel = traj_target_vel_P,
+                    .current_pos = current_pos_P,
+                    .current_vel = current_vel_P,
+                    .final_target_vel = target_vel_P,
+                    .trajectory_active = traj_active_P,
+                    .gear_radius = gear_radius_P,
+                    .unit_name = "rad",
+                    .axis_name = "P"};
+
+                // システム状態デバッグ情報構造体の作成
+                SystemDebugInfo sys_info = {
+                    .timing_violations = timing_violations,
+                    .can_errors = can_errors,
+                    .led_status = led_status,
+                    .encoder_r_valid = encoder_r_valid,
+                    .encoder_p_valid = encoder_p_valid,
+                    .target_torque_R = target_torque_R,
+                    .target_torque_P = target_torque_P,
+                    .target_current_R = target_cur_R,
+                    .target_current_P = target_cur_P,
+                    .encoder_p_turn_count = p_turn_count,
+                    .encoder_p_single_angle_deg = p_single_angle,
+                    .encoder_r_angle_deg = r_angle_deg};
+
+                // デバッグ情報出力
+                g_debug_manager->print_trajectory_status(r_info, p_info);
+                g_debug_manager->print_system_status(sys_info);
+            }
         }
-
-        // 状態を取得してデバッグ出力（排他制御あり）
-        mutex_enter_blocking(&g_state_mutex);
-        // デバッグ用に現在状態も取得
-        float current_pos_R = g_robot_state.current_position_R;
-        float current_pos_P = g_robot_state.current_position_P;
-        float current_vel_R = g_robot_state.current_velocity_R;
-        float current_vel_P = g_robot_state.current_velocity_P;
-        float target_vel_R = g_robot_state.target_velocity_R;
-        float target_vel_P = g_robot_state.target_velocity_P;
-        float target_torque_R = g_robot_state.target_torque_R;
-        float target_torque_P = g_robot_state.target_torque_P;
-        float target_cur_R = g_robot_state.target_current_R;
-        float target_cur_P = g_robot_state.target_current_P;
-
-        // 台形プロファイル制御情報
-        float traj_target_pos_R = g_robot_state.trajectory_target_position_R;
-        float traj_target_pos_P = g_robot_state.trajectory_target_position_P;
-        float traj_target_vel_R = g_robot_state.trajectory_target_velocity_R;
-        float traj_target_vel_P = g_robot_state.trajectory_target_velocity_P;
-        bool traj_active_R = g_robot_state.trajectory_active_R;
-        bool traj_active_P = g_robot_state.trajectory_active_P;
-
-        // 最終目標位置（Core0→Core1）
-        float final_target_pos_R = g_robot_state.target_position_R;
-        float final_target_pos_P = g_robot_state.target_position_P;
-
-        int timing_violations = g_robot_state.timing_violation_count;
-        led_mode_t led_status = g_robot_state.led_status;
-        int can_errors = g_robot_state.can_error_count;
-
-        // エンコーダ詳細情報を共有変数から取得
-        int16_t p_turn_count = g_robot_state.encoder_p_turn_count;
-        float p_single_angle = g_robot_state.encoder_p_single_angle_deg;
-        float r_angle_deg = g_robot_state.encoder_r_angle_deg;
-        bool encoder_r_valid = g_robot_state.encoder_r_valid;
-        bool encoder_p_valid = g_robot_state.encoder_p_valid;
-        mutex_exit(&g_state_mutex);
-
-        // 軌道状態変化の検出
-        g_debug_manager->check_trajectory_state_changes(traj_active_R, traj_active_P,
-                                                        current_pos_R, current_pos_P,
-                                                        final_target_pos_R, final_target_pos_P,
-                                                        gear_radius_P);
-
-        // 軌道制限値の表示（1回のみ）
-        g_debug_manager->print_trajectory_limits(TrajectoryLimits::R_MAX_VELOCITY, TrajectoryLimits::R_MAX_ACCELERATION,
-                                                 TrajectoryLimits::P_MAX_VELOCITY, TrajectoryLimits::P_MAX_ACCELERATION,
-                                                 gear_radius_P);
-
-        // 異常値検出
-        g_debug_manager->check_abnormal_values(traj_target_pos_P, gear_radius_P);
-
-        // 定期ステータス出力（1秒毎）
-        if (g_debug_manager->should_output_status(current_main_time)) {
-            // 軌道デバッグ情報構造体の作成
-            TrajectoryDebugInfo r_info = {
-                .final_target_pos = final_target_pos_R,
-                .trajectory_target_pos = traj_target_pos_R,
-                .trajectory_target_vel = traj_target_vel_R,
-                .current_pos = current_pos_R,
-                .current_vel = current_vel_R,
-                .final_target_vel = target_vel_R,
-                .trajectory_active = traj_active_R,
-                .gear_radius = 1.0f,  // R軸はrad単位なのでギア半径は使わない
-                .unit_name = "rad",
-                .axis_name = "R"};
-
-            TrajectoryDebugInfo p_info = {
-                .final_target_pos = final_target_pos_P,
-                .trajectory_target_pos = traj_target_pos_P,
-                .trajectory_target_vel = traj_target_vel_P,
-                .current_pos = current_pos_P,
-                .current_vel = current_vel_P,
-                .final_target_vel = target_vel_P,
-                .trajectory_active = traj_active_P,
-                .gear_radius = gear_radius_P,
-                .unit_name = "rad",
-                .axis_name = "P"};
-
-            // システム状態デバッグ情報構造体の作成
-            SystemDebugInfo sys_info = {
-                .timing_violations = timing_violations,
-                .can_errors = can_errors,
-                .led_status = led_status,
-                .encoder_r_valid = encoder_r_valid,
-                .encoder_p_valid = encoder_p_valid,
-                .target_torque_R = target_torque_R,
-                .target_torque_P = target_torque_P,
-                .target_current_R = target_cur_R,
-                .target_current_P = target_cur_P,
-                .encoder_p_turn_count = p_turn_count,
-                .encoder_p_single_angle_deg = p_single_angle,
-                .encoder_r_angle_deg = r_angle_deg};
-
-            // デバッグ情報出力
-            g_debug_manager->print_trajectory_status(r_info, p_info);
-            g_debug_manager->print_system_status(sys_info);
-        }
-
-        busy_wait_until(next_main_time);  // 1秒待機
     }
 
     return 0;
