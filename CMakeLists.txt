@@ -45,6 +45,7 @@ add_executable(minimalists
         src/robomaster_motor.cpp
         src/control_timing.cpp
         src/debug_manager.cpp
+        src/trajectory_sequence_manager.cpp
         )
 
 # Add pico_multicore which is required for multicore functionality
