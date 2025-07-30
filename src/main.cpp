@@ -382,6 +382,9 @@ void core1_entry(void) {
         // 制御周期開始処理
         control_timing_start(&control_timing, CONTROL_PERIOD_MS);
 
+        // 開始時刻を更新
+        uint32_t time_1_us_uint32 = time_us_32();
+
         // 現在時刻を計算（制御開始からの経過時間）
         absolute_time_t current_abs_time = get_absolute_time();
         float current_time_s = absolute_time_diff_us(control_start_time, current_abs_time) / 1000000.0;
@@ -391,6 +394,9 @@ void core1_entry(void) {
         float motor_velocity_R = 0.0, motor_velocity_P = 0.0;
         bool enc1_ok = encoder_manager.read_encoder(0);  // エンコーダ0 (R軸)
         bool enc2_ok = encoder_manager.read_encoder(1);  // エンコーダ1 (P軸)
+
+        // エンコーダ読み取り時刻の記録
+        uint32_t time_2_us_uint32 = time_us_32();
 
         // エンコーダデータの取得
         float encoder_r_angle_deg = 0.0;
@@ -432,6 +438,9 @@ void core1_entry(void) {
         bool trajectory_active_R, trajectory_active_P;
         float trajectory_start_time_R, trajectory_start_time_P;
         float trajectory_start_pos_R, trajectory_start_pos_P;
+
+        // mutex前の時間計測
+        uint32_t time_3_us_uint32 = time_us_32();
 
         mutex_enter_blocking(&g_state_mutex);
         target_pos_R = g_robot_state.target_position_R;
@@ -503,6 +512,9 @@ void core1_entry(void) {
         }
 
         mutex_exit(&g_state_mutex);
+
+        // mutex後の時間計測
+        uint32_t time_4_us_uint32 = time_us_32();
 
         // --- 制御計算 ---
         float trajectory_target_pos_R, trajectory_target_pos_P;
@@ -610,10 +622,13 @@ void core1_entry(void) {
         }
 
         // // トルクから電流への変換
-        target_current[0] = target_torque_R / R_TORQUE_CONSTANT;  // Motor1 (R軸)
-        target_current[1] = target_torque_P / P_TORQUE_CONSTANT;  // Motor2 (P軸)
-        // target_current[0] = 0.0;  // Motor1 (R軸)
-        // target_current[1] = 0.0;  // Motor2 (P軸)
+        // target_current[0] = target_torque_R / R_TORQUE_CONSTANT;  // Motor1 (R軸)
+        // target_current[1] = target_torque_P / P_TORQUE_CONSTANT;  // Motor2 (P軸)
+        target_current[0] = 0.01;  // Motor1 (R軸)
+        target_current[1] = 0.01;  // Motor2 (P軸)
+
+        // 制御後の時刻を記録
+        uint32_t time_5_us_uint32 = time_us_32();
 
         // --- 制御結果を共有データに保存 ---
         mutex_enter_blocking(&g_state_mutex);
@@ -631,6 +646,9 @@ void core1_entry(void) {
         g_robot_state.led_status = control_timing.led_mode;
         mutex_exit(&g_state_mutex);
 
+        // CAN前の時刻を記録
+        uint32_t time_6_us_uint32 = time_us_32();
+
         // --- CAN送信処理 ---
         if (!send_all_motor_currents(&can, target_current)) {
             // CAN送信失敗時のみエラーカウンタを更新
@@ -638,6 +656,22 @@ void core1_entry(void) {
             g_robot_state.can_error_count++;
             mutex_exit(&g_state_mutex);
         }
+
+        // CAN送信後の時刻を記録
+        uint32_t time_7_us_uint32 = time_us_32();
+
+        printf("Control Cycle Timing:\n");
+        printf("  Start: %u us\n", time_1_us_uint32);  // 制御開始時刻
+        printf("  Encoder Read: %u us (Duration: %u us)\n", time_2_us_uint32, time_2_us_uint32 - time_1_us_uint32);
+        printf("  Mutex Enter: %u us (Duration: %u us)\n", time_3_us_uint32, time_3_us_uint32 - time_2_us_uint32);
+        printf("  Mutex Exit: %u us (Duration: %u us)\n", time_4_us_uint32, time_4_us_uint32 - time_3_us_uint32);
+        printf("  Control Calculation: %u us (Duration: %u us)\n",
+               time_5_us_uint32, time_5_us_uint32 - time_4_us_uint32);  // 制御計算時間
+        printf("  Mutex Update: %u us (Duration: %u us)\n", time_6_us_uint32, time_6_us_uint32 - time_5_us_uint32);
+        printf("  CAN Send: %u us (Duration: %u us)\n",
+               time_7_us_uint32, time_7_us_uint32 - time_6_us_uint32);  // CAN送信時間
+        printf("  Control Cycle Duration: %u us (Total: %u us)\n",
+               time_7_us_uint32, time_7_us_uint32 - time_1_us_uint32);  // 制御周期全体の時間
 
         // 制御周期終了処理
         control_timing_end(&control_timing, CONTROL_PERIOD_MS);
