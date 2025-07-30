@@ -56,19 +56,11 @@ class TrajectorySequenceManager {
     void initialize();
 
     /**
-     * @brief ウェイポイントの追加
-     * @param pos_R R軸位置 [rad]
-     * @param pos_P P軸位置 [rad]
-     * @param end_effector_angle 手先角度 [rad] (デフォルト: 0.0)
-     * @return 追加成功時true
+     * @brief ウェイポイント配列から軌道シーケンスを設定
+     * @param waypoint_array ウェイポイント配列
+     * @param count ウェイポイントの数
      */
-    bool add_waypoint(float pos_R, float pos_P, float end_effector_angle = 0.0f);
-
-    /**
-     * @brief テスト用軌道シーケンスの設定
-     * @param gear_radius_P P軸のギア半径 [m]
-     */
-    void setup_test_sequence(float gear_radius_P);
+    void setup_sequence(const trajectory_waypoint_t* waypoint_array, int count);
 
     /**
      * @brief シーケンスの開始
