@@ -2,7 +2,6 @@
 #define TRAJECTORY_SEQUENCE_MANAGER_HPP
 
 #include "debug_manager.hpp"
-#include "pico/mutex.h"
 
 /**
  * @brief 軌道ウェイポイント構造体
@@ -37,7 +36,6 @@ class TrajectorySequenceManager {
     bool sequence_complete;
     float wait_duration;  // 各点での待機時間 [s]
 
-    mutex_t sequence_mutex;
     DebugManager* debug_manager;
 
    public:
