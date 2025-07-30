@@ -759,11 +759,11 @@ void core1_entry(void) {
                 }
             }
         } else if (!g_trajectory_data.active) {
-            // 軌道停止時は最終目標位置を保持
-            trajectory_target_pos_R = target_pos_R;
+            // 軌道停止時は現在位置を保持
+            trajectory_target_pos_R = motor_position_R;
             trajectory_target_vel_R = 0.0;
             trajectory_target_accel_R = 0.0;
-            trajectory_target_pos_P = target_pos_P;
+            trajectory_target_pos_P = motor_position_P;
             trajectory_target_vel_P = 0.0;
             trajectory_target_accel_P = 0.0;
         }
