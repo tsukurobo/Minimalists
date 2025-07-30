@@ -33,14 +33,14 @@ bool TrajectorySequenceManager::add_waypoint(float pos_R, float pos_P, float end
         return false;
     }
 
-    waypoints[waypoint_count] = TrajectoryWaypoint(pos_R, pos_P, end_effector_angle);
+    waypoints[waypoint_count] = trajectory_waypoint_t(pos_R, pos_P, end_effector_angle);
     waypoint_count++;
 
     mutex_exit(&sequence_mutex);
     return true;
 }
 
-void TrajectorySequenceManager::setup_test_sequence(float gear_radius_P) {
+void TrajectorySequenceManager::setup_sequence(const trajectory_waypoint_t* waypoint_array, int count) {
     initialize();
 
     // テスト用の軌道点を追加（3次元：R軸角度[rad]、P軸距離[mm→rad変換]、手先角度[rad]）
