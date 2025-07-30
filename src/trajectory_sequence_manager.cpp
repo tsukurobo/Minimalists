@@ -9,24 +9,18 @@
 
 TrajectorySequenceManager::TrajectorySequenceManager(DebugManager* debug_mgr)
     : waypoint_count(0), current_waypoint_index(0), sequence_active(false), sequence_complete(false), wait_duration(1.0f), debug_manager(debug_mgr) {
-    mutex_init(&sequence_mutex);
 }
 
 void TrajectorySequenceManager::initialize() {
-    mutex_enter_blocking(&sequence_mutex);
     waypoint_count = 0;
     current_waypoint_index = 0;
     sequence_active = false;
     sequence_complete = false;
     wait_duration = 1.0f;  // デフォルト1秒待機
-    mutex_exit(&sequence_mutex);
 }
 
 bool TrajectorySequenceManager::add_waypoint(float pos_R, float pos_P, float end_effector_angle) {
-    mutex_enter_blocking(&sequence_mutex);
-
     if (waypoint_count >= MAX_WAYPOINTS) {
-        mutex_exit(&sequence_mutex);
         if (debug_manager) {
             debug_manager->error("Cannot add waypoint: maximum capacity (%d) reached", MAX_WAYPOINTS);
         }
@@ -36,7 +30,6 @@ bool TrajectorySequenceManager::add_waypoint(float pos_R, float pos_P, float end
     waypoints[waypoint_count] = trajectory_waypoint_t(pos_R, pos_P, end_effector_angle);
     waypoint_count++;
 
-    mutex_exit(&sequence_mutex);
     return true;
 }
 
@@ -68,11 +61,9 @@ void TrajectorySequenceManager::setup_sequence(const trajectory_waypoint_t* wayp
 }
 
 void TrajectorySequenceManager::start_sequence() {
-    mutex_enter_blocking(&sequence_mutex);
     current_waypoint_index = 0;
     sequence_active = true;
     sequence_complete = false;
-    mutex_exit(&sequence_mutex);
 
     if (debug_manager) {
         debug_manager->info("Started trajectory sequence with %d waypoints", waypoint_count);
@@ -80,10 +71,7 @@ void TrajectorySequenceManager::start_sequence() {
 }
 
 bool TrajectorySequenceManager::get_next_waypoint(float& target_R, float& target_P) {
-    mutex_enter_blocking(&sequence_mutex);
-
     if (!sequence_active || current_waypoint_index >= waypoint_count) {
-        mutex_exit(&sequence_mutex);
         return false;
     }
 
@@ -91,13 +79,10 @@ bool TrajectorySequenceManager::get_next_waypoint(float& target_R, float& target
     target_R = waypoints[index].position_R;
     target_P = waypoints[index].position_P;
 
-    mutex_exit(&sequence_mutex);
     return true;
 }
 
 void TrajectorySequenceManager::advance_to_next_waypoint() {
-    mutex_enter_blocking(&sequence_mutex);
-
     current_waypoint_index++;
 
     if (current_waypoint_index >= waypoint_count) {
@@ -112,40 +97,24 @@ void TrajectorySequenceManager::advance_to_next_waypoint() {
                                 current_waypoint_index + 1, waypoint_count);
         }
     }
-
-    mutex_exit(&sequence_mutex);
 }
 
 bool TrajectorySequenceManager::is_sequence_active() {
-    mutex_enter_blocking(&sequence_mutex);
-    bool active = sequence_active;
-    mutex_exit(&sequence_mutex);
-    return active;
+    return sequence_active;
 }
 
 bool TrajectorySequenceManager::is_sequence_complete() {
-    mutex_enter_blocking(&sequence_mutex);
-    bool complete = sequence_complete;
-    mutex_exit(&sequence_mutex);
-    return complete;
+    return sequence_complete;
 }
 
 int TrajectorySequenceManager::get_current_waypoint_index() {
-    mutex_enter_blocking(&sequence_mutex);
-    int index = current_waypoint_index;
-    mutex_exit(&sequence_mutex);
-    return index;
+    return current_waypoint_index;
 }
 
 int TrajectorySequenceManager::get_waypoint_count() {
-    mutex_enter_blocking(&sequence_mutex);
-    int count = waypoint_count;
-    mutex_exit(&sequence_mutex);
-    return count;
+    return waypoint_count;
 }
 
 void TrajectorySequenceManager::set_wait_duration(float duration) {
-    mutex_enter_blocking(&sequence_mutex);
     wait_duration = duration;
-    mutex_exit(&sequence_mutex);
 }
