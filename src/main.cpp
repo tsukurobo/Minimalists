@@ -167,9 +167,6 @@ PositionPIDController position_pid_P(P_POSITION_KP, 0.0, 0.0, CONTROL_PERIOD_S);
 VelocityIPController velocity_ip_R(R_VELOCITY_KI, R_VELOCITY_KP, CONTROL_PERIOD_S);  // Ki, Kp
 VelocityIPController velocity_ip_P(P_VELOCITY_KI, P_VELOCITY_KP, CONTROL_PERIOD_S);  // Ki, Kp
 
-// core0 から core1にhand実行時の監視
-bool g_hand_requested = false;
-mutex_t g_hand_mutex;
 // work　の保持状態
 bool g_has_work = false;
 // 把持状態のstate
@@ -570,14 +567,6 @@ void hand_tick(hand_state_t* hand_state, bool* has_work, bool* hand_requested, a
 
 // Core 1: 通信・制御担当
 void core1_entry(void) {
-    gpio_put(SOLENOID_PIN1, 0);  // ソレノイドを吸着状態にする
-    gpio_put(PUMP_PIN1, 1);
-    printf("hand initialized\n");
-    sleep_ms(500);
-    control_position(&UART0, DXL_ID1, START_HAND_ANGLE);
-    sleep_ms(500);
-    control_position(&UART0, DXL_ID2, START_UP_ANGLE);
-
     // Core1専用の軌道生成インスタンス
     trajectory_t trajectory_R_local(
         TrajectoryLimits::R_MAX_VELOCITY,
@@ -877,12 +866,6 @@ void core1_entry(void) {
     }
 }
 
-void request_hand_action() {
-    mutex_enter_blocking(&g_hand_mutex);
-    g_hand_requested = true;
-    mutex_exit(&g_hand_mutex);
-}
-
 int main(void) {
     stdio_init_all();  // UARTなど初期化
     gpio_init(SHUTDOWN_PIN);
@@ -918,7 +901,6 @@ int main(void) {
     gpio_set_dir(PICO_DEFAULT_LED_PIN, GPIO_OUT);
 
     // ミューテックス初期化
-    mutex_init(&g_hand_mutex);
     mutex_init(&g_state_mutex);
 
     g_robot_state.motor_speed = 0;
@@ -1008,6 +990,14 @@ int main(void) {
         trajectory_waypoint_t(0.0f, 0.0f / gear_radius_P, 0.0f)        // 原点復帰
     };
     seq_manager->setup_sequence(test_waypoints, 3);
+
+    gpio_put(SOLENOID_PIN1, 0);  // ソレノイドを吸着状態にする
+    gpio_put(PUMP_PIN1, 1);
+    printf("hand initialized\n");
+    sleep_ms(500);
+    control_position(&UART0, DXL_ID1, START_HAND_ANGLE);
+    sleep_ms(500);
+    control_position(&UART0, DXL_ID2, START_UP_ANGLE);
 
     while (1) {
         // FIFOから同期信号を待機（ブロッキング）
