@@ -54,7 +54,7 @@ mcp25625_t can(can_spi_config.spi_port, can_spi_config.pin_cs[0], can_spi_config
 
 // AMT223-V エンコーダマネージャを作成
 AMT223V_Manager encoder_manager(spi1,       // SPI0を使用
-                                1'000'000,  // 2MHz
+                                1'875'000,  // 規定値 2MHz 整数分数でベスト:1.875MHz
                                 8,          // MISO pin
                                 10,         // SCK pin
                                 11);        // MOSI pin
@@ -191,6 +191,7 @@ typedef struct
 bool init_spi(const spi_config_t* config) {
     // SPIの初期化
     spi_init(config->spi_port, config->baudrate);
+
     gpio_set_function(config->pin_miso, GPIO_FUNC_SPI);
     gpio_set_function(config->pin_sck, GPIO_FUNC_SPI);
     gpio_set_function(config->pin_mosi, GPIO_FUNC_SPI);
@@ -382,16 +383,17 @@ void core1_entry(void) {
         // 制御周期開始処理
         control_timing_start(&control_timing, CONTROL_PERIOD_MS);
 
-        // 開始時刻を更新
-        uint32_t time_1_us_uint32 = time_us_32();
-
         // 現在時刻を計算（制御開始からの経過時間）
         absolute_time_t current_abs_time = get_absolute_time();
-        float current_time_s = absolute_time_diff_us(control_start_time, current_abs_time) / 1000000.0;
+        float current_time_s = absolute_time_diff_us(control_start_time, current_abs_time) / 1000000.0f;
 
         // --- エンコーダ読み取り処理 ---
         float motor_position_R = 0.0, motor_position_P = 0.0;
         float motor_velocity_R = 0.0, motor_velocity_P = 0.0;
+
+        // 開始時刻を更新
+        uint32_t time_1_us_uint32 = time_us_32();
+
         bool enc1_ok = encoder_manager.read_encoder(0);  // エンコーダ0 (R軸)
         bool enc2_ok = encoder_manager.read_encoder(1);  // エンコーダ1 (P軸)
 
@@ -660,18 +662,18 @@ void core1_entry(void) {
         // CAN送信後の時刻を記録
         uint32_t time_7_us_uint32 = time_us_32();
 
-        printf("Control Cycle Timing:\n");
-        printf("  Start: %u us\n", time_1_us_uint32);  // 制御開始時刻
-        printf("  Encoder Read: %u us (Duration: %u us)\n", time_2_us_uint32, time_2_us_uint32 - time_1_us_uint32);
-        printf("  Mutex Enter: %u us (Duration: %u us)\n", time_3_us_uint32, time_3_us_uint32 - time_2_us_uint32);
-        printf("  Mutex Exit: %u us (Duration: %u us)\n", time_4_us_uint32, time_4_us_uint32 - time_3_us_uint32);
-        printf("  Control Calculation: %u us (Duration: %u us)\n",
-               time_5_us_uint32, time_5_us_uint32 - time_4_us_uint32);  // 制御計算時間
-        printf("  Mutex Update: %u us (Duration: %u us)\n", time_6_us_uint32, time_6_us_uint32 - time_5_us_uint32);
-        printf("  CAN Send: %u us (Duration: %u us)\n",
-               time_7_us_uint32, time_7_us_uint32 - time_6_us_uint32);  // CAN送信時間
-        printf("  Control Cycle Duration: %u us (Total: %u us)\n",
-               time_7_us_uint32, time_7_us_uint32 - time_1_us_uint32);  // 制御周期全体の時間
+        // printf("Control Cycle Timing:\n");
+        // printf("  Start: %u us\n", time_1_us_uint32);  // 制御開始時刻
+        // printf("  Encoder Read: %u us (Duration: %u us)\n", time_2_us_uint32, time_2_us_uint32 - time_1_us_uint32);
+        // printf("  Mutex Enter: %u us (Duration: %u us)\n", time_3_us_uint32, time_3_us_uint32 - time_2_us_uint32);
+        // printf("  Mutex Exit: %u us (Duration: %u us)\n", time_4_us_uint32, time_4_us_uint32 - time_3_us_uint32);
+        // printf("  Control Calculation: %u us (Duration: %u us)\n",
+        //        time_5_us_uint32, time_5_us_uint32 - time_4_us_uint32);  // 制御計算時間
+        // printf("  Mutex Update: %u us (Duration: %u us)\n", time_6_us_uint32, time_6_us_uint32 - time_5_us_uint32);
+        // printf("  CAN Send: %u us (Duration: %u us)\n",
+        //        time_7_us_uint32, time_7_us_uint32 - time_6_us_uint32);  // CAN送信時間
+        // printf("  Control Cycle Duration: %u us (Total: %u us)\n",
+        //        time_7_us_uint32, time_7_us_uint32 - time_1_us_uint32);  // 制御周期全体の時間
 
         // 制御周期終了処理
         control_timing_end(&control_timing, CONTROL_PERIOD_MS);
@@ -802,9 +804,9 @@ int main(void) {
             set_target_position_R(target_R);
             set_target_position_P(target_P);
 
-            // 初期軌道設定情報を表示
-            g_debug_manager->info("Initial trajectory set - Moving to forward position");
-            g_debug_manager->print_trajectory_test_info(true, current_pos_P, target_P, gear_radius_P);
+            // // 初期軌道設定情報を表示
+            // g_debug_manager->info("Initial trajectory set - Moving to forward position");
+            // g_debug_manager->print_trajectory_test_info(true, current_pos_P, target_P, gear_radius_P);
         }
 
         // 10秒ごとに軌道を切り替え（往復動作）
@@ -828,8 +830,8 @@ int main(void) {
             set_target_position_R(target_R);
             set_target_position_P(target_P);
 
-            // テスト情報を表示
-            g_debug_manager->print_trajectory_test_info(is_forward, current_pos_P, target_P, gear_radius_P);
+            // // テスト情報を表示
+            // g_debug_manager->print_trajectory_test_info(is_forward, current_pos_P, target_P, gear_radius_P);
 
             // 次回は逆方向
             g_debug_manager->toggle_direction();
@@ -873,66 +875,66 @@ int main(void) {
         bool encoder_p_valid = g_robot_state.encoder_p_valid;
         mutex_exit(&g_state_mutex);
 
-        // 軌道状態変化の検出
-        g_debug_manager->check_trajectory_state_changes(traj_active_R, traj_active_P,
-                                                        current_pos_R, current_pos_P,
-                                                        final_target_pos_R, final_target_pos_P,
-                                                        gear_radius_P);
+        // // 軌道状態変化の検出
+        // g_debug_manager->check_trajectory_state_changes(traj_active_R, traj_active_P,
+        //                                                 current_pos_R, current_pos_P,
+        //                                                 final_target_pos_R, final_target_pos_P,
+        //                                                 gear_radius_P);
 
         // 軌道制限値の表示（1回のみ）
-        g_debug_manager->print_trajectory_limits(TrajectoryLimits::R_MAX_VELOCITY, TrajectoryLimits::R_MAX_ACCELERATION,
-                                                 TrajectoryLimits::P_MAX_VELOCITY, TrajectoryLimits::P_MAX_ACCELERATION,
-                                                 gear_radius_P);
+        // g_debug_manager->print_trajectory_limits(TrajectoryLimits::R_MAX_VELOCITY, TrajectoryLimits::R_MAX_ACCELERATION,
+        //                                          TrajectoryLimits::P_MAX_VELOCITY, TrajectoryLimits::P_MAX_ACCELERATION,
+        //                                          gear_radius_P);
 
-        // 異常値検出
-        g_debug_manager->check_abnormal_values(traj_target_pos_P, gear_radius_P);
+        // // 異常値検出
+        // g_debug_manager->check_abnormal_values(traj_target_pos_P, gear_radius_P);
 
-        // 定期ステータス出力（1秒毎）
-        if (g_debug_manager->should_output_status(current_main_time)) {
-            // 軌道デバッグ情報構造体の作成
-            TrajectoryDebugInfo r_info = {
-                .final_target_pos = final_target_pos_R,
-                .trajectory_target_pos = traj_target_pos_R,
-                .trajectory_target_vel = traj_target_vel_R,
-                .current_pos = current_pos_R,
-                .current_vel = current_vel_R,
-                .final_target_vel = target_vel_R,
-                .trajectory_active = traj_active_R,
-                .gear_radius = 1.0f,  // R軸はrad単位なのでギア半径は使わない
-                .unit_name = "rad",
-                .axis_name = "R"};
+        // // 定期ステータス出力（1秒毎）
+        // if (g_debug_manager->should_output_status(current_main_time)) {
+        //     // 軌道デバッグ情報構造体の作成
+        //     TrajectoryDebugInfo r_info = {
+        //         .final_target_pos = final_target_pos_R,
+        //         .trajectory_target_pos = traj_target_pos_R,
+        //         .trajectory_target_vel = traj_target_vel_R,
+        //         .current_pos = current_pos_R,
+        //         .current_vel = current_vel_R,
+        //         .final_target_vel = target_vel_R,
+        //         .trajectory_active = traj_active_R,
+        //         .gear_radius = 1.0f,  // R軸はrad単位なのでギア半径は使わない
+        //         .unit_name = "rad",
+        //         .axis_name = "R"};
 
-            TrajectoryDebugInfo p_info = {
-                .final_target_pos = final_target_pos_P,
-                .trajectory_target_pos = traj_target_pos_P,
-                .trajectory_target_vel = traj_target_vel_P,
-                .current_pos = current_pos_P,
-                .current_vel = current_vel_P,
-                .final_target_vel = target_vel_P,
-                .trajectory_active = traj_active_P,
-                .gear_radius = gear_radius_P,
-                .unit_name = "rad",
-                .axis_name = "P"};
+        //     TrajectoryDebugInfo p_info = {
+        //         .final_target_pos = final_target_pos_P,
+        //         .trajectory_target_pos = traj_target_pos_P,
+        //         .trajectory_target_vel = traj_target_vel_P,
+        //         .current_pos = current_pos_P,
+        //         .current_vel = current_vel_P,
+        //         .final_target_vel = target_vel_P,
+        //         .trajectory_active = traj_active_P,
+        //         .gear_radius = gear_radius_P,
+        //         .unit_name = "rad",
+        //         .axis_name = "P"};
 
-            // システム状態デバッグ情報構造体の作成
-            SystemDebugInfo sys_info = {
-                .timing_violations = timing_violations,
-                .can_errors = can_errors,
-                .led_status = led_status,
-                .encoder_r_valid = encoder_r_valid,
-                .encoder_p_valid = encoder_p_valid,
-                .target_torque_R = target_torque_R,
-                .target_torque_P = target_torque_P,
-                .target_current_R = target_cur_R,
-                .target_current_P = target_cur_P,
-                .encoder_p_turn_count = p_turn_count,
-                .encoder_p_single_angle_deg = p_single_angle,
-                .encoder_r_angle_deg = r_angle_deg};
+        //     // システム状態デバッグ情報構造体の作成
+        //     SystemDebugInfo sys_info = {
+        //         .timing_violations = timing_violations,
+        //         .can_errors = can_errors,
+        //         .led_status = led_status,
+        //         .encoder_r_valid = encoder_r_valid,
+        //         .encoder_p_valid = encoder_p_valid,
+        //         .target_torque_R = target_torque_R,
+        //         .target_torque_P = target_torque_P,
+        //         .target_current_R = target_cur_R,
+        //         .target_current_P = target_cur_P,
+        //         .encoder_p_turn_count = p_turn_count,
+        //         .encoder_p_single_angle_deg = p_single_angle,
+        //         .encoder_r_angle_deg = r_angle_deg};
 
-            // デバッグ情報出力
-            g_debug_manager->print_trajectory_status(r_info, p_info);
-            g_debug_manager->print_system_status(sys_info);
-        }
+        //     // デバッグ情報出力
+        //     g_debug_manager->print_trajectory_status(r_info, p_info);
+        //     g_debug_manager->print_system_status(sys_info);
+        // }
 
         busy_wait_until(next_main_time);  // 1秒待機
     }
