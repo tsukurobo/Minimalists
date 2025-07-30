@@ -9,15 +9,15 @@
  *
  * 3次元空間での目標位置を表現する構造体
  */
-struct TrajectoryWaypoint {
+struct trajectory_waypoint_t {
     float position_R;          // R軸目標位置 [rad]
-    float position_P;          // P軸目標位置 [rad]（距離をradに変換済み）
+    float position_P;          // P軸目標位置 [rad]
     float end_effector_angle;  // 手先角度 [rad]（現在未使用、ダミーデータ）
 
     /**
      * @brief コンストラクタ
      */
-    TrajectoryWaypoint(float pos_R = 0.0f, float pos_P = 0.0f, float end_angle = 0.0f)
+    trajectory_waypoint_t(float pos_R = 0.0f, float pos_P = 0.0f, float end_angle = 0.0f)
         : position_R(pos_R), position_P(pos_P), end_effector_angle(end_angle) {}
 };
 
@@ -30,7 +30,7 @@ class TrajectorySequenceManager {
    private:
     static constexpr int MAX_WAYPOINTS = 20;  // 最大ウェイポイント数
 
-    TrajectoryWaypoint waypoints[MAX_WAYPOINTS];
+    trajectory_waypoint_t waypoints[MAX_WAYPOINTS];
     int waypoint_count;
     int current_waypoint_index;
     bool sequence_active;
