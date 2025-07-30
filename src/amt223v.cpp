@@ -92,17 +92,17 @@ bool AMT223V::read_angle() {
         uint32_t time_2_us_uint32 = time_us_32();
         // printf("SPI transfer time multi: %u us\n", time_2_us_uint32 - time_1_us_uint32);
 
-        // 受信データの確認
-        printf("Received data multi: ");
-        print_bin8(rx_data[0]);
-        printf(" ");
-        print_bin8(rx_data[1]);
-        printf(" ");
-        print_bin8(rx_data[2]);
-        printf(" ");
-        print_bin8(rx_data[3]);
-        printf("\n");
-        sleep_ms(20);  // デバッグ用の待機
+        // // 受信データの確認
+        // printf("Received data multi: ");
+        // print_bin8(rx_data[0]);
+        // printf(" ");
+        // print_bin8(rx_data[1]);
+        // printf(" ");
+        // print_bin8(rx_data[2]);
+        // printf(" ");
+        // print_bin8(rx_data[3]);
+        // printf("\n");
+        // sleep_ms(20);  // デバッグ用の待機
 
         // 最初の2バイトから角度を抽出（14ビット）
         uint16_t received_angle = (static_cast<uint16_t>(rx_data[0]) << 8) | static_cast<uint16_t>(rx_data[1]);
@@ -163,12 +163,12 @@ bool AMT223V::read_angle() {
         uint32_t time_2_us_uint32 = time_us_32();
         // printf("SPI transfer time SINGLE: %u us\n", time_2_us_uint32 - time_1_us_uint32);
 
-        // 受信データを表示
-        printf("Received data single: ");
-        print_bin8(rx_data[0]);
-        printf(" ");
-        print_bin8(rx_data[1]);
-        printf(" ");
+        // // 受信データを表示
+        // printf("Received data single: ");
+        // print_bin8(rx_data[0]);
+        // printf(" ");
+        // print_bin8(rx_data[1]);
+        // printf(" ");
 
         // 受信データから角度を抽出（16ビット応答）
         uint16_t received_data = (rx_data[0] << 8) | rx_data[1];

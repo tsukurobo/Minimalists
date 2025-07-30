@@ -40,7 +40,7 @@ typedef struct {
 // CAN IC用SPI設定
 static const spi_config_t can_spi_config = {
     .spi_port = spi1,       // SPI1を使用
-    .baudrate = 1'000'000,  // 1MHz
+    .baudrate = 4'000'000,  // 1MHz
     .pin_miso = 8,
     .pin_cs = {5},     // CSピン1つ
     .num_cs_pins = 1,  // CSピン数
@@ -379,9 +379,16 @@ void core1_entry(void) {
     // 制御開始時刻を記録
     absolute_time_t control_start_time = get_absolute_time();
 
+    uint32_t counter = 0;  // 制御ループカウンタ
+
     while (true) {
         // 制御周期開始処理
         control_timing_start(&control_timing, CONTROL_PERIOD_MS);
+
+        counter++;  // 制御ループカウンタをインクリメント
+
+        // 開始時刻を更新
+        uint32_t time_1_us_uint32 = time_us_32();
 
         // 現在時刻を計算（制御開始からの経過時間）
         absolute_time_t current_abs_time = get_absolute_time();
@@ -392,7 +399,7 @@ void core1_entry(void) {
         float motor_velocity_R = 0.0, motor_velocity_P = 0.0;
 
         // 開始時刻を更新
-        uint32_t time_1_us_uint32 = time_us_32();
+        uint32_t time_1_5_us_uint32 = time_us_32();
 
         bool enc1_ok = encoder_manager.read_encoder(0);  // エンコーダ0 (R軸)
         bool enc2_ok = encoder_manager.read_encoder(1);  // エンコーダ1 (P軸)
@@ -473,45 +480,45 @@ void core1_entry(void) {
         g_robot_state.encoder_r_valid = enc1_ok;
         g_robot_state.encoder_p_valid = enc2_ok;
 
-        // 新しい目標値が設定された場合の軌道開始処理
-        if (new_target_R) {
-            g_robot_state.new_target_R = false;  // フラグをクリア
-            g_robot_state.trajectory_active_R = true;
-            g_robot_state.trajectory_start_time_R = current_time_s;
-            g_robot_state.trajectory_start_pos_R = motor_position_R;
-            trajectory_active_R = true;
-            trajectory_start_time_R = current_time_s;
-            trajectory_start_pos_R = motor_position_R;
+        // // 新しい目標値が設定された場合の軌道開始処理
+        // if (new_target_R) {
+        //     g_robot_state.new_target_R = false;  // フラグをクリア
+        //     g_robot_state.trajectory_active_R = true;
+        //     g_robot_state.trajectory_start_time_R = current_time_s;
+        //     g_robot_state.trajectory_start_pos_R = motor_position_R;
+        //     trajectory_active_R = true;
+        //     trajectory_start_time_R = current_time_s;
+        //     trajectory_start_pos_R = motor_position_R;
 
-            // R軸軌道を計算
-            trajectory_R_local.set_start_pos(motor_position_R);
-            trajectory_R_local.set_end_pos(target_pos_R);
-            trajectory_R_local.calculate_trapezoidal_params();
+        //     // R軸軌道を計算
+        //     trajectory_R_local.set_start_pos(motor_position_R);
+        //     trajectory_R_local.set_end_pos(target_pos_R);
+        //     trajectory_R_local.calculate_trapezoidal_params();
 
-            // 軌道開始をCore0に通知（簡易的にprintfなしで処理）
-        }
+        //     // 軌道開始をCore0に通知（簡易的にprintfなしで処理）
+        // }
 
-        if (new_target_P) {
-            g_robot_state.new_target_P = false;  // フラグをクリア
-            g_robot_state.trajectory_active_P = true;
-            g_robot_state.trajectory_start_time_P = current_time_s;
-            g_robot_state.trajectory_start_pos_P = motor_position_P;
-            trajectory_active_P = true;
-            trajectory_start_time_P = current_time_s;
-            trajectory_start_pos_P = motor_position_P;
+        // if (new_target_P) {
+        //     g_robot_state.new_target_P = false;  // フラグをクリア
+        //     g_robot_state.trajectory_active_P = true;
+        //     g_robot_state.trajectory_start_time_P = current_time_s;
+        //     g_robot_state.trajectory_start_pos_P = motor_position_P;
+        //     trajectory_active_P = true;
+        //     trajectory_start_time_P = current_time_s;
+        //     trajectory_start_pos_P = motor_position_P;
 
-            // P軸軌道計算前の状態をデバッグ出力（Core1では簡易出力のみ）
-            // P軸軌道を計算
-            trajectory_P_local.set_start_pos(motor_position_P);
-            trajectory_P_local.set_end_pos(target_pos_P);
-            trajectory_P_local.calculate_trapezoidal_params();
+        //     // P軸軌道計算前の状態をデバッグ出力（Core1では簡易出力のみ）
+        //     // P軸軌道を計算
+        //     trajectory_P_local.set_start_pos(motor_position_P);
+        //     trajectory_P_local.set_end_pos(target_pos_P);
+        //     trajectory_P_local.calculate_trapezoidal_params();
 
-            // 軌道計算後の検証
-            float debug_total_dist = trajectory_P_local.get_total_dist();
-            float debug_total_time = trajectory_P_local.get_total_time();
+        //     // 軌道計算後の検証
+        //     float debug_total_dist = trajectory_P_local.get_total_dist();
+        //     float debug_total_time = trajectory_P_local.get_total_time();
 
-            // 軌道開始をCore0に通知（簡易的にprintfなしで処理）
-        }
+        //     // 軌道開始をCore0に通知（簡易的にprintfなしで処理）
+        // }
 
         mutex_exit(&g_state_mutex);
 
@@ -626,8 +633,8 @@ void core1_entry(void) {
         // // トルクから電流への変換
         // target_current[0] = target_torque_R / R_TORQUE_CONSTANT;  // Motor1 (R軸)
         // target_current[1] = target_torque_P / P_TORQUE_CONSTANT;  // Motor2 (P軸)
-        target_current[0] = 0.01;  // Motor1 (R軸)
-        target_current[1] = 0.01;  // Motor2 (P軸)
+        target_current[0] = 0.2;  // Motor1 (R軸)
+        target_current[1] = 0.2;  // Motor2 (P軸)
 
         // 制御後の時刻を記録
         uint32_t time_5_us_uint32 = time_us_32();
@@ -662,18 +669,26 @@ void core1_entry(void) {
         // CAN送信後の時刻を記録
         uint32_t time_7_us_uint32 = time_us_32();
 
-        // printf("Control Cycle Timing:\n");
-        // printf("  Start: %u us\n", time_1_us_uint32);  // 制御開始時刻
-        // printf("  Encoder Read: %u us (Duration: %u us)\n", time_2_us_uint32, time_2_us_uint32 - time_1_us_uint32);
-        // printf("  Mutex Enter: %u us (Duration: %u us)\n", time_3_us_uint32, time_3_us_uint32 - time_2_us_uint32);
-        // printf("  Mutex Exit: %u us (Duration: %u us)\n", time_4_us_uint32, time_4_us_uint32 - time_3_us_uint32);
-        // printf("  Control Calculation: %u us (Duration: %u us)\n",
-        //        time_5_us_uint32, time_5_us_uint32 - time_4_us_uint32);  // 制御計算時間
-        // printf("  Mutex Update: %u us (Duration: %u us)\n", time_6_us_uint32, time_6_us_uint32 - time_5_us_uint32);
-        // printf("  CAN Send: %u us (Duration: %u us)\n",
-        //        time_7_us_uint32, time_7_us_uint32 - time_6_us_uint32);  // CAN送信時間
-        // printf("  Control Cycle Duration: %u us (Total: %u us)\n",
-        //        time_7_us_uint32, time_7_us_uint32 - time_1_us_uint32);  // 制御周期全体の時間
+        // if (counter % 100 == 0) {
+        //     printf("Control Cycle Timing:\n");
+        //     printf("  start: %u us (duration: %u us)\n", time_1_us_uint32, time_1_5_us_uint32 - time_1_us_uint32);
+        //     printf("  Encoder Read: %u us (Duration: %u us)\n", time_2_us_uint32, time_2_us_uint32 - time_1_5_us_uint32);
+        //     printf("  Mutex Enter: %u us (Duration: %u us)\n", time_3_us_uint32, time_3_us_uint32 - time_2_us_uint32);
+        //     printf("  Mutex Exit: %u us (Duration: %u us)\n", time_4_us_uint32, time_4_us_uint32 - time_3_us_uint32);
+        //     printf("  Control Calculation: %u us (Duration: %u us)\n",
+        //            time_5_us_uint32, time_5_us_uint32 - time_4_us_uint32);  // 制御計算時間
+        //     printf("  Mutex Update: %u us (Duration: %u us)\n", time_6_us_uint32, time_6_us_uint32 - time_5_us_uint32);
+        //     printf("  CAN Send: %u us (Duration: %u us)\n",
+        //            time_7_us_uint32, time_7_us_uint32 - time_6_us_uint32);  // CAN送信時間
+        //     printf("  Control Cycle Duration: %u us (Total: %u us)\n",
+        //            time_7_us_uint32, time_7_us_uint32 - time_1_us_uint32);  // 制御周期全体の時間
+        // }
+        uint32_t tim = 250;  // 制御周期の目標時間 (375us);
+        if ((time_7_us_uint32 - time_1_us_uint32) > tim) {
+            gpio_put(PICO_DEFAULT_LED_PIN, 1);  // LED点灯
+        } else {
+            gpio_put(PICO_DEFAULT_LED_PIN, 0);  // LED消灯
+        }
 
         // 制御周期終了処理
         control_timing_end(&control_timing, CONTROL_PERIOD_MS);
@@ -875,13 +890,13 @@ int main(void) {
         bool encoder_p_valid = g_robot_state.encoder_p_valid;
         mutex_exit(&g_state_mutex);
 
-        // // 軌道状態変化の検出
-        // g_debug_manager->check_trajectory_state_changes(traj_active_R, traj_active_P,
-        //                                                 current_pos_R, current_pos_P,
-        //                                                 final_target_pos_R, final_target_pos_P,
-        //                                                 gear_radius_P);
+        // 軌道状態変化の検出
+        g_debug_manager->check_trajectory_state_changes(traj_active_R, traj_active_P,
+                                                        current_pos_R, current_pos_P,
+                                                        final_target_pos_R, final_target_pos_P,
+                                                        gear_radius_P);
 
-        // 軌道制限値の表示（1回のみ）
+        // // 軌道制限値の表示（1回のみ）
         // g_debug_manager->print_trajectory_limits(TrajectoryLimits::R_MAX_VELOCITY, TrajectoryLimits::R_MAX_ACCELERATION,
         //                                          TrajectoryLimits::P_MAX_VELOCITY, TrajectoryLimits::P_MAX_ACCELERATION,
         //                                          gear_radius_P);
