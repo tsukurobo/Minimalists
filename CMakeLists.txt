@@ -46,6 +46,8 @@ add_executable(minimalists
         src/control_timing.cpp
         src/debug_manager.cpp
         src/trajectory_sequence_manager.cpp
+        src/dynamixel.cpp
+        src/hand.cpp
         )
 
 # Add pico_multicore which is required for multicore functionality
@@ -53,6 +55,7 @@ target_link_libraries(minimalists
         pico_stdlib
         pico_multicore
         hardware_spi
+        hardware_pwm
 )
 
 target_include_directories(minimalists
