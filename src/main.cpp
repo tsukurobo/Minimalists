@@ -359,9 +359,6 @@ static mutex_t g_trajectory_mutex;
 // グローバルデバッグマネージャ
 static DebugManager* g_debug_manager = nullptr;
 
-// 軌道シーケンス管理クラス
-static TrajectorySequenceManager* g_trajectory_sequence_manager = nullptr;
-
 // 目標値設定用ヘルパー関数（Core0専用）
 void set_target_position_R(float target_pos) {
     mutex_enter_blocking(&g_state_mutex);
@@ -795,7 +792,6 @@ int main(void) {
 
     // ミューテックス初期化
     mutex_init(&g_state_mutex);
-    mutex_init(&g_trajectory_mutex);
 
     g_robot_state.motor_speed = 0;
     g_robot_state.sensor_value = 0;
@@ -853,9 +849,6 @@ int main(void) {
     g_robot_state.led_status = LED_OFF;
     g_robot_state.can_error_count = 0;
 
-    // 軌道シーケンスの初期化とテスト軌道の設定
-    g_trajectory_sequence_manager->setup_test_sequence(gear_radius_P);
-
     // Core1で実行する関数を起動
     multicore_launch_core1(core1_entry);
 
@@ -879,6 +872,14 @@ int main(void) {
     trajectory_state_t traj_state = TRAJECTORY_IDLE;
     float wait_start_time = 0.0;
     constexpr float WAIT_DURATION = 2.0;  // 到達後の待機時間 [s]
+
+    TrajectorySequenceManager* seq_manager = new TrajectorySequenceManager(g_debug_manager);
+    trajectory_waypoint_t test_waypoints[] = {
+        trajectory_waypoint_t(0.0f, 0.01f / gear_radius_P, 0.0f),      // 1cm前進
+        trajectory_waypoint_t(M_PI / 2, 0.01f / gear_radius_P, 0.0f),  // 90度回転
+        trajectory_waypoint_t(0.0f, 0.0f / gear_radius_P, 0.0f)        // 原点復帰
+    };
+    seq_manager->setup_sequence(test_waypoints, 3);
 
     while (1) {
         // FIFOから同期信号を待機（ブロッキング）
@@ -915,7 +916,7 @@ int main(void) {
                         g_debug_manager->set_initial_positions(current_pos_R, current_pos_P);
 
                         // 軌道シーケンスを開始
-                        g_trajectory_sequence_manager->start_sequence();
+                        seq_manager->start_sequence();
 
                         // 最初は現在位置で待機（Core1で自動的に現在位置を保持）
                         g_debug_manager->info("Trajectory sequence started, initial wait at current position");
@@ -930,7 +931,7 @@ int main(void) {
                     }
 
                     // 軌道シーケンスが完了している場合は何もしない
-                    else if (g_trajectory_sequence_manager->is_sequence_complete()) {
+                    else if (seq_manager->is_sequence_complete()) {
                         // シーケンス完了状態を維持
                     }
                     break;
@@ -943,9 +944,9 @@ int main(void) {
                     // 待機時間終了チェック
                     if (current_main_time - wait_start_time >= WAIT_DURATION) {
                         // 軌道シーケンスがアクティブな場合、次の目標点に移動
-                        if (g_trajectory_sequence_manager->is_sequence_active()) {
+                        if (seq_manager->is_sequence_active()) {
                             float target_R, target_P;
-                            if (g_trajectory_sequence_manager->get_next_waypoint(target_R, target_P)) {
+                            if (seq_manager->get_next_waypoint(target_R, target_P)) {
                                 // 現在位置を取得
                                 float current_pos_R, current_pos_P;
                                 mutex_enter_blocking(&g_state_mutex);
@@ -982,8 +983,8 @@ int main(void) {
             // 軌道完了信号を受信
             if (traj_state == TRAJECTORY_EXECUTING) {
                 // 軌道シーケンスがアクティブな場合、次の点に進める
-                if (g_trajectory_sequence_manager->is_sequence_active()) {
-                    g_trajectory_sequence_manager->advance_to_next_waypoint();
+                if (seq_manager->is_sequence_active()) {
+                    seq_manager->advance_to_next_waypoint();
                 }
 
                 traj_state = TRAJECTORY_WAITING;
