@@ -224,20 +224,23 @@ bool AMT223V::reset_turn_count() {
 
 void AMT223V::select() {
     gpio_put(cs_pin, 0);  // CSをLOWにして選択
-    sleep_us(10);         // セットアップ時間
+    sleep_us(4);          // セットアップ時間 規定値 2.5 us
 }
 
 void AMT223V::deselect() {
-    sleep_us(10);         // time before CS can be released
+    sleep_us(4);          // time before CS can be released 規定値 3 us　
     gpio_put(cs_pin, 1);  // CSをHIGHにして非選択
-    sleep_us(100);        // time between reads
+    sleep_us(1);          // time after CS is released
 }
 
 void AMT223V::spi_transfer(const uint8_t* tx_data, uint8_t* rx_buffer, size_t length) {
     // SPI通信実行
     for (size_t i = 0; i < length; i++) {
+        if (i == 2) {
+            sleep_us(4);
+        }
         spi_write_read_blocking(spi_port, &tx_data[i], &rx_buffer[i], 1);
-        sleep_us(10);  // time between bytes
+        sleep_us(4);  // time between bytes 規定値 2.5 us
     }
 }
 

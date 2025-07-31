@@ -40,7 +40,7 @@ typedef struct {
 // CAN IC用SPI設定
 static const spi_config_t can_spi_config = {
     .spi_port = spi1,       // SPI1を使用
-    .baudrate = 1'000'000,  // 1MHz
+    .baudrate = 4'000'000,  // 1MHz
     .pin_miso = 8,
     .pin_cs = {5},     // CSピン1つ
     .num_cs_pins = 1,  // CSピン数
@@ -54,7 +54,7 @@ mcp25625_t can(can_spi_config.spi_port, can_spi_config.pin_cs[0], can_spi_config
 
 // AMT223-V エンコーダマネージャを作成
 AMT223V_Manager encoder_manager(spi1,       // SPI0を使用
-                                1'000'000,  // 2MHz
+                                1'875'000,  // 規定値 2MHz 整数分数でベスト:1.875MHz
                                 8,          // MISO pin
                                 10,         // SCK pin
                                 11);        // MOSI pin

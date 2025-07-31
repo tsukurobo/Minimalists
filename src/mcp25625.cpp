@@ -46,11 +46,16 @@ bool mcp25625_t::init(CAN_SPEED speed, uint32_t clock_mhz) {
 // CANメッセージを送信バッファにロードして送信要求
 bool mcp25625_t::send_can_message(const struct can_frame_t* frame) {
     // 送信バッファが空くまで待機 (TXREQ=0) [cite: 487]
-    uint8_t status = _read_register(MCP_TXB0CTRL);
-    // 取得したバッファ内容をダンプ
-    // printf("TXB0CTRL: 0x%02X\n", status);
-    if ((status & 0x08) != 0) {
-        return false;  // バッファがまだ使用中
+    constexpr int max_wait = 250;  // 最大リトライ数（タイムアウト防止）
+    for (int i = 0; i < max_wait; ++i) {
+        uint8_t status = _read_register(MCP_TXB0CTRL);
+        if ((status & 0x08) == 0) {
+            break;  // 空きが確認できたら送信準備へ
+        }
+        sleep_us(1);  // 必要に応じて調整（100usなど）
+        if (i == max_wait - 1) {
+            return false;  // タイムアウト
+        }
     }
 
     // 標準IDをレジスタに書き込む
@@ -68,9 +73,11 @@ bool mcp25625_t::send_can_message(const struct can_frame_t* frame) {
 
     // SPI経由で送信バッファに書き込む
     _write_registers(MCP_TXB0CTRL + 1, tx_buf, 5 + frame->can_dlc);
+    sleep_us(1);
 
     // 送信要求 (Request-to-Send) [cite: 496]
     _request_to_send(MCP_RTS_TXB0);
+    sleep_us(1);  // 送信要求後の安定化時間
 
     return true;
 }
