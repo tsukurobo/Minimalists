@@ -15,7 +15,7 @@
 #include "trajectory.hpp"
 
 // 制御周期定数
-constexpr float CONTROL_PERIOD_MS = 0.5;                        // 制御周期 [ms]
+constexpr float CONTROL_PERIOD_MS = 0.25;                       // 制御周期 [ms]
 constexpr float CONTROL_PERIOD_S = CONTROL_PERIOD_MS / 1000.0;  // 制御周期 [s]
 
 // システム設定定数
@@ -565,35 +565,43 @@ void core1_entry(void) {
             trajectory_target_accel_P = 0.0;
         }
 
-        // 位置PID制御（位置偏差 → 速度補正）
-        float vel_correction_R = position_pid_R.computePosition(trajectory_target_pos_R, motor_position_R);
-        float vel_correction_P = position_pid_P.computePosition(trajectory_target_pos_P, motor_position_P);
+        // // 位置PID制御（位置偏差 → 速度補正）
+        // float vel_correction_R = position_pid_R.computePosition(trajectory_target_pos_R, motor_position_R);
+        // float vel_correction_P = position_pid_P.computePosition(trajectory_target_pos_P, motor_position_P);
 
-        // デッドゾーン適用（小さな偏差では制御出力をゼロにする）
-        constexpr float DEADZONE_R = 0.02;   // R軸デッドゾーン [rad] (約1度)
-        constexpr float DEADZONE_P = 0.001;  // P軸デッドゾーン [rad] (約25μm相当)
+        // // デッドゾーン適用（小さな偏差では制御出力をゼロにする）
+        // constexpr float DEADZONE_R = 0.02;   // R軸デッドゾーン [rad] (約1度)
+        // constexpr float DEADZONE_P = 0.001;  // P軸デッドゾーン [rad] (約25μm相当)
 
-        float position_error_R = trajectory_target_pos_R - motor_position_R;
-        float position_error_P = trajectory_target_pos_P - motor_position_P;
+        // float position_error_R = trajectory_target_pos_R - motor_position_R;
+        // float position_error_P = trajectory_target_pos_P - motor_position_P;
 
-        if (std::abs(position_error_R) < DEADZONE_R) {
-            vel_correction_R = 0.0;
-        }
-        if (std::abs(position_error_P) < DEADZONE_P) {
-            vel_correction_P = 0.0;
-        }
+        // if (std::abs(position_error_R) < DEADZONE_R) {
+        //     vel_correction_R = 0.0;
+        // }
+        // if (std::abs(position_error_P) < DEADZONE_P) {
+        //     vel_correction_P = 0.0;
+        // }
 
-        // 最終目標速度 = 台形プロファイル目標速度 + 位置偏差による速度補正
-        float final_target_vel_R = ControlLimits::FeedForward::POSITION_GAIN * trajectory_target_vel_R + vel_correction_R;
-        float final_target_vel_P = ControlLimits::FeedForward::POSITION_GAIN * trajectory_target_vel_P + vel_correction_P;
-        // float final_target_vel_R = vel_correction_R;
-        // float final_target_vel_P = vel_correction_P;
+        // // 最終目標速度 = 台形プロファイル目標速度 + 位置偏差による速度補正
+        // float final_target_vel_R = ControlLimits::FeedForward::POSITION_GAIN * trajectory_target_vel_R + vel_correction_R;
+        // float final_target_vel_P = ControlLimits::FeedForward::POSITION_GAIN * trajectory_target_vel_P + vel_correction_P;
+        // // float final_target_vel_R = vel_correction_R;
+        // // float final_target_vel_P = vel_correction_P;
 
-        // 速度I-P制御（速度偏差 → 目標トルク）
-        float target_torque_R = velocity_ip_R.computeVelocity(final_target_vel_R, motor_velocity_R) + ControlLimits::FeedForward::R_VELOCITY_GAIN * trajectory_target_vel_R;
-        float target_torque_P = velocity_ip_P.computeVelocity(final_target_vel_P, motor_velocity_P) + ControlLimits::FeedForward::P_VELOCITY_GAIN * trajectory_target_vel_P;
-        // float target_torque_R = velocity_ip_R.computeVelocity(final_target_vel_R, motor_velocity_R);
-        // float target_torque_P = velocity_ip_P.computeVelocity(final_target_vel_P, motor_velocity_P);
+        // // 速度I-P制御（速度偏差 → 目標トルク）
+        // float target_torque_R = velocity_ip_R.computeVelocity(final_target_vel_R, motor_velocity_R) + ControlLimits::FeedForward::R_VELOCITY_GAIN * trajectory_target_vel_R;
+        // float target_torque_P = velocity_ip_P.computeVelocity(final_target_vel_P, motor_velocity_P) + ControlLimits::FeedForward::P_VELOCITY_GAIN * trajectory_target_vel_P;
+        // // float target_torque_R = velocity_ip_R.computeVelocity(final_target_vel_R, motor_velocity_R);
+        // // float target_torque_P = velocity_ip_P.computeVelocity(final_target_vel_P, motor_velocity_P);
+
+        float error_pos_R = Kp * inertia_R * (trajectory_target_pos_R - motor_position_R);
+        float error_vel_R = Kd * inertia_R * (trajectory_target_vel_R - motor_velocity_R);
+        float error_pos_P = Kp * inertia_P * (trajectory_target_pos_P - motor_position_P);
+        float error_vel_P = Kd * inertia_P * (trajectory_target_vel_P - motor_velocity_P);
+
+        float control_R = error_pos_R + error_vel_R + ;
+        float control_P = error_pos_P + error_vel_P;
 
         // --- 制御出力の制限 ---
         // R軸のトルク制限
@@ -845,63 +853,63 @@ int main(void) {
                                                         final_target_pos_R, final_target_pos_P,
                                                         gear_radius_P);
 
-        // 軌道制限値の表示（1回のみ）
-        g_debug_manager->print_trajectory_limits(TrajectoryLimits::R_MAX_VELOCITY, TrajectoryLimits::R_MAX_ACCELERATION,
-                                                 TrajectoryLimits::P_MAX_VELOCITY, TrajectoryLimits::P_MAX_ACCELERATION,
-                                                 gear_radius_P);
+        // // 軌道制限値の表示（1回のみ）
+        // g_debug_manager->print_trajectory_limits(TrajectoryLimits::R_MAX_VELOCITY, TrajectoryLimits::R_MAX_ACCELERATION,
+        //                                          TrajectoryLimits::P_MAX_VELOCITY, TrajectoryLimits::P_MAX_ACCELERATION,
+        //                                          gear_radius_P);
 
-        // 異常値検出
-        g_debug_manager->check_abnormal_values(traj_target_pos_P, gear_radius_P);
+        //     // 異常値検出
+        //     g_debug_manager->check_abnormal_values(traj_target_pos_P, gear_radius_P);
 
-        // 定期ステータス出力（1秒毎）
-        if (g_debug_manager->should_output_status(current_main_time)) {
-            // 軌道デバッグ情報構造体の作成
-            TrajectoryDebugInfo r_info = {
-                .final_target_pos = final_target_pos_R,
-                .trajectory_target_pos = traj_target_pos_R,
-                .trajectory_target_vel = traj_target_vel_R,
-                .current_pos = current_pos_R,
-                .current_vel = current_vel_R,
-                .final_target_vel = target_vel_R,
-                .trajectory_active = traj_active_R,
-                .gear_radius = 1.0f,  // R軸はrad単位なのでギア半径は使わない
-                .unit_name = "rad",
-                .axis_name = "R"};
+        //     // 定期ステータス出力（1秒毎）
+        //     if (g_debug_manager->should_output_status(current_main_time)) {
+        //         // 軌道デバッグ情報構造体の作成
+        //         TrajectoryDebugInfo r_info = {
+        //             .final_target_pos = final_target_pos_R,
+        //             .trajectory_target_pos = traj_target_pos_R,
+        //             .trajectory_target_vel = traj_target_vel_R,
+        //             .current_pos = current_pos_R,
+        //             .current_vel = current_vel_R,
+        //             .final_target_vel = target_vel_R,
+        //             .trajectory_active = traj_active_R,
+        //             .gear_radius = 1.0f,  // R軸はrad単位なのでギア半径は使わない
+        //             .unit_name = "rad",
+        //             .axis_name = "R"};
 
-            TrajectoryDebugInfo p_info = {
-                .final_target_pos = final_target_pos_P,
-                .trajectory_target_pos = traj_target_pos_P,
-                .trajectory_target_vel = traj_target_vel_P,
-                .current_pos = current_pos_P,
-                .current_vel = current_vel_P,
-                .final_target_vel = target_vel_P,
-                .trajectory_active = traj_active_P,
-                .gear_radius = gear_radius_P,
-                .unit_name = "rad",
-                .axis_name = "P"};
+        //         TrajectoryDebugInfo p_info = {
+        //             .final_target_pos = final_target_pos_P,
+        //             .trajectory_target_pos = traj_target_pos_P,
+        //             .trajectory_target_vel = traj_target_vel_P,
+        //             .current_pos = current_pos_P,
+        //             .current_vel = current_vel_P,
+        //             .final_target_vel = target_vel_P,
+        //             .trajectory_active = traj_active_P,
+        //             .gear_radius = gear_radius_P,
+        //             .unit_name = "rad",
+        //             .axis_name = "P"};
 
-            // システム状態デバッグ情報構造体の作成
-            SystemDebugInfo sys_info = {
-                .timing_violations = timing_violations,
-                .can_errors = can_errors,
-                .led_status = led_status,
-                .encoder_r_valid = encoder_r_valid,
-                .encoder_p_valid = encoder_p_valid,
-                .target_torque_R = target_torque_R,
-                .target_torque_P = target_torque_P,
-                .target_current_R = target_cur_R,
-                .target_current_P = target_cur_P,
-                .encoder_p_turn_count = p_turn_count,
-                .encoder_p_single_angle_deg = p_single_angle,
-                .encoder_r_angle_deg = r_angle_deg};
+        //         // システム状態デバッグ情報構造体の作成
+        //         SystemDebugInfo sys_info = {
+        //             .timing_violations = timing_violations,
+        //             .can_errors = can_errors,
+        //             .led_status = led_status,
+        //             .encoder_r_valid = encoder_r_valid,
+        //             .encoder_p_valid = encoder_p_valid,
+        //             .target_torque_R = target_torque_R,
+        //             .target_torque_P = target_torque_P,
+        //             .target_current_R = target_cur_R,
+        //             .target_current_P = target_cur_P,
+        //             .encoder_p_turn_count = p_turn_count,
+        //             .encoder_p_single_angle_deg = p_single_angle,
+        //             .encoder_r_angle_deg = r_angle_deg};
 
-            // デバッグ情報出力
-            g_debug_manager->print_trajectory_status(r_info, p_info);
-            g_debug_manager->print_system_status(sys_info);
-        }
+        //         // デバッグ情報出力
+        //         g_debug_manager->print_trajectory_status(r_info, p_info);
+        //         g_debug_manager->print_system_status(sys_info);
+        //     }
 
-        busy_wait_until(next_main_time);  // 1秒待機
+        //     busy_wait_until(next_main_time);  // 1秒待機
+        // }
+
+        return 0;
     }
-
-    return 0;
-}
