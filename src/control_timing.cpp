@@ -10,7 +10,7 @@ void init_control_timing(control_timing_t* timing) {
     timing->timing_violation_count = 0;
     timing->led_mode = LED_OFF;
     timing->overflow_mode = OVERFLOW_CONTINUOUS;  // デフォルトは連続オーバーフロー
-    timing->min_wait_us = 1000;                 // デフォルト1ms
+    timing->min_wait_us = 1000;                   // デフォルト1ms
 }
 
 // 制御周期開始処理（ループの最初に呼ぶ）
