@@ -352,7 +352,7 @@ void AMT223V::calculate_angular_velocity(float current_angle_rad, uint64_t curre
     }
 
     // ローパスフィルタ適用（1次遅れフィルタ）
-    const float omega_c = 100.0f;  // 角周波数 [rad/s]
+    const float omega_c = 200.0f;  // 角周波数 [rad/s]
 
     // フィルタ係数計算（後退オイラー法）
     // H(s) = ωc / (s + ωc) を離散化

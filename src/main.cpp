@@ -15,7 +15,7 @@
 #include "trajectory.hpp"
 
 // 制御周期定数
-constexpr float CONTROL_PERIOD_MS = 1.0;                        // 制御周期 [ms]
+constexpr float CONTROL_PERIOD_MS = 0.5;                        // 制御周期 [ms]
 constexpr float CONTROL_PERIOD_S = CONTROL_PERIOD_MS / 1000.0;  // 制御周期 [s]
 
 // システム設定定数
@@ -92,9 +92,9 @@ robomaster_motor_t motor2(&can, 2, gear_ratio_P);  // motor_id=2
 
 // PIDコントローラ（モータ1: 回転軸、モータ2: 直動軸）
 // 位置PID制御器（位置[rad] → 目標速度[rad/s]）
-constexpr float R_POSITION_KP = 16.0;  // R軸位置PIDの比例ゲイン
-constexpr float R_VELOCITY_KP = 8.0;   // R軸速度I-Pの比例ゲイン
-constexpr float R_VELOCITY_KI = 64.0;  // R軸速度I-Pの積分ゲイン
+constexpr float R_POSITION_KP = 1.25;  // R軸位置PIDの比例ゲイン
+constexpr float R_VELOCITY_KP = 0.1;   // R軸速度I-Pの比例ゲイン
+constexpr float R_VELOCITY_KI = 0.7;   // R軸速度I-Pの積分ゲイン
 constexpr float P_POSITION_KP = 1.25;  // P軸位置PIDの比例ゲイン
 constexpr float P_VELOCITY_KP = 0.1;   // P軸速度I-Pの比例ゲイン
 constexpr float P_VELOCITY_KI = 1.0;   // P軸速度I-Pの積分ゲイン
@@ -610,10 +610,10 @@ void core1_entry(void) {
         }
 
         // // トルクから電流への変換
-        // target_current[0] = target_torque_R / R_TORQUE_CONSTANT;  // Motor1 (R軸)
-        target_current[1] = target_torque_P / P_TORQUE_CONSTANT;  // Motor2 (P軸)
-        target_current[0] = 0.0;                                  // Motor1 (R軸)
-        // target_current[1] = 0.0;  // Motor2 (P軸)
+        target_current[0] = target_torque_R / R_TORQUE_CONSTANT;  // Motor1 (R軸)
+        // target_current[1] = target_torque_P / P_TORQUE_CONSTANT;  // Motor2 (P軸)
+        // target_current[0] = 0.0;                                  // Motor1 (R軸)
+        target_current[1] = 0.0;  // Motor2 (P軸)
 
         // --- 制御結果を共有データに保存 ---
         mutex_enter_blocking(&g_state_mutex);
