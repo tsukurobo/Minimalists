@@ -31,6 +31,7 @@ class AMT223V {
 
     // 角速度計算用変数
     float previous_angle_rad;    // 前回の角度[rad]
+    float LPF_angle_rad;         // ローパスフィルタの初期値
     float angular_velocity_rad;  // 角速度[rad/s]
     float angular_velocity_deg;  // 角速度[deg/s]
     uint64_t previous_time_us;   // 前回の測定時刻[μs]

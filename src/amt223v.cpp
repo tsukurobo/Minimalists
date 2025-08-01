@@ -295,6 +295,7 @@ void AMT223V::calculate_angular_velocity(float current_angle_rad, uint64_t curre
     if (!velocity_initialized) {
         // 初回は角速度を0として初期化
         previous_angle_rad = current_angle_rad;
+        LPF_angle_rad = current_angle_rad;  // ローパスフィルタの初期値
         previous_time_us = current_time_us;
         angular_velocity_rad = 0.0;
         angular_velocity_deg = 0.0;
@@ -352,7 +353,7 @@ void AMT223V::calculate_angular_velocity(float current_angle_rad, uint64_t curre
     }
 
     // ローパスフィルタ適用（1次遅れフィルタ）
-    const float omega_c = 200.0f;  // 角周波数 [rad/s]
+    const float omega_c = 30.0f;  // 角周波数 [rad/s]
 
     // フィルタ係数計算（後退オイラー法）
     // H(s) = ωc / (s + ωc) を離散化
@@ -364,7 +365,10 @@ void AMT223V::calculate_angular_velocity(float current_angle_rad, uint64_t curre
     if (alpha > 1.0) alpha = 1.0;
 
     // フィルタ適用：y[n] = α * x[n] + (1-α) * y[n-1]
-    angular_velocity_rad = alpha * raw_angular_velocity + (1.0 - alpha) * angular_velocity_rad;
+    // angular_velocity_rad = alpha * raw_angular_velocity + (1.0 - alpha) * angular_velocity_rad;
+    angular_velocity_rad = (current_angle_rad - LPF_angle_rad) * omega_c;
+    LPF_angle_rad += angular_velocity_rad * delta_time_s;
+
     angular_velocity_deg = angular_velocity_rad * 180.0 / M_PI;
 
     // 次回計算用に値を保存

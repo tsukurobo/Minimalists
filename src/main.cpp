@@ -15,7 +15,7 @@
 #include "trajectory.hpp"
 
 // 制御周期定数
-constexpr float CONTROL_PERIOD_MS = 0.25;                       // 制御周期 [ms]
+constexpr float CONTROL_PERIOD_MS = 0.5;                        // 制御周期 [ms]
 constexpr float CONTROL_PERIOD_S = CONTROL_PERIOD_MS / 1000.0;  // 制御周期 [s]
 
 // システム設定定数
@@ -100,8 +100,8 @@ constexpr float P_VELOCITY_KP = 0.1;   // P軸速度I-Pの比例ゲイン
 constexpr float P_VELOCITY_KI = 1.0;   // P軸速度I-Pの積分ゲイン
 
 // 外乱オブザーバのパラメータ
-constexpr float R_CUTOFF_FREQ = 100.0f;                                           // R軸 外乱オブザーバのカットオフ周波数 [rad/s]
-constexpr float sqrtf_R_POSITION_GAIN = 1.0;                                      // R軸 外乱オブザーバの位置ゲインの平方根
+constexpr float R_CUTOFF_FREQ = 30.0f;                                            // R軸 外乱オブザーバのカットオフ周波数 [rad/s]
+constexpr float sqrtf_R_POSITION_GAIN = 4.0;                                      // R軸 外乱オブザーバの位置ゲインの平方根
 constexpr float R_POSITION_GAIN = sqrtf_R_POSITION_GAIN * sqrtf_R_POSITION_GAIN;  // R軸 外乱オブザーバの位置ゲイン
 constexpr float R_VELOCITY_GAIN = 2.0f * sqrtf_R_POSITION_GAIN;                   // R軸 外乱オブザーバの速度ゲイン
 constexpr float P_CUTOFF_FREQ = 30.0;                                             // P軸 外乱オブザーバのカットオフ周波数 [rad/s]
@@ -399,6 +399,7 @@ void core1_entry(void) {
 
     float disturbance_torque_R = 0.0f;        // R軸の外乱トルク
     float control_torque_R = 0.0f;            // R軸の制御トルク
+    float target_torque_R = 0.0f;             // R軸の目標トルク
     float dot_control_torque_R = 0.0f;        // R軸の制御トルクの微分値
     float LPF_control_torque_R = 0.0f;        // 制御トルクのローパスフィルタ出力
     float dob_0_R = 0.0f;                     // R軸の外乱オブザーバ中間値0
@@ -642,18 +643,21 @@ void core1_entry(void) {
         // R軸の制御計算
         error_position_R = R_EQ_INERTIA * R_POSITION_GAIN * (trajectory_target_pos_R - motor_position_R);
         error_velocity_R = R_EQ_INERTIA * R_VELOCITY_GAIN * (trajectory_target_vel_R - motor_velocity_R);
-        // acceleration_feedforward_R = R_EQ_INERTIA * trajectory_target_accel_R;
-        acceleration_feedforward_R = 0.0f;  // 加速度フィードフォワードは無効化
-        control_torque_R = error_position_R + error_velocity_R + acceleration_feedforward_R + disturbance_torque_R;
+        acceleration_feedforward_R = R_EQ_INERTIA * trajectory_target_accel_R;
+        // acceleration_feedforward_R = 0.0f;                                                                           // 加速度フィードフォワードは無効化
+        control_torque_R = error_position_R + error_velocity_R + disturbance_torque_R;        // 制御トルク計算
         control_torque_R = clampTorque(control_torque_R, ControlLimits::R_Axis::MAX_TORQUE);  // 制御トルク制限
         // 外乱オブザーバの計算
         dot_control_torque_R = (control_torque_R - LPF_control_torque_R) * R_CUTOFF_FREQ;
-        LPF_control_torque_R += dot_control_torque_R * CONTROL_PERIOD_S;
-        dob_rightloop_R = R_EQ_INERTIA * R_CUTOFF_FREQ * motor_velocity_R;
+        LPF_control_torque_R += dot_control_torque_R * CONTROL_PERIOD_S;  // ローパスフィルタによる平滑化
+
+        dob_rightloop_R = R_EQ_INERTIA * R_CUTOFF_FREQ * motor_velocity_R;  // R軸の外乱オブザーバ右ループ値
         dob_0_R = LPF_control_torque_R + dob_rightloop_R;
         dob_1_R = (dob_0_R - dob_2_R) * R_CUTOFF_FREQ;
         dob_2_R += dob_1_R * CONTROL_PERIOD_S;
         disturbance_torque_R = dob_2_R - dob_rightloop_R;  // 外乱トルクの更新
+
+        target_torque_R = control_torque_R + acceleration_feedforward_R;  // 制御トルクを目標トルクに設定
 
         // P軸の制御計算
         error_position_P = P_EQ_INERTIA * P_POSITION_GAIN * (trajectory_target_pos_P - motor_position_P);
@@ -671,7 +675,7 @@ void core1_entry(void) {
         disturbance_torque_P = dob_2_P - dob_rightloop_P;  // 外乱トルクの更新
 
         // // トルクから電流への変換
-        target_current[0] = control_torque_R / R_TORQUE_CONSTANT;  // Motor1 (R軸)
+        target_current[0] = target_torque_R / R_TORQUE_CONSTANT;  // Motor1 (R軸)
         // target_current[1] = control_torque_P / P_TORQUE_CONSTANT;  // Motor2 (P軸)
         // デバッグ用に電流指令値を0.0に設定
         // target_current[0] = 0.0;                                  // Motor1 (R軸)
@@ -720,7 +724,7 @@ int main(void) {
     sleep_ms(2000);             // 少し待機して安定化
 
     // デバッグマネージャの初期化
-    g_debug_manager = new DebugManager(DebugLevel::OFF, 0.1f);
+    g_debug_manager = new DebugManager(DebugLevel::OFF, 1.0f);
 
     // 全SPIデバイスの初期化
     while (!init_all_spi_devices()) {
@@ -809,9 +813,10 @@ int main(void) {
 
         // 現在時刻を取得
         float current_main_time = 0.0;
-        mutex_enter_blocking(&g_state_mutex);
-        current_main_time = g_robot_state.current_time;
-        mutex_exit(&g_state_mutex);
+        // mutex_enter_blocking(&g_state_mutex);
+        // current_main_time = g_robot_state.current_time;
+        // mutex_exit(&g_state_mutex);
+        current_main_time = static_cast<float>(time_us_32()) / 1'000'000.0f;  // time_us_32()はマイクロ秒単位なので秒に変換
 
         // 軌道制御のテスト（10秒ごとに往復）
         g_debug_manager->update_time_counter(0.1);  // 100ms周期で0.1秒ずつ増加
