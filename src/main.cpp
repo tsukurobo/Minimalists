@@ -101,7 +101,7 @@ constexpr float P_VELOCITY_KI = 1.0;   // P軸速度I-Pの積分ゲイン
 
 // 外乱オブザーバのパラメータ
 constexpr float R_CUTOFF_FREQ = 30.0f;                                            // R軸 外乱オブザーバのカットオフ周波数 [rad/s]
-constexpr float sqrtf_R_POSITION_GAIN = 4.0;                                      // R軸 外乱オブザーバの位置ゲインの平方根
+constexpr float sqrtf_R_POSITION_GAIN = 8.0;                                      // R軸 外乱オブザーバの位置ゲインの平方根
 constexpr float R_POSITION_GAIN = sqrtf_R_POSITION_GAIN * sqrtf_R_POSITION_GAIN;  // R軸 外乱オブザーバの位置ゲイン
 constexpr float R_VELOCITY_GAIN = 2.0f * sqrtf_R_POSITION_GAIN;                   // R軸 外乱オブザーバの速度ゲイン
 constexpr float P_CUTOFF_FREQ = 30.0;                                             // P軸 外乱オブザーバのカットオフ周波数 [rad/s]
@@ -371,12 +371,12 @@ bool is_trajectory_completed_P() {
 void core1_entry(void) {
     // Core1専用の軌道生成インスタンス
     trajectory_t trajectory_R_local(
-        0.1f * TrajectoryLimits::R_MAX_VELOCITY,      // R軸最大速度の50%で軌道生成
-        0.1f * TrajectoryLimits::R_MAX_ACCELERATION,  // R軸最大加速度の50%で軌道生成
+        0.4f * TrajectoryLimits::R_MAX_VELOCITY,      // R軸最大速度の50%で軌道生成
+        0.4f * TrajectoryLimits::R_MAX_ACCELERATION,  // R軸最大加速度の50%で軌道生成
         0.0, 0.0);
     trajectory_t trajectory_P_local(
-        0.1f * TrajectoryLimits::P_MAX_VELOCITY,      // P軸最大速度の50%で軌道生成
-        0.1f * TrajectoryLimits::P_MAX_ACCELERATION,  // P軸最大加速度の50%で軌道生成
+        0.4f * TrajectoryLimits::P_MAX_VELOCITY,      // P軸最大速度の50%で軌道生成
+        0.4f * TrajectoryLimits::P_MAX_ACCELERATION,  // P軸最大加速度の50%で軌道生成
         0.0, 0.0);
 
     // CANの初期化（リトライ付き）
@@ -680,6 +680,15 @@ void core1_entry(void) {
         // デバッグ用に電流指令値を0.0に設定
         // target_current[0] = 0.0;                                  // Motor1 (R軸)
         target_current[1] = 0.0;  // Motor2 (P軸)
+
+        if (abs(trajectory_target_pos_R - motor_position_R) > 1.0f) {
+            // R軸の位置誤差が 1 radを超えた場合、制御トルクを0にリセット
+            target_current[0] = 0.0;
+        }
+        if (abs(trajectory_target_pos_P - motor_position_P) > 1.0f) {
+            // P軸の位置誤差が 1 radを超えた場合、制御トルクを0にリセット
+            target_current[1] = 0.0;
+        }
 
         // --- 制御結果を共有データに保存 ---
         mutex_enter_blocking(&g_state_mutex);
