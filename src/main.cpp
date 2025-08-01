@@ -459,11 +459,7 @@ bool calculate_trajectory_core0(float current_pos_R, float current_pos_P, float 
     return true;
 }
 
-void init() {
-    std::cout << "gpio initialized" << std::endl;
-    gpio_init(SHUTDOWN_PIN);
-    gpio_set_dir(SHUTDOWN_PIN, GPIO_OUT);
-    gpio_put(SHUTDOWN_PIN, 0);
+void init_hand() {
     // ポンプの設定
     gpio_init(PUMP_PIN1);
     gpio_set_dir(PUMP_PIN1, GPIO_OUT);
@@ -893,6 +889,9 @@ int main(void) {
         g_debug_manager->error("PID controller initialization failed, retrying...");
         sleep_ms(1000);  // 1000ms待機して再試行
     }
+
+    // ハンドの初期化
+    init_hand();
 
     sleep_ms(2000);  // シリアル接続待ち
 
