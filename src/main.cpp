@@ -80,10 +80,10 @@ constexpr float R_MAX_VELOCITY = 482.0 / 60.0 * 2.0 * M_PI / gear_ratio_R;  // R
 constexpr float P_MAX_VELOCITY = 416.0 / 60.0 * 2.0 * M_PI / gear_ratio_P;  // P軸最大速度制限 [rad/s] Maximum speed at 1N•m: 416 rpm
 
 // 動力学パラメータとトルク制限から計算した最大角加速度
-constexpr float R_MAX_TORQUE = 3.0 * gear_ratio_R;                 // R軸最大トルク制限 [Nm] (M3508最大連続トルク 3.0Nm)
-constexpr float P_MAX_TORQUE = 1.0 * gear_ratio_P;                 // P軸最大トルク制限 [Nm] (M2006最大連続トルク 1.0Nm)
-constexpr float R_MAX_ACCELERATION = R_MAX_TORQUE / R_EQ_INERTIA;  // R軸最大角加速度 [rad/s^2]
-constexpr float P_MAX_ACCELERATION = P_MAX_TORQUE / P_EQ_INERTIA;  // P軸最大角加速度 [rad/s^2]
+constexpr float R_MAX_TORQUE = std::min(3.0f, 1.0f) * gear_ratio_R;  // R軸最大トルク制限 [Nm] (M3508最大連続トルク 3.0Nm と カップリング最大トルク 1.0Nm の最小値)
+constexpr float P_MAX_TORQUE = 1.0f * gear_ratio_P;                  // P軸最大トルク制限 [Nm] (M2006最大連続トルク 1.0Nm)
+constexpr float R_MAX_ACCELERATION = R_MAX_TORQUE / R_EQ_INERTIA;    // R軸最大角加速度 [rad/s^2] 最大トルク
+constexpr float P_MAX_ACCELERATION = P_MAX_TORQUE / P_EQ_INERTIA;    // P軸最大角加速度 [rad/s^2] 最大トルク
 }  // namespace TrajectoryLimits
 
 // RoboMasterモータオブジェクト
@@ -98,6 +98,16 @@ constexpr float R_VELOCITY_KI = 0.7;   // R軸速度I-Pの積分ゲイン
 constexpr float P_POSITION_KP = 1.25;  // P軸位置PIDの比例ゲイン
 constexpr float P_VELOCITY_KP = 0.1;   // P軸速度I-Pの比例ゲイン
 constexpr float P_VELOCITY_KI = 1.0;   // P軸速度I-Pの積分ゲイン
+
+// 外乱オブザーバのパラメータ
+constexpr float R_CUTOFF_FREQ = 100.0f;                                           // R軸 外乱オブザーバのカットオフ周波数 [rad/s]
+constexpr float sqrtf_R_POSITION_GAIN = 1.0;                                      // R軸 外乱オブザーバの位置ゲインの平方根
+constexpr float R_POSITION_GAIN = sqrtf_R_POSITION_GAIN * sqrtf_R_POSITION_GAIN;  // R軸 外乱オブザーバの位置ゲイン
+constexpr float R_VELOCITY_GAIN = 2.0f * sqrtf_R_POSITION_GAIN;                   // R軸 外乱オブザーバの速度ゲイン
+constexpr float P_CUTOFF_FREQ = 30.0;                                             // P軸 外乱オブザーバのカットオフ周波数 [rad/s]
+constexpr float sqrtf_P_POSITION_GAIN = 1.0;                                      // P軸 外乱オブザーバの位置ゲインの平方根
+constexpr float P_POSITION_GAIN = sqrtf_P_POSITION_GAIN * sqrtf_P_POSITION_GAIN;  // P軸 外乱オブザーバの位置ゲイン
+constexpr float P_VELOCITY_GAIN = 2.0f * sqrtf_P_POSITION_GAIN;                   // P軸 外乱オブザーバの速度ゲイン
 
 // 制御器の制限値設定
 namespace ControlLimits {
@@ -131,6 +141,15 @@ PositionPIDController position_pid_P(P_POSITION_KP, 0.0, 0.0, CONTROL_PERIOD_S);
 // 速度I-P制御器（速度[rad/s] → トルク[Nm]）
 VelocityIPController velocity_ip_R(R_VELOCITY_KI, R_VELOCITY_KP, CONTROL_PERIOD_S);  // Ki, Kp
 VelocityIPController velocity_ip_P(P_VELOCITY_KI, P_VELOCITY_KP, CONTROL_PERIOD_S);  // Ki, Kp
+
+float clampTorque(float torque, float max_torque) {
+    if (torque > max_torque) {
+        return max_torque;
+    } else if (torque < -max_torque) {
+        return -max_torque;
+    }
+    return torque;
+}
 
 // 共有データ構造体
 typedef struct
@@ -352,12 +371,12 @@ bool is_trajectory_completed_P() {
 void core1_entry(void) {
     // Core1専用の軌道生成インスタンス
     trajectory_t trajectory_R_local(
-        TrajectoryLimits::R_MAX_VELOCITY,
-        TrajectoryLimits::R_MAX_ACCELERATION,
+        0.4f * TrajectoryLimits::R_MAX_VELOCITY,      // R軸最大速度の50%で軌道生成
+        0.1f * TrajectoryLimits::R_MAX_ACCELERATION,  // R軸最大加速度の50%で軌道生成
         0.0, 0.0);
     trajectory_t trajectory_P_local(
-        TrajectoryLimits::P_MAX_VELOCITY,
-        TrajectoryLimits::P_MAX_ACCELERATION,
+        0.4f * TrajectoryLimits::P_MAX_VELOCITY,      // P軸最大速度の50%で軌道生成
+        0.1f * TrajectoryLimits::P_MAX_ACCELERATION,  // P軸最大加速度の50%で軌道生成
         0.0, 0.0);
 
     // CANの初期化（リトライ付き）
@@ -377,6 +396,30 @@ void core1_entry(void) {
 
     // 制御開始時刻を記録
     absolute_time_t control_start_time = get_absolute_time();
+
+    float disturbance_torque_R = 0.0f;        // R軸の外乱トルク
+    float control_torque_R = 0.0f;            // R軸の制御トルク
+    float dot_control_torque_R = 0.0f;        // R軸の制御トルクの微分値
+    float LPF_control_torque_R = 0.0f;        // 制御トルクのローパスフィルタ出力
+    float dob_0_R = 0.0f;                     // R軸の外乱オブザーバ中間値0
+    float dob_1_R = 0.0f;                     // R軸の外乱オブザーバ中間値1
+    float dob_2_R = 0.0f;                     // R軸の外乱オブザーバ中間値2
+    float dob_rightloop_R = 0.0f;             // R軸の外乱オブザーバ右ループ値
+    float error_position_R = 0.0f;            // R軸の位置誤差
+    float error_velocity_R = 0.0f;            // R軸の速度誤差
+    float acceleration_feedforward_R = 0.0f;  // R軸の加速度フィードフォワード
+
+    float disturbance_torque_P = 0.0f;        // P軸の外乱トルク
+    float control_torque_P = 0.0f;            // P軸の制御トルク
+    float dot_control_torque_P = 0.0f;        // P軸の制御トルクの微分値
+    float LPF_control_torque_P = 0.0f;        // 制御トルクのローパスフィルタ出力
+    float dob_0_P = 0.0f;                     // P軸の外乱オブザーバ中間値0
+    float dob_1_P = 0.0f;                     // P軸の外乱オブザーバ中間値1
+    float dob_2_P = 0.0f;                     // P軸の外乱オブザーバ中間値2
+    float dob_rightloop_P = 0.0f;             // P軸の外乱オブザーバ右ループ値
+    float error_position_P = 0.0f;            // P軸の位置誤差
+    float error_velocity_P = 0.0f;            // P軸の速度誤差
+    float acceleration_feedforward_P = 0.0f;  // P軸の加速度フィードフォワード
 
     while (true) {
         // 制御周期開始処理
@@ -595,31 +638,41 @@ void core1_entry(void) {
         // // float target_torque_R = velocity_ip_R.computeVelocity(final_target_vel_R, motor_velocity_R);
         // // float target_torque_P = velocity_ip_P.computeVelocity(final_target_vel_P, motor_velocity_P);
 
-        float error_pos_R = Kp * inertia_R * (trajectory_target_pos_R - motor_position_R);
-        float error_vel_R = Kd * inertia_R * (trajectory_target_vel_R - motor_velocity_R);
-        float error_pos_P = Kp * inertia_P * (trajectory_target_pos_P - motor_position_P);
-        float error_vel_P = Kd * inertia_P * (trajectory_target_vel_P - motor_velocity_P);
+        // --- 制御計算 ---
+        // R軸の制御計算
+        error_position_R = R_EQ_INERTIA * R_POSITION_GAIN * (trajectory_target_pos_R - motor_position_R);
+        error_velocity_R = R_EQ_INERTIA * R_VELOCITY_GAIN * (trajectory_target_vel_R - motor_velocity_R);
+        // acceleration_feedforward_R = R_EQ_INERTIA * trajectory_target_accel_R;
+        control_torque_R = error_position_R + error_velocity_R + acceleration_feedforward_R + disturbance_torque_R;
+        control_torque_R = clampTorque(control_torque_R, ControlLimits::R_Axis::MAX_TORQUE);  // 制御トルク制限
+        // 外乱オブザーバの計算
+        dot_control_torque_R = (control_torque_R - LPF_control_torque_R) * R_CUTOFF_FREQ;
+        LPF_control_torque_R += dot_control_torque_R * CONTROL_PERIOD_S;
+        dob_rightloop_R = R_EQ_INERTIA * R_CUTOFF_FREQ * motor_velocity_R;
+        dob_0_R = LPF_control_torque_R + dob_rightloop_R;
+        dob_1_R = (dob_0_R - dob_2_R) * R_CUTOFF_FREQ;
+        dob_2_R += dob_1_R * CONTROL_PERIOD_S;
+        disturbance_torque_R = dob_2_R - dob_rightloop_R;  // 外乱トルクの更新
 
-        float control_R = error_pos_R + error_vel_R + ;
-        float control_P = error_pos_P + error_vel_P;
-
-        // --- 制御出力の制限 ---
-        // R軸のトルク制限
-        if (target_torque_R > ControlLimits::R_Axis::MAX_TORQUE) {
-            target_torque_R = ControlLimits::R_Axis::MAX_TORQUE;
-        } else if (target_torque_R < -ControlLimits::R_Axis::MAX_TORQUE) {
-            target_torque_R = -ControlLimits::R_Axis::MAX_TORQUE;
-        }
-        // P軸のトルク制限
-        if (target_torque_P > ControlLimits::P_Axis::MAX_TORQUE) {
-            target_torque_P = ControlLimits::P_Axis::MAX_TORQUE;
-        } else if (target_torque_P < -ControlLimits::P_Axis::MAX_TORQUE) {
-            target_torque_P = -ControlLimits::P_Axis::MAX_TORQUE;
-        }
+        // P軸の制御計算
+        error_position_P = P_EQ_INERTIA * P_POSITION_GAIN * (trajectory_target_pos_P - motor_position_P);
+        error_velocity_P = P_EQ_INERTIA * P_VELOCITY_GAIN * (trajectory_target_vel_P - motor_velocity_P);
+        acceleration_feedforward_P = P_EQ_INERTIA * trajectory_target_accel_P;
+        control_torque_P = error_position_P + error_velocity_P + acceleration_feedforward_P + disturbance_torque_P;
+        control_torque_P = clampTorque(control_torque_P, ControlLimits::P_Axis::MAX_TORQUE);  // 制御トルク制限
+        // 外乱オブザーバの計算
+        dot_control_torque_P = (control_torque_P - LPF_control_torque_P) * P_CUTOFF_FREQ;
+        LPF_control_torque_P += dot_control_torque_P * CONTROL_PERIOD_S;
+        dob_rightloop_P = P_EQ_INERTIA * P_CUTOFF_FREQ * motor_velocity_P;
+        dob_0_P = LPF_control_torque_P + dob_rightloop_P;
+        dob_1_P = (dob_0_P - dob_2_P) * P_CUTOFF_FREQ;
+        dob_2_P += dob_1_P * CONTROL_PERIOD_S;
+        disturbance_torque_P = dob_2_P - dob_rightloop_P;  // 外乱トルクの更新
 
         // // トルクから電流への変換
-        target_current[0] = target_torque_R / R_TORQUE_CONSTANT;  // Motor1 (R軸)
-        // target_current[1] = target_torque_P / P_TORQUE_CONSTANT;  // Motor2 (P軸)
+        target_current[0] = control_torque_R / R_TORQUE_CONSTANT;  // Motor1 (R軸)
+        // target_current[1] = control_torque_P / P_TORQUE_CONSTANT;  // Motor2 (P軸)
+        // デバッグ用に電流指令値を0.0に設定
         // target_current[0] = 0.0;                                  // Motor1 (R軸)
         target_current[1] = 0.0;  // Motor2 (P軸)
 
@@ -629,10 +682,10 @@ void core1_entry(void) {
         g_robot_state.trajectory_target_position_P = trajectory_target_pos_P;
         g_robot_state.trajectory_target_velocity_R = trajectory_target_vel_R;
         g_robot_state.trajectory_target_velocity_P = trajectory_target_vel_P;
-        g_robot_state.target_velocity_R = final_target_vel_R;
-        g_robot_state.target_velocity_P = final_target_vel_P;
-        g_robot_state.target_torque_R = target_torque_R;
-        g_robot_state.target_torque_P = target_torque_P;
+        // g_robot_state.target_velocity_R = final_target_vel_R;
+        // g_robot_state.target_velocity_P = final_target_vel_P;
+        // g_robot_state.target_torque_R = target_torque_R;
+        // g_robot_state.target_torque_P = target_torque_P;
         g_robot_state.target_current_R = target_current[0];
         g_robot_state.target_current_P = target_current[1];
         g_robot_state.timing_violation_count = control_timing.timing_violation_count;
@@ -646,6 +699,12 @@ void core1_entry(void) {
             g_robot_state.can_error_count++;
             mutex_exit(&g_state_mutex);
         }
+
+        // printf("\n");
+        // printf("%.4f, %.4f, %.4f, %.4f, %.4f \n", error_position_R, error_velocity_R, acceleration_feedforward_R, control_torque_R, disturbance_torque_R);
+        // printf("%.4f, %.4f, %.4f, %.4f, %.4f, %.4f \n", dot_control_torque_R, LPF_control_torque_R, dob_0_R, dob_1_R, dob_2_R, dob_rightloop_R);
+        // printf("%.4f, %.4f, %.4f, %.4f, %.4f \n", error_position_P, error_velocity_P, acceleration_feedforward_P, control_torque_P, disturbance_torque_P);
+        // printf("%.4f, %.4f, %.4f, %.4f, %.4f, %.4f \n", dot_control_torque_P, LPF_control_torque_P, dob_0_P, dob_1_P, dob_2_P, dob_rightloop_P);
 
         // 制御周期終了処理
         control_timing_end(&control_timing, CONTROL_PERIOD_MS);
@@ -853,63 +912,63 @@ int main(void) {
                                                         final_target_pos_R, final_target_pos_P,
                                                         gear_radius_P);
 
-        // // 軌道制限値の表示（1回のみ）
-        // g_debug_manager->print_trajectory_limits(TrajectoryLimits::R_MAX_VELOCITY, TrajectoryLimits::R_MAX_ACCELERATION,
-        //                                          TrajectoryLimits::P_MAX_VELOCITY, TrajectoryLimits::P_MAX_ACCELERATION,
-        //                                          gear_radius_P);
+        // 軌道制限値の表示（1回のみ）
+        g_debug_manager->print_trajectory_limits(TrajectoryLimits::R_MAX_VELOCITY, TrajectoryLimits::R_MAX_ACCELERATION,
+                                                 TrajectoryLimits::P_MAX_VELOCITY, TrajectoryLimits::P_MAX_ACCELERATION,
+                                                 gear_radius_P);
 
-        //     // 異常値検出
-        //     g_debug_manager->check_abnormal_values(traj_target_pos_P, gear_radius_P);
+        // 異常値検出
+        g_debug_manager->check_abnormal_values(traj_target_pos_P, gear_radius_P);
 
-        //     // 定期ステータス出力（1秒毎）
-        //     if (g_debug_manager->should_output_status(current_main_time)) {
-        //         // 軌道デバッグ情報構造体の作成
-        //         TrajectoryDebugInfo r_info = {
-        //             .final_target_pos = final_target_pos_R,
-        //             .trajectory_target_pos = traj_target_pos_R,
-        //             .trajectory_target_vel = traj_target_vel_R,
-        //             .current_pos = current_pos_R,
-        //             .current_vel = current_vel_R,
-        //             .final_target_vel = target_vel_R,
-        //             .trajectory_active = traj_active_R,
-        //             .gear_radius = 1.0f,  // R軸はrad単位なのでギア半径は使わない
-        //             .unit_name = "rad",
-        //             .axis_name = "R"};
+        // 定期ステータス出力（1秒毎）
+        if (g_debug_manager->should_output_status(current_main_time)) {
+            // 軌道デバッグ情報構造体の作成
+            TrajectoryDebugInfo r_info = {
+                .final_target_pos = final_target_pos_R,
+                .trajectory_target_pos = traj_target_pos_R,
+                .trajectory_target_vel = traj_target_vel_R,
+                .current_pos = current_pos_R,
+                .current_vel = current_vel_R,
+                .final_target_vel = target_vel_R,
+                .trajectory_active = traj_active_R,
+                .gear_radius = 1.0f,  // R軸はrad単位なのでギア半径は使わない
+                .unit_name = "rad",
+                .axis_name = "R"};
 
-        //         TrajectoryDebugInfo p_info = {
-        //             .final_target_pos = final_target_pos_P,
-        //             .trajectory_target_pos = traj_target_pos_P,
-        //             .trajectory_target_vel = traj_target_vel_P,
-        //             .current_pos = current_pos_P,
-        //             .current_vel = current_vel_P,
-        //             .final_target_vel = target_vel_P,
-        //             .trajectory_active = traj_active_P,
-        //             .gear_radius = gear_radius_P,
-        //             .unit_name = "rad",
-        //             .axis_name = "P"};
+            TrajectoryDebugInfo p_info = {
+                .final_target_pos = final_target_pos_P,
+                .trajectory_target_pos = traj_target_pos_P,
+                .trajectory_target_vel = traj_target_vel_P,
+                .current_pos = current_pos_P,
+                .current_vel = current_vel_P,
+                .final_target_vel = target_vel_P,
+                .trajectory_active = traj_active_P,
+                .gear_radius = gear_radius_P,
+                .unit_name = "rad",
+                .axis_name = "P"};
 
-        //         // システム状態デバッグ情報構造体の作成
-        //         SystemDebugInfo sys_info = {
-        //             .timing_violations = timing_violations,
-        //             .can_errors = can_errors,
-        //             .led_status = led_status,
-        //             .encoder_r_valid = encoder_r_valid,
-        //             .encoder_p_valid = encoder_p_valid,
-        //             .target_torque_R = target_torque_R,
-        //             .target_torque_P = target_torque_P,
-        //             .target_current_R = target_cur_R,
-        //             .target_current_P = target_cur_P,
-        //             .encoder_p_turn_count = p_turn_count,
-        //             .encoder_p_single_angle_deg = p_single_angle,
-        //             .encoder_r_angle_deg = r_angle_deg};
+            // システム状態デバッグ情報構造体の作成
+            SystemDebugInfo sys_info = {
+                .timing_violations = timing_violations,
+                .can_errors = can_errors,
+                .led_status = led_status,
+                .encoder_r_valid = encoder_r_valid,
+                .encoder_p_valid = encoder_p_valid,
+                .target_torque_R = target_torque_R,
+                .target_torque_P = target_torque_P,
+                .target_current_R = target_cur_R,
+                .target_current_P = target_cur_P,
+                .encoder_p_turn_count = p_turn_count,
+                .encoder_p_single_angle_deg = p_single_angle,
+                .encoder_r_angle_deg = r_angle_deg};
 
-        //         // デバッグ情報出力
-        //         g_debug_manager->print_trajectory_status(r_info, p_info);
-        //         g_debug_manager->print_system_status(sys_info);
-        //     }
+            // デバッグ情報出力
+            // g_debug_manager->print_trajectory_status(r_info, p_info);
+            // g_debug_manager->print_system_status(sys_info);
+        }
 
-        //     busy_wait_until(next_main_time);  // 1秒待機
-        // }
-
-        return 0;
+        busy_wait_until(next_main_time);  // 1秒待機
     }
+
+    return 0;
+}
