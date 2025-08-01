@@ -167,12 +167,6 @@ PositionPIDController position_pid_P(P_POSITION_KP, 0.0, 0.0, CONTROL_PERIOD_S);
 VelocityIPController velocity_ip_R(R_VELOCITY_KI, R_VELOCITY_KP, CONTROL_PERIOD_S);  // Ki, Kp
 VelocityIPController velocity_ip_P(P_VELOCITY_KI, P_VELOCITY_KP, CONTROL_PERIOD_S);  // Ki, Kp
 
-// work　の保持状態
-bool g_has_work = false;
-// 把持状態のstate
-hand_state_t g_hand_state = HAND_IDLE;
-absolute_time_t g_hand_timer;
-
 // 共有データ構造体
 typedef struct
 {
@@ -498,27 +492,23 @@ void init_hand() {
 }
 
 // 　ハンドの動作実行
-void hand_tick(hand_state_t* hand_state, bool* has_work, bool* hand_requested, absolute_time_t* hand_timer) {
+void hand_tick(hand_state_t* hand_state, bool* has_work, absolute_time_t* hand_timer) {
     switch (*hand_state) {
         case HAND_IDLE:
-            if (*hand_requested) {
-                printf("hand requested\n");
-                if (*has_work == false) {
-                    *hand_requested = false;
-                    *hand_state = HAND_LOWERING;
-                    *hand_timer = make_timeout_time_ms(10);  // 降ろす時間
-                    gpio_put(PUMP_PIN1, 1);                  // PWM デューティ設定
+            printf("hand requested\n");
+            if (*has_work == false) {
+                *hand_state = HAND_LOWERING;
+                *hand_timer = make_timeout_time_ms(10);  // 降ろす時間
+                gpio_put(PUMP_PIN1, 1);                  // PWM デューティ設定
 
-                    std::cout << "Hand lowering..." << std::endl;
-                    // Dynamixel　降下処理
-                    control_position(&UART0, DXL_ID2, DOWN_ANGLE);
+                std::cout << "Hand lowering..." << std::endl;
+                // Dynamixel　降下処理
+                control_position(&UART0, DXL_ID2, DOWN_ANGLE);
 
-                } else {
-                    *hand_requested = false;
-                    *hand_state = HAND_RELEASE;
-                    *hand_timer = make_timeout_time_ms(10);
-                    gpio_put(SOLENOID_PIN1, 1);  // ソレノイドを非吸着状態にする
-                }
+            } else {
+                *hand_state = HAND_RELEASE;
+                *hand_timer = make_timeout_time_ms(10);
+                gpio_put(SOLENOID_PIN1, 1);  // ソレノイドを非吸着状態にする
             }
             break;
 
@@ -972,15 +962,17 @@ int main(void) {
 
     // 軌道状態管理
     enum trajectory_state_t {
-        TRAJECTORY_IDLE,         // アイドル状態
-        TRAJECTORY_CALCULATING,  // 軌道計算中
-        TRAJECTORY_EXECUTING,    // 軌道実行中
-        TRAJECTORY_WAITING       // 到達後の待機中
+        TRAJECTORY_IDLE,
+        TRAJECTORY_EXECUTING,
+        TRAJECTORY_HANDLING
     };
 
     trajectory_state_t traj_state = TRAJECTORY_IDLE;
-    float wait_start_time = 0.0;
-    constexpr float WAIT_DURATION = 2.0;  // 到達後の待機時間 [s]
+
+    // ハンド状態管理用ローカル変数
+    hand_state_t hand_state = HAND_IDLE;
+    bool has_work = false;
+    absolute_time_t hand_timer = get_absolute_time();
 
     TrajectorySequenceManager* seq_manager = new TrajectorySequenceManager(g_debug_manager);
     trajectory_waypoint_t test_waypoints[] = {
@@ -1006,74 +998,55 @@ int main(void) {
         if (signal == SYNC_SIGNAL) {
             core0_loop_count++;
 
-            // 現在時刻を取得
-            float current_main_time = 0.0;
-            mutex_enter_blocking(&g_state_mutex);
-            current_main_time = g_robot_state.current_time;
-            mutex_exit(&g_state_mutex);
-
-            // 軌道制御のテスト（10秒ごとに往復）
-            // Core1の制御周期に基づいてタイミングを計算
-            float sync_period_s = (CONTROL_PERIOD_S * SYNC_EVERY_N_LOOPS);
-            g_debug_manager->update_time_counter(sync_period_s);
-
             // 軌道状態機械による処理
             switch (traj_state) {
-                case TRAJECTORY_IDLE:
-                    // システム起動後の初期処理（軌道シーケンス開始）
-                    if (g_debug_manager->should_set_initial_trajectory()) {
-                        // 現在位置を取得
-                        float current_pos_R, current_pos_P;
-                        mutex_enter_blocking(&g_state_mutex);
-                        current_pos_R = g_robot_state.current_position_R;
-                        current_pos_P = g_robot_state.current_position_P;
-                        mutex_exit(&g_state_mutex);
+                case TRAJECTORY_IDLE: {
+                    // シーケンスがアクティブなら次の軌道を設定
+                    if (seq_manager->is_sequence_active()) {
+                        float target_R, target_P;
+                        if (seq_manager->get_next_waypoint(target_R, target_P)) {
+                            float current_pos_R, current_pos_P;
+                            mutex_enter_blocking(&g_state_mutex);
+                            current_pos_R = g_robot_state.current_position_R;
+                            current_pos_P = g_robot_state.current_position_P;
+                            mutex_exit(&g_state_mutex);
 
-                        // 基準位置を設定
-                        g_debug_manager->set_initial_positions(current_pos_R, current_pos_P);
-
-                        // 軌道シーケンスを開始
-                        seq_manager->start_sequence();
-
-                        // 最初は現在位置で待機（Core1で自動的に現在位置を保持）
-                        g_debug_manager->info("Trajectory sequence started, initial wait at current position");
-                        traj_state = TRAJECTORY_WAITING;
-
-                        float current_main_time = 0.0;
-                        mutex_enter_blocking(&g_state_mutex);
-                        current_main_time = g_robot_state.current_time;
-                        mutex_exit(&g_state_mutex);
-
-                        wait_start_time = current_main_time;
-                    }
-
-                    // 軌道シーケンスが完了している場合は何もしない
-                    else if (seq_manager->is_sequence_complete()) {
-                        // シーケンス完了状態を維持
+                            if (calculate_trajectory_core0(current_pos_R, current_pos_P, target_R, target_P)) {
+                                if (multicore_fifo_push_timeout_us(TRAJECTORY_DATA_SIGNAL, 0)) {
+                                    traj_state = TRAJECTORY_EXECUTING;
+                                    g_debug_manager->info("Moving to waypoint: R=%.3f rad, P=%.1f mm",
+                                                          target_R, target_P * gear_radius_P * 1000.0);
+                                }
+                            } else {
+                                g_debug_manager->error("Failed to calculate trajectory to next waypoint");
+                            }
+                        } else {
+                            g_debug_manager->info("All waypoints completed, sequence finished");
+                            traj_state = TRAJECTORY_IDLE;
+                        }
                     }
                     break;
+                }
 
                 case TRAJECTORY_EXECUTING:
                     // 軌道実行中は何もしない（完了信号待ち）
                     break;
 
-                case TRAJECTORY_WAITING:
-                    // 待機時間終了チェック
-                    if (current_main_time - wait_start_time >= WAIT_DURATION) {
-                        // 軌道シーケンスがアクティブな場合、次の目標点に移動
+                case TRAJECTORY_HANDLING:
+                    // ハンド動作中
+                    hand_tick(&hand_state, &has_work,  &hand_timer);
+                    if (hand_state == HAND_IDLE) {
+                        // ハンド動作完了 → 次の軌道へ
                         if (seq_manager->is_sequence_active()) {
                             float target_R, target_P;
                             if (seq_manager->get_next_waypoint(target_R, target_P)) {
-                                // 現在位置を取得
                                 float current_pos_R, current_pos_P;
                                 mutex_enter_blocking(&g_state_mutex);
                                 current_pos_R = g_robot_state.current_position_R;
                                 current_pos_P = g_robot_state.current_position_P;
                                 mutex_exit(&g_state_mutex);
 
-                                // 次の目標点への軌道を計算
                                 if (calculate_trajectory_core0(current_pos_R, current_pos_P, target_R, target_P)) {
-                                    // Core1に軌道開始信号を送信
                                     if (multicore_fifo_push_timeout_us(TRAJECTORY_DATA_SIGNAL, 0)) {
                                         traj_state = TRAJECTORY_EXECUTING;
                                         g_debug_manager->info("Moving to waypoint: R=%.3f rad, P=%.1f mm",
@@ -1083,36 +1056,21 @@ int main(void) {
                                     g_debug_manager->error("Failed to calculate trajectory to next waypoint");
                                 }
                             } else {
-                                // 軌道シーケンスが終了した場合
-                                traj_state = TRAJECTORY_IDLE;
                                 g_debug_manager->info("All waypoints completed, sequence finished");
+                                traj_state = TRAJECTORY_IDLE;
                             }
                         } else {
-                            // シーケンスが非アクティブの場合はアイドルに戻る
                             traj_state = TRAJECTORY_IDLE;
-                            g_debug_manager->info("Wait completed, returning to idle");
                         }
                     }
                     break;
             }
-
         } else if (signal == TRAJECTORY_COMPLETE_SIGNAL) {
             // 軌道完了信号を受信
             if (traj_state == TRAJECTORY_EXECUTING) {
-                // 軌道シーケンスがアクティブな場合、次の点に進める
-                if (seq_manager->is_sequence_active()) {
-                    seq_manager->advance_to_next_waypoint();
-                }
-
-                traj_state = TRAJECTORY_WAITING;
-
-                float current_main_time = 0.0;
-                mutex_enter_blocking(&g_state_mutex);
-                current_main_time = g_robot_state.current_time;
-                mutex_exit(&g_state_mutex);
-
-                wait_start_time = current_main_time;
-                g_debug_manager->info("Trajectory completed, starting wait (%.1fs)", WAIT_DURATION);
+                g_debug_manager->info("Trajectory completed, starting hand operation");
+                hand_state = HAND_IDLE;  // hand_tick()で自動的に開始
+                traj_state = TRAJECTORY_HANDLING;
             }
         }
 
