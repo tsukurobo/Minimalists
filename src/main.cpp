@@ -203,6 +203,17 @@ typedef struct
     float current_time;  // 現在時刻 [s]
 } robot_state_t;
 
+// 共有状態とミューテックス
+static robot_state_t g_robot_state;
+static mutex_t g_state_mutex;
+
+// 軌道データとミューテックス
+static trajectory_data_t g_trajectory_data;
+static mutex_t g_trajectory_mutex;
+
+// グローバルデバッグマネージャ
+static DebugManager* g_debug_manager = nullptr;
+
 // SPI初期化関数
 bool init_spi(const spi_config_t* config) {
     // SPIの初期化
@@ -216,7 +227,7 @@ bool init_spi(const spi_config_t* config) {
         gpio_init(config->pin_cs[i]);
         gpio_set_dir(config->pin_cs[i], GPIO_OUT);
         gpio_put(config->pin_cs[i], 1);  // CS初期状態はHIGH
-        printf("CS%d pin %d initialized\n", i, config->pin_cs[i]);
+        g_debug_manager->info("CS%d pin %d initialized\n", i, config->pin_cs[i]);
     }
 
     // リセットピンがある場合の設定
@@ -224,7 +235,7 @@ bool init_spi(const spi_config_t* config) {
         gpio_init(config->pin_rst);
         gpio_set_dir(config->pin_rst, GPIO_OUT);
         gpio_put(config->pin_rst, 1);  // リセット解除
-        printf("Reset pin %d initialized\n", config->pin_rst);
+        g_debug_manager->info("Reset pin %d initialized\n", config->pin_rst);
     }
 
     return true;
@@ -234,10 +245,10 @@ bool init_spi(const spi_config_t* config) {
 bool init_all_spi_devices() {
     // CAN IC用SPI初期化
     if (!init_spi(&can_spi_config)) {
-        printf("Failed to initialize CAN SPI!\n");
+        g_debug_manager->error("Failed to initialize CAN SPI!\n");
         return false;
     }
-    printf("CAN SPI initialized successfully!\n");
+    g_debug_manager->info("CAN SPI initialized successfully!\n");
 
     return true;
 }
@@ -249,44 +260,44 @@ bool init_encoders() {
 
     // エンコーダが未登録の場合のみ追加
     if (encoder_manager.get_current_encoder_count() == 0) {
-        printf("Adding encoders to manager...\n");
+        g_debug_manager->info("Adding encoders to manager...\n");
         // エンコーダを追加
         encoder1_index = encoder_manager.add_encoder(7, false);  // CS pin 7 (R軸: 単回転)
         encoder2_index = encoder_manager.add_encoder(6, true);   // CS pin 6 (P軸: マルチターン対応)
 
         if (encoder1_index < 0 || encoder2_index < 0) {
-            printf("Failed to add encoders!\n");
+            g_debug_manager->error("Failed to add encoders!\n");
             return false;
         }
-        printf("Encoders added successfully: R=%d, P=%d\n", encoder1_index, encoder2_index);
+        g_debug_manager->info("Encoders added successfully: R=%d, P=%d\n", encoder1_index, encoder2_index);
     }
 
     // SPI初期化
     if (!encoder_manager.init_spi()) {
-        printf("Failed to initialize encoder SPI!\n");
+        g_debug_manager->error("Failed to initialize encoder SPI!\n");
         return false;
     }
 
     // 全エンコーダ初期化（安定化時間を含む）
-    printf("Starting encoder initialization with extended stabilization...\n");
+    g_debug_manager->info("Starting encoder initialization with extended stabilization...\n");
     if (!encoder_manager.init_all_encoders()) {
-        printf("Failed to initialize encoders!\n");
+        g_debug_manager->error("Failed to initialize encoders!\n");
         return false;
     }
 
-    printf("All encoders initialized successfully!\n");
+    g_debug_manager->info("All encoders initialized successfully!\n");
     return true;
 }
 
 // PIDコントローラの初期化関数
 bool init_pid_controllers() {
-    printf("Initializing PID controllers...\n");
-    printf("Control period: %.1f ms (%.0f Hz)\n", CONTROL_PERIOD_MS);
+    g_debug_manager->info("Initializing PID controllers...\n");
+    g_debug_manager->info("Control period: %.1f ms (%.0f Hz)\n", CONTROL_PERIOD_MS, 1000.0 / CONTROL_PERIOD_MS);
 
     // 方向補正設定の表示
-    printf("Direction correction settings:\n");
-    printf("  Encoder R direction: %+.1f\n", ENCODER_R_DIRECTION);
-    printf("  Encoder P direction: %+.1f\n", ENCODER_P_DIRECTION);
+    g_debug_manager->info("Direction correction settings:\n");
+    g_debug_manager->info("  Encoder R direction: %+.1f\n", ENCODER_R_DIRECTION);
+    g_debug_manager->info("  Encoder P direction: %+.1f\n", ENCODER_P_DIRECTION);
 
     // 位置PID制御器の設定
     position_pid_R.setOutputLimits(-ControlLimits::R_Axis::MAX_VELOCITY, ControlLimits::R_Axis::MAX_VELOCITY);
@@ -302,41 +313,30 @@ bool init_pid_controllers() {
     velocity_ip_P.setOutputLimits(-ControlLimits::P_Axis::MAX_TORQUE, ControlLimits::P_Axis::MAX_TORQUE);
     velocity_ip_P.setIntegralLimits(-ControlLimits::P_Axis::INTEGRAL_TORQUE, ControlLimits::P_Axis::INTEGRAL_TORQUE);
 
-    printf("PID controllers initialized successfully!\n");
+    g_debug_manager->info("PID controllers initialized successfully!\n");
 
     // 制限値設定の表示
-    printf("\n=== Control Limits Configuration ===\n");
-    printf("R-Axis Limits:\n");
-    printf("  Position PID Output: ±%.1f rad/s, Integral: ±%.1f rad/s\n",
-           ControlLimits::R_Axis::MAX_VELOCITY, ControlLimits::R_Axis::INTEGRAL_VELOCITY);
-    printf("  Velocity I-P Output: ±%.1f Nm, Integral: ±%.1f Nm\n",
-           ControlLimits::R_Axis::MAX_TORQUE, ControlLimits::R_Axis::INTEGRAL_TORQUE);
+    g_debug_manager->info("\n=== Control Limits Configuration ===\n");
+    g_debug_manager->info("R-Axis Limits:\n");
+    g_debug_manager->info("  Position PID Output: ±%.1f rad/s, Integral: ±%.1f rad/s\n",
+                          ControlLimits::R_Axis::MAX_VELOCITY, ControlLimits::R_Axis::INTEGRAL_VELOCITY);
+    g_debug_manager->info("  Velocity I-P Output: ±%.1f Nm, Integral: ±%.1f Nm\n",
+                          ControlLimits::R_Axis::MAX_TORQUE, ControlLimits::R_Axis::INTEGRAL_TORQUE);
 
-    printf("P-Axis Limits:\n");
-    printf("  Position PID Output: ±%.1f rad/s, Integral: ±%.1f rad/s\n",
-           ControlLimits::P_Axis::MAX_VELOCITY, ControlLimits::P_Axis::INTEGRAL_VELOCITY);
-    printf("  Velocity I-P Output: ±%.1f Nm, Integral: ±%.1f Nm\n",
-           ControlLimits::P_Axis::MAX_TORQUE, ControlLimits::P_Axis::INTEGRAL_TORQUE);
+    g_debug_manager->info("P-Axis Limits:\n");
+    g_debug_manager->info("  Position PID Output: ±%.1f rad/s, Integral: ±%.1f rad/s\n",
+                          ControlLimits::P_Axis::MAX_VELOCITY, ControlLimits::P_Axis::INTEGRAL_VELOCITY);
+    g_debug_manager->info("  Velocity I-P Output: ±%.1f Nm, Integral: ±%.1f Nm\n",
+                          ControlLimits::P_Axis::MAX_TORQUE, ControlLimits::P_Axis::INTEGRAL_TORQUE);
 
-    printf("FeedForward Gains:\n");
-    printf("  Position FF Gain: %.1f, R-Velocity FF: %.1f, P-Velocity FF: %.1f\n",
-           ControlLimits::FeedForward::POSITION_GAIN,
-           ControlLimits::FeedForward::R_VELOCITY_GAIN,
-           ControlLimits::FeedForward::P_VELOCITY_GAIN);
+    g_debug_manager->info("FeedForward Gains:\n");
+    g_debug_manager->info("  Position FF Gain: %.1f, R-Velocity FF: %.1f, P-Velocity FF: %.1f\n",
+                          ControlLimits::FeedForward::POSITION_GAIN,
+                          ControlLimits::FeedForward::R_VELOCITY_GAIN,
+                          ControlLimits::FeedForward::P_VELOCITY_GAIN);
 
     return true;
 }
-
-// 共有状態とミューテックス
-static robot_state_t g_robot_state;
-static mutex_t g_state_mutex;
-
-// 軌道データとミューテックス
-static trajectory_data_t g_trajectory_data;
-static mutex_t g_trajectory_mutex;
-
-// グローバルデバッグマネージャ
-static DebugManager* g_debug_manager = nullptr;
 
 // Core0用軌道計算関数
 bool calculate_trajectory_core0(float current_pos_R, float current_pos_P, float target_pos_R, float target_pos_P) {
@@ -397,9 +397,9 @@ bool calculate_trajectory_core0(float current_pos_R, float current_pos_P, float 
     }
     mutex_exit(&g_trajectory_mutex);
 
-    g_debug_manager->info("Trajectory calculated: %d points, max_time=%.2fs", point_count, max_time);
-    g_debug_manager->info("  R: %.3f → %.3f rad, P: %.3f → %.3f rad",
-                          current_pos_R, target_pos_R, current_pos_P, target_pos_P);
+    g_debug_manager->debug("Trajectory calculated: %d points, max_time=%.2fs", point_count, max_time);
+    g_debug_manager->debug("  R: %.3f → %.3f rad, P: %.3f → %.3f rad",
+                           current_pos_R, target_pos_R, current_pos_P, target_pos_P);
 
     return true;
 }
@@ -414,7 +414,7 @@ void init_hand() {
     sleep_ms(1000);  // GPIO初期化後の安定化待ち
 
     // Dynamixelの設定
-    printf("Initializing Dynamixels (Daisy Chain on UART0)...\n");
+    g_debug_manager->info("Initializing Dynamixels (Daisy Chain on UART0)...\n");
     init_crc();
     configure_uart(&UART0, BAUD_RATE);
     sleep_ms(1000);
@@ -442,7 +442,7 @@ void init_hand() {
 void hand_tick(hand_state_t* hand_state, bool* has_work, absolute_time_t* hand_timer) {
     switch (*hand_state) {
         case HAND_IDLE:
-            printf("hand requested\n");
+            g_debug_manager->debug("hand requested\n");
             if (*has_work == false) {
                 *hand_state = HAND_LOWERING;
                 *hand_timer = make_timeout_time_ms(10);  // 降ろす時間
@@ -463,7 +463,7 @@ void hand_tick(hand_state_t* hand_state, bool* has_work, absolute_time_t* hand_t
             if (absolute_time_diff_us(get_absolute_time(), *hand_timer) <= 0) {
                 *hand_state = HAND_SUCTION_WAIT;
                 *hand_timer = make_timeout_time_ms(10);  // 吸着待ち
-                printf("Hand suction wait...\n");
+                g_debug_manager->debug("Hand suction wait...\n");
             }
             break;
 
@@ -473,7 +473,7 @@ void hand_tick(hand_state_t* hand_state, bool* has_work, absolute_time_t* hand_t
                 *hand_timer = make_timeout_time_ms(10);
                 // Dynamixel 昇降処理
                 control_position(&UART0, DXL_ID2, UP_ANGLE);
-                printf("Hand raising...\n");
+                g_debug_manager->debug("Hand raising...\n");
             }
             break;
 
@@ -481,7 +481,7 @@ void hand_tick(hand_state_t* hand_state, bool* has_work, absolute_time_t* hand_t
             if (absolute_time_diff_us(get_absolute_time(), *hand_timer) <= 0) {
                 *has_work = true;
                 control_position(&UART0, DXL_ID1, RELEASE_ANGLE);
-                printf("Hand raised, work done.\n");
+                g_debug_manager->debug("Hand raised, work done.\n");
                 *hand_state = HAND_IDLE;
             }
             break;
@@ -492,7 +492,7 @@ void hand_tick(hand_state_t* hand_state, bool* has_work, absolute_time_t* hand_t
                 *hand_state = HAND_IDLE;
                 gpio_put(SOLENOID_PIN1, 0);  // ソレノイドを吸着状態にする
                 control_position(&UART0, DXL_ID1, GRAB_ANGLE);
-                printf("Hand released\n");
+                g_debug_manager->debug("Hand released\n");
             }
             break;
     }
@@ -512,7 +512,7 @@ void core1_entry(void) {
 
     // CANの初期化（リトライ付き）
     while (!can.init(CAN_1000KBPS)) {
-        // 初期化失敗時のLED点滅のみ（printf削除）
+        // 初期化失敗時のLED点滅
         gpio_put(PICO_DEFAULT_LED_PIN, 1);
         sleep_ms(10);
         gpio_put(PICO_DEFAULT_LED_PIN, 0);
@@ -885,7 +885,7 @@ int main(void) {
 
     gpio_put(SOLENOID_PIN1, 0);  // ソレノイドを吸着状態にする
     gpio_put(PUMP_PIN1, 1);
-    printf("hand initialized\n");
+    g_debug_manager->info("hand initialized\n");
     sleep_ms(500);
     control_position(&UART0, DXL_ID1, START_HAND_ANGLE);
     sleep_ms(500);
@@ -915,8 +915,8 @@ int main(void) {
                             if (calculate_trajectory_core0(current_pos_R, current_pos_P, target_R, target_P)) {
                                 if (multicore_fifo_push_timeout_us(TRAJECTORY_DATA_SIGNAL, 0)) {
                                     traj_state = TRAJECTORY_EXECUTING;
-                                    g_debug_manager->info("Moving to waypoint: R=%.3f rad, P=%.1f mm",
-                                                          target_R, target_P * gear_radius_P * 1000.0);
+                                    g_debug_manager->debug("Moving to waypoint: R=%.3f rad, P=%.1f mm",
+                                                           target_R, target_P * gear_radius_P * 1000.0);
                                 }
                             } else {
                                 g_debug_manager->error("Failed to calculate trajectory to next waypoint");
@@ -950,8 +950,8 @@ int main(void) {
                                 if (calculate_trajectory_core0(current_pos_R, current_pos_P, target_R, target_P)) {
                                     if (multicore_fifo_push_timeout_us(TRAJECTORY_DATA_SIGNAL, 0)) {
                                         traj_state = TRAJECTORY_EXECUTING;
-                                        g_debug_manager->info("Moving to waypoint: R=%.3f rad, P=%.1f mm",
-                                                              target_R, target_P * gear_radius_P * 1000.0);
+                                        g_debug_manager->debug("Moving to waypoint: R=%.3f rad, P=%.1f mm",
+                                                               target_R, target_P * gear_radius_P * 1000.0);
                                     }
                                 } else {
                                     g_debug_manager->error("Failed to calculate trajectory to next waypoint");
@@ -969,7 +969,7 @@ int main(void) {
         } else if (signal == TRAJECTORY_COMPLETE_SIGNAL) {
             // 軌道完了信号を受信
             if (traj_state == TRAJECTORY_EXECUTING) {
-                g_debug_manager->info("Trajectory completed, starting hand operation");
+                g_debug_manager->debug("Trajectory completed, starting hand operation");
                 hand_state = HAND_IDLE;  // hand_tick()で自動的に開始
                 traj_state = TRAJECTORY_HANDLING;
             }
@@ -1037,8 +1037,8 @@ int main(void) {
 
             // 定期ステータス出力（同期信号に基づく周期で）
             if (g_debug_manager->should_output_status(current_main_time)) {
-                // Core0同期回数情報を追加
-                g_debug_manager->info("Core0 sync count: %d (every %d Core1 loops)", core0_loop_count, SYNC_EVERY_N_LOOPS);
+                // Core0同期回数情報
+                g_debug_manager->debug("Core0 sync count: %d (every %d Core1 loops)", core0_loop_count, SYNC_EVERY_N_LOOPS);
 
                 // 軌道完了状況の詳細情報を取得
                 float trajectory_final_target_R = 0.0, trajectory_final_target_P = 0.0;

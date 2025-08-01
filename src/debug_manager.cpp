@@ -24,6 +24,7 @@ void DebugManager::log(DebugLevel level, const char* format, ...) {
 }
 
 void DebugManager::error(const char* format, ...) {
+    if (current_level < DebugLevel::ERROR) return;
     va_list args;
     va_start(args, format);
     print_with_level_prefix(DebugLevel::ERROR, format, args);
@@ -31,6 +32,7 @@ void DebugManager::error(const char* format, ...) {
 }
 
 void DebugManager::warn(const char* format, ...) {
+    if (current_level < DebugLevel::WARN) return;
     va_list args;
     va_start(args, format);
     print_with_level_prefix(DebugLevel::WARN, format, args);
@@ -38,6 +40,7 @@ void DebugManager::warn(const char* format, ...) {
 }
 
 void DebugManager::info(const char* format, ...) {
+    if (current_level < DebugLevel::INFO) return;
     va_list args;
     va_start(args, format);
     print_with_level_prefix(DebugLevel::INFO, format, args);
@@ -45,6 +48,7 @@ void DebugManager::info(const char* format, ...) {
 }
 
 void DebugManager::debug(const char* format, ...) {
+    if (current_level < DebugLevel::DEBUG) return;
     va_list args;
     va_start(args, format);
     print_with_level_prefix(DebugLevel::DEBUG, format, args);
