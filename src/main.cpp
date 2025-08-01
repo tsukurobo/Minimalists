@@ -435,7 +435,14 @@ void init_hand() {
     sleep_ms(1000);
     write_torqueEnable(&UART0, DXL_ID1, true);
     write_torqueEnable(&UART0, DXL_ID2, true);
-    printf("Dynamixels initialized successfully!\n");
+    sleep_ms(1000);
+    gpio_put(SOLENOID_PIN1, 0);  // ソレノイドを吸着状態にする
+    gpio_put(PUMP_PIN1, 1);
+    g_debug_manager->info("hand initialized\n");
+    sleep_ms(500);
+    control_position(&UART0, DXL_ID1, START_HAND_ANGLE);
+    sleep_ms(500);
+    control_position(&UART0, DXL_ID2, START_UP_ANGLE);
 }
 
 // 　ハンドの動作実行
@@ -768,7 +775,8 @@ void core1_entry(void) {
     }
 }
 
-int main(void) {
+// システム初期化関数
+bool initialize_system() {
     stdio_init_all();  // UARTなど初期化
     gpio_init(SHUTDOWN_PIN);
     gpio_set_dir(SHUTDOWN_PIN, GPIO_OUT);
@@ -781,19 +789,19 @@ int main(void) {
     // 全SPIデバイスの初期化
     while (!init_all_spi_devices()) {
         g_debug_manager->error("SPI initialization failed, retrying...");
-        sleep_ms(1000);  // 1000ms待機して再試行
+        sleep_ms(1000);
     }
 
     // エンコーダの初期化
     while (!init_encoders()) {
         g_debug_manager->error("Encoder initialization failed, retrying...");
-        sleep_ms(1000);  // 1000ms待機して再試行
+        sleep_ms(1000);
     }
 
     // PIDコントローラの初期化
     while (!init_pid_controllers()) {
         g_debug_manager->error("PID controller initialization failed, retrying...");
-        sleep_ms(1000);  // 1000ms待機して再試行
+        sleep_ms(1000);
     }
 
     // ハンドの初期化
@@ -809,6 +817,7 @@ int main(void) {
     mutex_init(&g_state_mutex);
     mutex_init(&g_trajectory_mutex);
 
+    // 共有変数初期化
     g_robot_state.motor_speed = 0;
     g_robot_state.sensor_value = 0;
 
@@ -849,6 +858,16 @@ int main(void) {
     g_robot_state.led_status = LED_OFF;
     g_robot_state.can_error_count = 0;
 
+    return true;
+}
+
+int main(void) {
+    // 初期化処理をまとめて呼び出す
+    if (!initialize_system()) {
+        // 初期化失敗時の処理（必要ならエラー表示や停止）
+        return -1;
+    }
+
     // Core1で実行する関数を起動
     multicore_launch_core1(core1_entry);
 
@@ -867,14 +886,8 @@ int main(void) {
         TRAJECTORY_EXECUTING,
         TRAJECTORY_HANDLING
     };
-
     trajectory_state_t traj_state = TRAJECTORY_IDLE;
-
-    // ハンド状態管理用ローカル変数
-    hand_state_t hand_state = HAND_IDLE;
-    bool has_work = false;
-    absolute_time_t hand_timer = get_absolute_time();
-
+    // 軌道シーケンス管理
     TrajectorySequenceManager* seq_manager = new TrajectorySequenceManager(g_debug_manager);
     trajectory_waypoint_t test_waypoints[] = {
         trajectory_waypoint_t(0.0f, 0.01f / gear_radius_P, 0.0f),      // 1cm前進
@@ -883,13 +896,10 @@ int main(void) {
     };
     seq_manager->setup_sequence(test_waypoints, 3);
 
-    gpio_put(SOLENOID_PIN1, 0);  // ソレノイドを吸着状態にする
-    gpio_put(PUMP_PIN1, 1);
-    g_debug_manager->info("hand initialized\n");
-    sleep_ms(500);
-    control_position(&UART0, DXL_ID1, START_HAND_ANGLE);
-    sleep_ms(500);
-    control_position(&UART0, DXL_ID2, START_UP_ANGLE);
+    // ハンド状態管理用ローカル変数
+    hand_state_t hand_state = HAND_IDLE;
+    bool has_work = false;
+    absolute_time_t hand_timer = get_absolute_time();
 
     while (1) {
         // FIFOから同期信号を待機（ブロッキング）
