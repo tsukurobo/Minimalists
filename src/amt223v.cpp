@@ -337,7 +337,7 @@ void AMT223V::calculate_angular_velocity(float current_angle_rad, uint64_t curre
     }
 
     // 時間を秒に変換
-    float delta_time_s = (float)delta_time_us / 1000000.0;
+    float delta_time_s = (float)delta_time_us / 1'000'000.0f;
 
     // 生の角速度を計算 [rad/s]
     float raw_angular_velocity = delta_angle_rad / delta_time_s;

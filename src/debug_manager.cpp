@@ -220,7 +220,7 @@ void DebugManager::get_test_trajectory_targets(bool is_forward, float& target_R,
 
     if (is_forward) {
         // 前進方向の軌道（基準位置 → +550mm）
-        target_R = initial_pos_R + 1.0 / 2.0 * M_PI;  // 90度回転
+        target_R = initial_pos_R - 1.0 / 2.0 * M_PI;  // 90度回転
 
         float target_P_m = 0.55;  // 550mm
         float target_P_rad = target_P_m / gear_radius_P;

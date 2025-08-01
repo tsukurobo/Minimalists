@@ -371,11 +371,11 @@ bool is_trajectory_completed_P() {
 void core1_entry(void) {
     // Core1専用の軌道生成インスタンス
     trajectory_t trajectory_R_local(
-        0.4f * TrajectoryLimits::R_MAX_VELOCITY,      // R軸最大速度の50%で軌道生成
+        0.1f * TrajectoryLimits::R_MAX_VELOCITY,      // R軸最大速度の50%で軌道生成
         0.1f * TrajectoryLimits::R_MAX_ACCELERATION,  // R軸最大加速度の50%で軌道生成
         0.0, 0.0);
     trajectory_t trajectory_P_local(
-        0.4f * TrajectoryLimits::P_MAX_VELOCITY,      // P軸最大速度の50%で軌道生成
+        0.1f * TrajectoryLimits::P_MAX_VELOCITY,      // P軸最大速度の50%で軌道生成
         0.1f * TrajectoryLimits::P_MAX_ACCELERATION,  // P軸最大加速度の50%で軌道生成
         0.0, 0.0);
 
@@ -643,6 +643,7 @@ void core1_entry(void) {
         error_position_R = R_EQ_INERTIA * R_POSITION_GAIN * (trajectory_target_pos_R - motor_position_R);
         error_velocity_R = R_EQ_INERTIA * R_VELOCITY_GAIN * (trajectory_target_vel_R - motor_velocity_R);
         // acceleration_feedforward_R = R_EQ_INERTIA * trajectory_target_accel_R;
+        acceleration_feedforward_R = 0.0f;  // 加速度フィードフォワードは無効化
         control_torque_R = error_position_R + error_velocity_R + acceleration_feedforward_R + disturbance_torque_R;
         control_torque_R = clampTorque(control_torque_R, ControlLimits::R_Axis::MAX_TORQUE);  // 制御トルク制限
         // 外乱オブザーバの計算
@@ -837,7 +838,7 @@ int main(void) {
 
             // 初期軌道設定情報を表示
             g_debug_manager->info("Initial trajectory set - Moving to forward position");
-            g_debug_manager->print_trajectory_test_info(true, current_pos_P, target_P, gear_radius_P);
+            // g_debug_manager->print_trajectory_test_info(true, current_pos_P, target_P, gear_radius_P);
         }
 
         // 10秒ごとに軌道を切り替え（往復動作）
@@ -862,7 +863,7 @@ int main(void) {
             set_target_position_P(target_P);
 
             // テスト情報を表示
-            g_debug_manager->print_trajectory_test_info(is_forward, current_pos_P, target_P, gear_radius_P);
+            // g_debug_manager->print_trajectory_test_info(is_forward, current_pos_P, target_P, gear_radius_P);
 
             // 次回は逆方向
             g_debug_manager->toggle_direction();
@@ -913,9 +914,9 @@ int main(void) {
                                                         gear_radius_P);
 
         // 軌道制限値の表示（1回のみ）
-        g_debug_manager->print_trajectory_limits(TrajectoryLimits::R_MAX_VELOCITY, TrajectoryLimits::R_MAX_ACCELERATION,
-                                                 TrajectoryLimits::P_MAX_VELOCITY, TrajectoryLimits::P_MAX_ACCELERATION,
-                                                 gear_radius_P);
+        // g_debug_manager->print_trajectory_limits(TrajectoryLimits::R_MAX_VELOCITY, TrajectoryLimits::R_MAX_ACCELERATION,
+        //                                          TrajectoryLimits::P_MAX_VELOCITY, TrajectoryLimits::P_MAX_ACCELERATION,
+        //                                          gear_radius_P);
 
         // 異常値検出
         g_debug_manager->check_abnormal_values(traj_target_pos_P, gear_radius_P);
