@@ -11,7 +11,7 @@
 #include <cstring>
 
 DebugManager::DebugManager(DebugLevel level, float status_interval)
-    : current_level(level), status_output_interval(status_interval), last_status_output_time(0.0f), prev_trajectory_active_R(false), prev_trajectory_active_P(false), limits_displayed(false), trajectory_test_enabled(true), time_counter(0.0f), forward_direction(true), initial_pos_R(0.0f), initial_pos_P(0.0f), initial_pos_set(false) {
+    : current_level(level), status_output_interval(status_interval), last_status_output_time(0.0f), prev_trajectory_active_R(false), prev_trajectory_active_P(false), limits_displayed(false), time_counter(0.0f) {
 }
 
 void DebugManager::log(DebugLevel level, const char* format, ...) {
@@ -168,93 +168,6 @@ void DebugManager::check_abnormal_values(float traj_target_pos_P, float gear_rad
     if (std::abs(traj_target_pos_P) > 1000.0) {
         warn("WARNING: Abnormal P-axis trajectory target detected! Value=%.3f rad (%.1f mm)",
              traj_target_pos_P, traj_target_pos_P * gear_radius_P * 1000.0);
-    }
-}
-
-void DebugManager::set_initial_positions(float pos_R, float pos_P) {
-    if (!initial_pos_set) {
-        initial_pos_R = pos_R;
-        initial_pos_P = pos_P;
-        initial_pos_set = true;
-        const float gear_radius_P = 0.025;  // 25mm
-        info("Set initial positions: R=%.3f rad, P=%.3f rad (%.1f mm)",
-             initial_pos_R, initial_pos_P, initial_pos_P * gear_radius_P * 1000.0);
-        info("NOTE: This position will be used as the reference (0mm) for all movements");
-    }
-}
-
-bool DebugManager::should_start_trajectory_test(float current_time) {
-    if (!trajectory_test_enabled) return false;
-
-    // 初回テスト用の状態管理
-    static bool first_test_done = false;
-    static float last_test_time = 0.0f;
-
-    // 初回は2秒後に実行
-    if (!first_test_done && time_counter >= 2.0) {
-        first_test_done = true;
-        last_test_time = time_counter;
-        return true;
-    }
-
-    // 2回目以降は10秒間隔で実行
-    if (first_test_done && (time_counter - last_test_time >= 10.0)) {
-        last_test_time = time_counter;
-        return true;
-    }
-
-    return false;
-}
-
-bool DebugManager::should_set_initial_trajectory() {
-    if (!trajectory_test_enabled) return false;
-
-    // 0.5秒後に初期軌道を設定（システム安定化を待つ）
-    static bool initial_trajectory_set = false;
-
-    if (!initial_trajectory_set && time_counter >= 0.5) {
-        initial_trajectory_set = true;
-        return true;
-    }
-
-    return false;
-}
-void DebugManager::get_test_trajectory_targets(bool is_forward, float& target_R, float& target_P) {
-    const float gear_radius_P = 0.025;  // 25mm
-
-    if (is_forward) {
-        // 前進方向の軌道（基準位置 → +550mm）
-        target_R = initial_pos_R + 1.0 / 2.0 * M_PI;  // 90度回転
-
-        float target_P_m = 0.55;  // 550mm
-        float target_P_rad = target_P_m / gear_radius_P;
-        target_P = initial_pos_P + target_P_rad;
-    } else {
-        // 後退方向の軌道（550mm → 基準位置）
-        target_R = initial_pos_R;
-        target_P = initial_pos_P;
-    }
-}
-
-void DebugManager::print_trajectory_test_info(bool is_forward, float current_pos_P,
-                                              float target_P, float gear_radius_P) {
-    if (is_forward) {
-        info("Started FORWARD trajectory at t=%.1fs:", time_counter);
-        info("  Current position: P=%.3f rad (%.1f mm)",
-             current_pos_P, current_pos_P * gear_radius_P * 1000.0);
-        info("  Initial position: P=%.3f rad (%.1f mm)",
-             initial_pos_P, initial_pos_P * gear_radius_P * 1000.0);
-        info("  Target position:  P=%.3f rad (%.1f mm)",
-             target_P, target_P * gear_radius_P * 1000.0);
-        info("  Movement distance: %.1f mm", 0.55 * 1000.0);
-    } else {
-        info("Started BACKWARD trajectory at t=%.1fs:", time_counter);
-        info("  Current position: P=%.3f rad (%.1f mm)",
-             current_pos_P, current_pos_P * gear_radius_P * 1000.0);
-        info("  Target position:  P=%.3f rad (%.1f mm)",
-             initial_pos_P, initial_pos_P * gear_radius_P * 1000.0);
-        info("  Movement distance: %.1f mm",
-             (initial_pos_P - current_pos_P) * gear_radius_P * 1000.0);
     }
 }
 

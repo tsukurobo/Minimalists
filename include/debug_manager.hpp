@@ -67,7 +67,7 @@ struct SystemDebugInfo {
  * @brief デバッグ管理クラス
  *
  * システム全体のデバッグ出力を統一的に管理するクラスです。
- * レベル別のログ出力、軌道制御のデバッグ、システム状態の監視などの機能を提供します。
+ * レベル別のログ出力、システム状態の監視などの機能を提供します。
  */
 class DebugManager {
    private:
@@ -80,13 +80,7 @@ class DebugManager {
     bool prev_trajectory_active_P;  ///< 前回のP軸軌道実行状態
     bool limits_displayed;          ///< 制限値表示済みフラグ
 
-    // 軌道制御テスト用（簡素化）
-    bool trajectory_test_enabled;  ///< 軌道テスト有効フラグ
-    float time_counter;            ///< 時間カウンタ [s]
-    bool forward_direction;        ///< 前進方向フラグ
-    float initial_pos_R;           ///< R軸初期位置 [rad]
-    float initial_pos_P;           ///< P軸初期位置 [rad]
-    bool initial_pos_set;          ///< 初期位置設定済みフラグ
+    float time_counter;  ///< 時間カウンタ [s]
 
    public:
     /**
@@ -186,47 +180,6 @@ class DebugManager {
      */
     void check_abnormal_values(float traj_target_pos_P, float gear_radius_P);
 
-    // === テスト機能（簡素化） ===
-
-    /**
-     * @brief 初期位置の設定（初回のみ）
-     * @param pos_R R軸初期位置 [rad]
-     * @param pos_P P軸初期位置 [rad]
-     */
-    void set_initial_positions(float pos_R, float pos_P);
-
-    /**
-     * @brief 軌道テストの開始判定
-     * @param current_time 現在時刻 [s]
-     * @return テスト開始すべき場合true
-     */
-    bool should_start_trajectory_test(float current_time);
-
-    /**
-     * @brief 初期軌道の即座設定
-     * システム起動後すぐに初期軌道を設定したい場合に使用
-     * @return 初期軌道を設定すべき場合true
-     */
-    bool should_set_initial_trajectory();
-
-    /**
-     * @brief テスト軌道の目標値取得
-     * @param is_forward 前進方向フラグ
-     * @param target_R R軸目標位置 [rad] (出力)
-     * @param target_P P軸目標位置 [rad] (出力)
-     */
-    void get_test_trajectory_targets(bool is_forward, float& target_R, float& target_P);
-
-    /**
-     * @brief 軌道テスト情報の表示
-     * @param is_forward 前進方向フラグ
-     * @param current_pos_P P軸現在位置 [rad]
-     * @param target_P P軸目標位置 [rad]
-     * @param gear_radius_P P軸ギア半径 [m]
-     */
-    void print_trajectory_test_info(bool is_forward, float current_pos_P,
-                                    float target_P, float gear_radius_P);
-
     // === ユーティリティ機能 ===
 
     /**
@@ -260,12 +213,6 @@ class DebugManager {
     void set_debug_level(DebugLevel level) { current_level = level; }
 
     /**
-     * @brief 軌道テストの有効/無効設定
-     * @param enable 有効にする場合true
-     */
-    void enable_trajectory_test(bool enable) { trajectory_test_enabled = enable; }
-
-    /**
      * @brief 時間カウンタの更新
      * @param delta_time 増分時間 [s]
      */
@@ -276,17 +223,6 @@ class DebugManager {
      * @return 現在の時間カウンタ [s]
      */
     float get_time_counter() const { return time_counter; }
-
-    /**
-     * @brief 前進方向フラグの取得
-     * @return 前進方向の場合true
-     */
-    bool is_forward_direction() const { return forward_direction; }
-
-    /**
-     * @brief 方向の切り替え
-     */
-    void toggle_direction() { forward_direction = !forward_direction; }
 
    private:
     /**
