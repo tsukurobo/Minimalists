@@ -194,7 +194,7 @@ bool DebugManager::should_start_trajectory_test(float current_time) {
     }
 
     // 2回目以降は10秒間隔で実行
-    if (first_test_done && (time_counter - last_test_time >= 10.0)) {
+    if (first_test_done && (time_counter - last_test_time >= 1.5)) {
         last_test_time = time_counter;
         return true;
     }
