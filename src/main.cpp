@@ -100,8 +100,8 @@ constexpr float P_VELOCITY_KP = 0.1;   // P軸速度I-Pの比例ゲイン
 constexpr float P_VELOCITY_KI = 1.0;   // P軸速度I-Pの積分ゲイン
 
 // 外乱オブザーバのパラメータ
-constexpr float R_CUTOFF_FREQ = 30.0f;                                            // R軸 外乱オブザーバのカットオフ周波数 [rad/s]
-constexpr float sqrtf_R_POSITION_GAIN = 8.0;                                      // R軸 外乱オブザーバの位置ゲインの平方根
+constexpr float R_CUTOFF_FREQ = 100.0f;                                           // R軸 外乱オブザーバのカットオフ周波数 [rad/s]
+constexpr float sqrtf_R_POSITION_GAIN = 6.0f;                                     // R軸 外乱オブザーバの位置ゲインの平方根
 constexpr float R_POSITION_GAIN = sqrtf_R_POSITION_GAIN * sqrtf_R_POSITION_GAIN;  // R軸 外乱オブザーバの位置ゲイン
 constexpr float R_VELOCITY_GAIN = 2.0f * sqrtf_R_POSITION_GAIN;                   // R軸 外乱オブザーバの速度ゲイン
 constexpr float P_CUTOFF_FREQ = 30.0;                                             // P軸 外乱オブザーバのカットオフ周波数 [rad/s]
@@ -371,12 +371,12 @@ bool is_trajectory_completed_P() {
 void core1_entry(void) {
     // Core1専用の軌道生成インスタンス
     trajectory_t trajectory_R_local(
-        0.4f * TrajectoryLimits::R_MAX_VELOCITY,      // R軸最大速度の50%で軌道生成
-        0.4f * TrajectoryLimits::R_MAX_ACCELERATION,  // R軸最大加速度の50%で軌道生成
+        0.25f * TrajectoryLimits::R_MAX_VELOCITY,     // R軸最大速度の50%で軌道生成
+        0.9f * TrajectoryLimits::R_MAX_ACCELERATION,  // R軸最大加速度の50%で軌道生成
         0.0, 0.0);
     trajectory_t trajectory_P_local(
-        0.4f * TrajectoryLimits::P_MAX_VELOCITY,      // P軸最大速度の50%で軌道生成
-        0.4f * TrajectoryLimits::P_MAX_ACCELERATION,  // P軸最大加速度の50%で軌道生成
+        0.25f * TrajectoryLimits::P_MAX_VELOCITY,     // P軸最大速度の50%で軌道生成
+        0.9f * TrajectoryLimits::P_MAX_ACCELERATION,  // P軸最大加速度の50%で軌道生成
         0.0, 0.0);
 
     // CANの初期化（リトライ付き）
@@ -643,10 +643,13 @@ void core1_entry(void) {
         // R軸の制御計算
         error_position_R = R_EQ_INERTIA * R_POSITION_GAIN * (trajectory_target_pos_R - motor_position_R);
         error_velocity_R = R_EQ_INERTIA * R_VELOCITY_GAIN * (trajectory_target_vel_R - motor_velocity_R);
+        // error_position_R = 0.0f;  // 位置PIDの出力は無効化
+        // error_velocity_R = 0.0f;  // 速度PIDの出力は無効化
         acceleration_feedforward_R = R_EQ_INERTIA * trajectory_target_accel_R;
         // acceleration_feedforward_R = 0.0f;                                                                           // 加速度フィードフォワードは無効化
-        control_torque_R = error_position_R + error_velocity_R + disturbance_torque_R;        // 制御トルク計算
-        control_torque_R = clampTorque(control_torque_R, ControlLimits::R_Axis::MAX_TORQUE);  // 制御トルク制限
+        control_torque_R = error_position_R + error_velocity_R + disturbance_torque_R + acceleration_feedforward_R;  // 制御トルク計算
+        target_torque_R = clampTorque(control_torque_R, ControlLimits::R_Axis::MAX_TORQUE);                          // 制御トルク制限
+        control_torque_R = target_torque_R;                                                                          // 制御トルクを目標トルクに設定
         // 外乱オブザーバの計算
         dot_control_torque_R = (control_torque_R - LPF_control_torque_R) * R_CUTOFF_FREQ;
         LPF_control_torque_R += dot_control_torque_R * CONTROL_PERIOD_S;  // ローパスフィルタによる平滑化
@@ -657,7 +660,7 @@ void core1_entry(void) {
         dob_2_R += dob_1_R * CONTROL_PERIOD_S;
         disturbance_torque_R = dob_2_R - dob_rightloop_R;  // 外乱トルクの更新
 
-        target_torque_R = control_torque_R + acceleration_feedforward_R;  // 制御トルクを目標トルクに設定
+        // target_torque_R = control_torque_R;  // 制御トルクを目標トルクに設定
 
         // P軸の制御計算
         error_position_P = P_EQ_INERTIA * P_POSITION_GAIN * (trajectory_target_pos_P - motor_position_P);
