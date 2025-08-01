@@ -173,23 +173,11 @@ typedef struct
     int motor_speed;
     int sensor_value;
 
-    // 制御目標値（Core0→Core1）
-    float target_position_R;  // R軸最終目標位置 [rad]
-    float target_position_P;  // P軸最終目標位置 [rad]
-    bool new_target_R;        // R軸新しい目標値フラグ
-    bool new_target_P;        // P軸新しい目標値フラグ
-
     // 制御状態
     float current_position_R;  // R軸現在位置 [rad]
     float current_position_P;  // P軸現在位置 [rad]
     float current_velocity_R;  // R軸現在速度 [rad/s]
     float current_velocity_P;  // P軸現在速度 [rad/s]
-
-    // 台形プロファイル制御出力
-    float trajectory_target_position_R;  // R軸台形プロファイル目標位置 [rad]
-    float trajectory_target_position_P;  // P軸台形プロファイル目標位置 [rad]
-    float trajectory_target_velocity_R;  // R軸台形プロファイル目標速度 [rad/s]
-    float trajectory_target_velocity_P;  // P軸台形プロファイル目標速度 [rad/s]
 
     // 制御出力
     float target_velocity_R;  // R軸目標速度 [rad/s]（位置PIDの出力）
@@ -212,14 +200,7 @@ typedef struct
     led_mode_t led_status;       // LED状態
     int can_error_count;         // CAN送信エラー回数
 
-    // 軌道実行管理（Core1専用）
-    bool trajectory_active_R;       // R軸軌道実行中フラグ
-    bool trajectory_active_P;       // P軸軌道実行中フラグ
-    float trajectory_start_time_R;  // R軸軌道開始時刻 [s]
-    float trajectory_start_time_P;  // P軸軌道開始時刻 [s]
-    float trajectory_start_pos_R;   // R軸軌道開始位置 [rad]
-    float trajectory_start_pos_P;   // P軸軌道開始位置 [rad]
-    float current_time;             // 現在時刻 [s]
+    float current_time;  // 現在時刻 [s]
 } robot_state_t;
 
 // SPI初期化関数
@@ -356,36 +337,6 @@ static mutex_t g_trajectory_mutex;
 
 // グローバルデバッグマネージャ
 static DebugManager* g_debug_manager = nullptr;
-
-// 目標値設定用ヘルパー関数（Core0専用）
-void set_target_position_R(float target_pos) {
-    mutex_enter_blocking(&g_state_mutex);
-    g_robot_state.target_position_R = target_pos;
-    g_robot_state.new_target_R = true;
-    mutex_exit(&g_state_mutex);
-}
-
-void set_target_position_P(float target_pos) {
-    mutex_enter_blocking(&g_state_mutex);
-    g_robot_state.target_position_P = target_pos;
-    g_robot_state.new_target_P = true;
-    mutex_exit(&g_state_mutex);
-}
-
-// 軌道完了チェック関数
-bool is_trajectory_completed_R() {
-    mutex_enter_blocking(&g_state_mutex);
-    bool active = g_robot_state.trajectory_active_R;
-    mutex_exit(&g_state_mutex);
-    return !active;
-}
-
-bool is_trajectory_completed_P() {
-    mutex_enter_blocking(&g_state_mutex);
-    bool active = g_robot_state.trajectory_active_P;
-    mutex_exit(&g_state_mutex);
-    return !active;
-}
 
 // Core0用軌道計算関数
 bool calculate_trajectory_core0(float current_pos_R, float current_pos_P, float target_pos_R, float target_pos_P) {
@@ -602,9 +553,8 @@ void core1_entry(void) {
             }
         }
 
-        // 現在時刻を計算（制御開始からの経過時間）
-        absolute_time_t current_abs_time = get_absolute_time();
-        float current_time_s = absolute_time_diff_us(control_start_time, current_abs_time) / 1000000.0f;
+        // 経過時間を秒単位に変換
+        float current_time_s = absolute_time_diff_us(control_start_time, control_timing.loop_start_time) / 1000000.0f;
 
         // --- エンコーダ読み取り処理 ---
         float motor_position_R = 0.0, motor_position_P = 0.0;
@@ -647,24 +597,8 @@ void core1_entry(void) {
         // }
 
         // --- 共有データから目標値取得と状態更新 ---
-        float target_pos_R, target_pos_P;
-        bool new_target_R, new_target_P;
-        bool trajectory_active_R, trajectory_active_P;
-        float trajectory_start_time_R, trajectory_start_time_P;
-        float trajectory_start_pos_R, trajectory_start_pos_P;
 
         mutex_enter_blocking(&g_state_mutex);
-        target_pos_R = g_robot_state.target_position_R;
-        target_pos_P = g_robot_state.target_position_P;
-        new_target_R = g_robot_state.new_target_R;
-        new_target_P = g_robot_state.new_target_P;
-        trajectory_active_R = g_robot_state.trajectory_active_R;
-        trajectory_active_P = g_robot_state.trajectory_active_P;
-        trajectory_start_time_R = g_robot_state.trajectory_start_time_R;
-        trajectory_start_time_P = g_robot_state.trajectory_start_time_P;
-        trajectory_start_pos_R = g_robot_state.trajectory_start_pos_R;
-        trajectory_start_pos_P = g_robot_state.trajectory_start_pos_P;
-
         // 現在時刻を更新
         g_robot_state.current_time = current_time_s;
 
@@ -681,16 +615,6 @@ void core1_entry(void) {
         g_robot_state.encoder_p_continuous_angle_rad = encoder_p_continuous_angle_rad;
         g_robot_state.encoder_r_valid = enc1_ok;
         g_robot_state.encoder_p_valid = enc2_ok;
-
-        // 新しい目標値が設定された場合の軌道開始処理
-        if (new_target_R || new_target_P) {
-            // フラグをクリア
-            if (new_target_R) g_robot_state.new_target_R = false;
-            if (new_target_P) g_robot_state.new_target_P = false;
-
-            // 軌道データの準備完了を待つ（Core0からの軌道データ信号待ち）
-            // この処理は後で実装
-        }
 
         mutex_exit(&g_state_mutex);
 
@@ -814,10 +738,6 @@ void core1_entry(void) {
 
         // --- 制御結果を共有データに保存 ---
         mutex_enter_blocking(&g_state_mutex);
-        g_robot_state.trajectory_target_position_R = trajectory_target_pos_R;
-        g_robot_state.trajectory_target_position_P = trajectory_target_pos_P;
-        g_robot_state.trajectory_target_velocity_R = trajectory_target_vel_R;
-        g_robot_state.trajectory_target_velocity_P = trajectory_target_vel_P;
         g_robot_state.target_velocity_R = final_target_vel_R;
         g_robot_state.target_velocity_P = final_target_vel_P;
         g_robot_state.target_torque_R = target_torque_R;
@@ -905,8 +825,6 @@ int main(void) {
     g_trajectory_data.position_reached = false;
 
     // 制御初期値
-    g_robot_state.target_position_R = 0.0;  // 初期目標位置
-    g_robot_state.target_position_P = 0.0;
     g_robot_state.current_position_R = 0.0;
     g_robot_state.current_position_P = 0.0;
     g_robot_state.current_velocity_R = 0.0;
@@ -924,21 +842,7 @@ int main(void) {
     g_robot_state.encoder_r_valid = false;
     g_robot_state.encoder_p_valid = false;
 
-    // 軌道制御の初期化
-    g_robot_state.trajectory_target_position_R = 0.0;
-    g_robot_state.trajectory_target_position_P = 0.0;
-    g_robot_state.trajectory_target_velocity_R = 0.0;
-    g_robot_state.trajectory_target_velocity_P = 0.0;
-    g_robot_state.trajectory_active_R = false;
-    g_robot_state.trajectory_active_P = false;
-    g_robot_state.trajectory_start_time_R = 0.0;
-    g_robot_state.trajectory_start_time_P = 0.0;
-    g_robot_state.trajectory_start_pos_R = 0.0;
-    g_robot_state.trajectory_start_pos_P = 0.0;
-    g_robot_state.target_position_R = 0.0;
-    g_robot_state.target_position_P = 0.0;
-    g_robot_state.new_target_R = false;
-    g_robot_state.new_target_P = false;
+    // 現在時間の初期化
     g_robot_state.current_time = 0.0;
 
     // デバッグ情報の初期化
@@ -1034,7 +938,7 @@ int main(void) {
 
                 case TRAJECTORY_HANDLING:
                     // ハンド動作中
-                    hand_tick(&hand_state, &has_work,  &hand_timer);
+                    hand_tick(&hand_state, &has_work, &hand_timer);
                     if (hand_state == HAND_IDLE) {
                         // ハンド動作完了 → 次の軌道へ
                         if (seq_manager->is_sequence_active()) {
@@ -1097,16 +1001,16 @@ int main(void) {
             float target_cur_P = g_robot_state.target_current_P;
 
             // 台形プロファイル制御情報
-            float traj_target_pos_R = g_robot_state.trajectory_target_position_R;
-            float traj_target_pos_P = g_robot_state.trajectory_target_position_P;
-            float traj_target_vel_R = g_robot_state.trajectory_target_velocity_R;
-            float traj_target_vel_P = g_robot_state.trajectory_target_velocity_P;
-            bool traj_active_R = g_robot_state.trajectory_active_R;
-            bool traj_active_P = g_robot_state.trajectory_active_P;
+            float traj_target_pos_R = g_trajectory_data.points[g_trajectory_data.current_index].position_R;
+            float traj_target_pos_P = g_trajectory_data.points[g_trajectory_data.current_index].position_P;
+            float traj_target_vel_R = g_trajectory_data.points[g_trajectory_data.current_index].velocity_R;
+            float traj_target_vel_P = g_trajectory_data.points[g_trajectory_data.current_index].velocity_P;
+            bool traj_active_R = g_trajectory_data.active;
+            bool traj_active_P = g_trajectory_data.active;
 
             // 最終目標位置（Core0→Core1）
-            float final_target_pos_R = g_robot_state.target_position_R;
-            float final_target_pos_P = g_robot_state.target_position_P;
+            float final_target_pos_R = g_trajectory_data.final_target_R;
+            float final_target_pos_P = g_trajectory_data.final_target_P;
 
             int timing_violations = g_robot_state.timing_violation_count;
             led_mode_t led_status = g_robot_state.led_status;
