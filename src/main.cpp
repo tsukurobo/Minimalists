@@ -28,7 +28,7 @@ constexpr float TRAJECTORY_COMPLETION_TOLERANCE_P = 0.1;         // P軸完了�
 constexpr float TRAJECTORY_COMPLETION_VELOCITY_THRESHOLD = 0.1;  // 完了判定時の速度閾値 [rad/s]
 
 // 軌道データ配列設定
-constexpr int MAX_TRAJECTORY_POINTS = 3000;         // 最大軌道点数
+constexpr int MAX_TRAJECTORY_POINTS = 10000;        // 最大軌道点数
 constexpr uint32_t TRAJECTORY_DATA_SIGNAL = 2;      // 軌道データ送信信号
 constexpr uint32_t TRAJECTORY_COMPLETE_SIGNAL = 3;  // 軌道完了信号
 
@@ -888,7 +888,7 @@ int main(void) {
     };
     trajectory_state_t traj_state = TRAJECTORY_IDLE;
     // 軌道シーケンス管理
-    const int WORK_NUM = 40;  // ワーク数
+    constexpr int WORK_NUM = 40;                // ワーク数
     trajectory_waypoint_t work_points[WORK_NUM] = {
         // 一番奥側ロボットから見て左から右へ
         // 1行目
@@ -929,8 +929,8 @@ int main(void) {
         trajectory_waypoint_t(2.979f, -0.2038f / gear_radius_P, 0.0f),
         trajectory_waypoint_t(3.140f, -0.0807f / gear_radius_P, 0.0f),
         trajectory_waypoint_t(3.319f, -0.0107f / gear_radius_P, 0.0f),
-        trajectory_waypoint_t(3.766f, -0.0365f / gear_radius_P, 0.0f),
-        trajectory_waypoint_t(4.132f, -0.0365f / gear_radius_P, 0.0f),
+        trajectory_waypoint_t(3.766f, -0.0365f / gear_radius_P, 0.0f),  // 本当はP軸の値が＋
+        trajectory_waypoint_t(4.132f, -0.0365f / gear_radius_P, 0.0f),  // 本当はP軸の値が＋
         trajectory_waypoint_t(4.620f, -0.0086f / gear_radius_P, 0.0f),
         trajectory_waypoint_t(4.849f, -0.0749f / gear_radius_P, 0.0f),
         trajectory_waypoint_t(5.067f, -0.1997f / gear_radius_P, 0.0f),
