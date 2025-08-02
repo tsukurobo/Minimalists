@@ -446,62 +446,70 @@ void init_hand() {
 }
 
 // 　ハンドの動作実行
-void hand_tick(hand_state_t* hand_state, bool* has_work, absolute_time_t* hand_timer) {
+void hand_tick(hand_state_t* hand_state, bool* has_work, absolute_time_t* state_start_time) {
+    uint32_t elapsed_ms = absolute_time_diff_us(*state_start_time, get_absolute_time()) / 1000;
     switch (*hand_state) {
         case HAND_IDLE:
             g_debug_manager->debug("hand requested\n");
-            if (*has_work == false) {
+            if (!*has_work) {
                 *hand_state = HAND_LOWERING;
-                *hand_timer = make_timeout_time_ms(10);  // 降ろす時間
-                gpio_put(PUMP_PIN, 1);                   // PWM デューティ設定
-
+                *state_start_time = get_absolute_time();
+                gpio_put(PUMP_PIN, 1);
                 std::cout << "Hand lowering..." << std::endl;
-                // Dynamixel　降下処理
                 control_position(&UART0, DXL_ID2, DOWN_ANGLE);
-
             } else {
                 *hand_state = HAND_RELEASE;
-                *hand_timer = make_timeout_time_ms(10);
-                gpio_put(SOLENOID_PIN, 1);  // ソレノイドを非吸着状態にする
+                *state_start_time = get_absolute_time();
+                gpio_put(SOLENOID_PIN, 1);
             }
             break;
 
         case HAND_LOWERING:
-            if (absolute_time_diff_us(get_absolute_time(), *hand_timer) <= 0) {
+            if (elapsed_ms >= 100) {
                 *hand_state = HAND_SUCTION_WAIT;
-                *hand_timer = make_timeout_time_ms(10);  // 吸着待ち
+                *state_start_time = get_absolute_time();
                 g_debug_manager->debug("Hand suction wait...\n");
             }
             break;
 
         case HAND_SUCTION_WAIT:
-            if (absolute_time_diff_us(get_absolute_time(), *hand_timer) <= 0) {
+            if (elapsed_ms >= 100) {
                 *hand_state = HAND_RAISING;
-                *hand_timer = make_timeout_time_ms(10);
-                // Dynamixel 昇降処理
+                *state_start_time = get_absolute_time();
                 control_position(&UART0, DXL_ID2, UP_ANGLE);
                 g_debug_manager->debug("Hand raising...\n");
             }
             break;
 
         case HAND_RAISING:
-            if (absolute_time_diff_us(get_absolute_time(), *hand_timer) <= 0) {
+            if (elapsed_ms >= 100) {
                 *has_work = true;
                 control_position(&UART0, DXL_ID1, RELEASE_ANGLE);
                 g_debug_manager->debug("Hand raised, work done.\n");
-                *hand_state = HAND_IDLE;
+                *hand_state = HAND_WAITING;  // HAND_IDLE前に1秒待機
+                *state_start_time = get_absolute_time();
             }
             break;
 
         case HAND_RELEASE:
-            if (absolute_time_diff_us(get_absolute_time(), *hand_timer) <= 0) {
+            if (elapsed_ms >= 100) {
                 *has_work = false;
-                *hand_state = HAND_IDLE;
-                gpio_put(SOLENOID_PIN, 0);  // ソレノイドを吸着状態にする
+                gpio_put(SOLENOID_PIN, 0);
                 control_position(&UART0, DXL_ID1, GRAB_ANGLE);
                 g_debug_manager->debug("Hand released\n");
+                *hand_state = HAND_WAITING;  // HAND_IDLE前に1秒待機
+                *state_start_time = get_absolute_time();
             }
             break;
+
+        case HAND_WAITING:
+            if (elapsed_ms >= 100) {
+                *hand_state = HAND_IDLE;
+            }
+            break;
+    }
+}
+
 // デバッグ用ユーティリティ関数: 軌道目標値を安全に取得する共通関数
 void get_safe_trajectory_targets(float current_pos_R, float current_pos_P,
                                  float* traj_pos_R, float* traj_pos_P,

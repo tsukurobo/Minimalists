@@ -10,7 +10,8 @@ typedef enum {
     HAND_LOWERING,
     HAND_SUCTION_WAIT,
     HAND_RAISING,
-    HAND_RELEASE
+    HAND_RELEASE,
+    HAND_WAITING,
 } hand_state_t;
 
 // ---- ポンプ制御 ----
