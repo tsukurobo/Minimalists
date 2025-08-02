@@ -16,7 +16,7 @@ constexpr int PROTOCOL_VERSION = 2;
 constexpr short POLY = 0x8005;
 extern unsigned short crc_table[256];  // CRC-tabel 除算演算の事前演算結果
 
-constexpr uint BAUD_RATE = 57600;  // 1,000,000bpsに調整
+constexpr uint BAUD_RATE = 1'000'000;
 constexpr uint LED_PIN = 25;
 constexpr float CURRENT_UNIT = 2.69 * 0.001;  //[A]
 constexpr uint32_t PERIOD_US = 500;           // 1ms周期
