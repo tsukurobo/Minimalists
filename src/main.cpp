@@ -406,10 +406,10 @@ bool calculate_trajectory_core0(float current_pos_R, float current_pos_P, float 
 
 void init_hand() {
     // ポンプの設定
-    gpio_init(PUMP_PIN1);
-    gpio_set_dir(PUMP_PIN1, GPIO_OUT);
-    gpio_init(SOLENOID_PIN1);
-    gpio_set_dir(SOLENOID_PIN1, GPIO_OUT);
+    gpio_init(PUMP_PIN);
+    gpio_set_dir(PUMP_PIN, GPIO_OUT);
+    gpio_init(SOLENOID_PIN);
+    gpio_set_dir(SOLENOID_PIN, GPIO_OUT);
 
     sleep_ms(1000);  // GPIO初期化後の安定化待ち
 
@@ -436,8 +436,8 @@ void init_hand() {
     write_torqueEnable(&UART0, DXL_ID1, true);
     write_torqueEnable(&UART0, DXL_ID2, true);
     sleep_ms(1000);
-    gpio_put(SOLENOID_PIN1, 0);  // ソレノイドを吸着状態にする
-    gpio_put(PUMP_PIN1, 1);
+    gpio_put(SOLENOID_PIN, 0);  // ソレノイドを吸着状態にする
+    gpio_put(PUMP_PIN, 1);
     g_debug_manager->info("hand initialized\n");
     sleep_ms(500);
     control_position(&UART0, DXL_ID1, START_HAND_ANGLE);
@@ -453,7 +453,7 @@ void hand_tick(hand_state_t* hand_state, bool* has_work, absolute_time_t* hand_t
             if (*has_work == false) {
                 *hand_state = HAND_LOWERING;
                 *hand_timer = make_timeout_time_ms(10);  // 降ろす時間
-                gpio_put(PUMP_PIN1, 1);                  // PWM デューティ設定
+                gpio_put(PUMP_PIN, 1);                   // PWM デューティ設定
 
                 std::cout << "Hand lowering..." << std::endl;
                 // Dynamixel　降下処理
@@ -462,7 +462,7 @@ void hand_tick(hand_state_t* hand_state, bool* has_work, absolute_time_t* hand_t
             } else {
                 *hand_state = HAND_RELEASE;
                 *hand_timer = make_timeout_time_ms(10);
-                gpio_put(SOLENOID_PIN1, 1);  // ソレノイドを非吸着状態にする
+                gpio_put(SOLENOID_PIN, 1);  // ソレノイドを非吸着状態にする
             }
             break;
 
@@ -497,7 +497,7 @@ void hand_tick(hand_state_t* hand_state, bool* has_work, absolute_time_t* hand_t
             if (absolute_time_diff_us(get_absolute_time(), *hand_timer) <= 0) {
                 *has_work = false;
                 *hand_state = HAND_IDLE;
-                gpio_put(SOLENOID_PIN1, 0);  // ソレノイドを吸着状態にする
+                gpio_put(SOLENOID_PIN, 0);  // ソレノイドを吸着状態にする
                 control_position(&UART0, DXL_ID1, GRAB_ANGLE);
                 g_debug_manager->debug("Hand released\n");
             }
@@ -1116,6 +1116,6 @@ int main(void) {
     }
 
     // gpio_put(SOLENOID_PIN1, 0);  // ソレノイドを非吸着状態にする
-    gpio_put(PUMP_PIN1, 0);  // ポンプを停止
+    gpio_put(PUMP_PIN, 0);  // ポンプを停止
     return 0;
 }

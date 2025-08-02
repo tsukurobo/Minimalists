@@ -16,10 +16,8 @@
 #include "trajectory.hpp"
 
 // PIN設定
-constexpr int PUMP_PIN1 = 4;
-constexpr int PUMP_PIN2 = 11;
-constexpr int SOLENOID_PIN1 = 3;
-constexpr int SOLENOID_PIN2 = 13;
+constexpr int PUMP_PIN = 4;
+constexpr int SOLENOID_PIN = 3;
 
 // 手先のmotorに与えるduty比
 constexpr int PUMP_PWM = 0.80;
