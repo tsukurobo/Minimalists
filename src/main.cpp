@@ -885,16 +885,24 @@ int main(void) {
     };
     trajectory_state_t traj_state = TRAJECTORY_IDLE;
     // 軌道シーケンス管理
-    TrajectorySequenceManager* seq_manager = new TrajectorySequenceManager(g_debug_manager);
-    trajectory_waypoint_t test_waypoints[] = {
-        trajectory_waypoint_t(3.783f, 0.1721f / gear_radius_P, 0.0f),
-        trajectory_waypoint_t(3.0f, 0.26f / gear_radius_P, 0.0f),
-        trajectory_waypoint_t(4.024f, 0.3683f / gear_radius_P, 0.0f),
-        trajectory_waypoint_t(3.0f, 0.26f / gear_radius_P, 0.0f),
-        trajectory_waypoint_t(4.43f, 0.5435f / gear_radius_P, 0.0f),
-        trajectory_waypoint_t(3.0f, 0.26f / gear_radius_P, 0.0f),
+    const int WORK_NUM = 3;  // ワーク数
+    trajectory_waypoint_t shooting_points[WORK_NUM] = {
+        trajectory_waypoint_t(2.344f, 0.228f / gear_radius_P, 0.0f),
+        trajectory_waypoint_t(2.344f, 0.228f / gear_radius_P, 0.0f),
+        trajectory_waypoint_t(2.344f, 0.228f / gear_radius_P, 0.0f),
     };
-    seq_manager->setup_sequence(test_waypoints, 3);
+    trajectory_waypoint_t work_points[WORK_NUM] = {
+        trajectory_waypoint_t(3.783f, 0.1721f / gear_radius_P, 0.0f),
+        trajectory_waypoint_t(4.024f, 0.3683f / gear_radius_P, 0.0f),
+        trajectory_waypoint_t(4.43f, 0.5435f / gear_radius_P, 0.0f),
+    };
+    TrajectorySequenceManager* seq_manager = new TrajectorySequenceManager(g_debug_manager);
+    trajectory_waypoint_t all_waypoints[2 * WORK_NUM];
+    for (int i = 0; i < WORK_NUM; ++i) {
+        all_waypoints[2 * i] = work_points[i];
+        all_waypoints[2 * i + 1] = shooting_points[i];
+    }
+    seq_manager->setup_sequence(all_waypoints, 2 * WORK_NUM);
 
     // ハンド状態管理用ローカル変数
     hand_state_t hand_state = HAND_IDLE;
