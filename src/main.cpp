@@ -463,13 +463,8 @@ void init_hand() {
     // ポンプの設定
     gpio_init(PUMP_PIN1);
     gpio_set_dir(PUMP_PIN1, GPIO_OUT);
-    gpio_init(PUMP_PIN2);
-    gpio_set_dir(PUMP_PIN2, GPIO_OUT);
     gpio_init(SOLENOID_PIN1);
     gpio_set_dir(SOLENOID_PIN1, GPIO_OUT);
-
-    gpio_init(SOLENOID_PIN2);
-    gpio_set_dir(SOLENOID_PIN2, GPIO_OUT);
 
     sleep_ms(1000);  // GPIO初期化後の安定化待ち
 
@@ -495,6 +490,7 @@ void init_hand() {
     sleep_ms(1000);
     write_torqueEnable(&UART0, DXL_ID1, true);
     write_torqueEnable(&UART0, DXL_ID2, true);
+    printf("Dynamixels initialized successfully!\n");
 }
 
 // 　ハンドの動作実行
