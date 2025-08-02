@@ -112,14 +112,14 @@ constexpr float P_TORQUE_CONSTANT = 0.18f * gear_ratio_P;  // 等価トルク定
 
 // 軌道生成と制御器で共通の制限定数
 namespace TrajectoryLimits {
-constexpr float R_MAX_VELOCITY = 0.15f * 482.0f / 60.0f * 2.0f * M_PI / gear_ratio_R;  // R軸最大速度制限 [rad/s] 無負荷回転数482rpm
-constexpr float P_MAX_VELOCITY = 0.15f * 416.0f / 60.0f * 2.0f * M_PI / gear_ratio_P;  // P軸最大速度制限 [rad/s] Maximum speed at 1N•m: 416 rpm
+constexpr float R_MAX_VELOCITY = 482.0 / 60.0 * 2.0 * M_PI / gear_ratio_R;  // R軸最大速度制限 [rad/s] 無負荷回転数482rpm
+constexpr float P_MAX_VELOCITY = 416.0 / 60.0 * 2.0 * M_PI / gear_ratio_P;  // P軸最大速度制限 [rad/s] Maximum speed at 1N•m: 416 rpm
 
 // 動力学パラメータとトルク制限から計算した最大角加速度
 constexpr float R_MAX_TORQUE = std::min(3.0f, 1.0f) * gear_ratio_R;  // R軸最大トルク制限 [Nm] (M3508最大連続トルク 3.0Nm と カップリング最大トルク 1.0Nm の最小値)
 constexpr float P_MAX_TORQUE = 1.0f * gear_ratio_P;                  // P軸最大トルク制限 [Nm] (M2006最大連続トルク 1.0Nm)
-constexpr float R_MAX_ACCELERATION = 0.95f * R_MAX_TORQUE / R_EQ_INERTIA;  // R軸最大角加速度 [rad/s^2] 最大トルク
-constexpr float P_MAX_ACCELERATION = 0.9f * P_MAX_TORQUE / P_EQ_INERTIA;   // P軸最大角加速度 [rad/s^2] 最大トルク
+constexpr float R_MAX_ACCELERATION = R_MAX_TORQUE / R_EQ_INERTIA;    // R軸最大角加速度 [rad/s^2] 最大トルク
+constexpr float P_MAX_ACCELERATION = P_MAX_TORQUE / P_EQ_INERTIA;    // P軸最大角加速度 [rad/s^2] 最大トルク
 }  // namespace TrajectoryLimits
 
 // RoboMasterモータオブジェクト
@@ -559,12 +559,12 @@ void get_safe_trajectory_targets(float current_pos_R, float current_pos_P,
 void core1_entry(void) {
     // Core1専用の軌道生成インスタンス
     trajectory_t trajectory_R_local(
-        TrajectoryLimits::R_MAX_VELOCITY,      // R軸最大速度の50%で軌道生成
-        TrajectoryLimits::R_MAX_ACCELERATION,  // R軸最大加速度の50%で軌道生成
+        0.15f * TrajectoryLimits::R_MAX_VELOCITY,      // R軸最大速度の50%で軌道生成
+        0.95f * TrajectoryLimits::R_MAX_ACCELERATION,  // R軸最大加速度の50%で軌道生成
         0.0, 0.0);
     trajectory_t trajectory_P_local(
-        TrajectoryLimits::P_MAX_VELOCITY,      // P軸最大速度の50%で軌道生成
-        TrajectoryLimits::P_MAX_ACCELERATION,  // P軸最大加速度の50%で軌道生成
+        0.15f * TrajectoryLimits::P_MAX_VELOCITY,     // P軸最大速度の50%で軌道生成
+        0.9f * TrajectoryLimits::P_MAX_ACCELERATION,  // P軸最大加速度の50%で軌道生成
         0.0, 0.0);
 
     // CANの初期化（リトライ付き）
