@@ -324,12 +324,12 @@ bool init_pid_controllers() {
 bool calculate_trajectory_core0(float current_pos_R, float current_pos_P, float target_pos_R, float target_pos_P) {
     // Core0専用の軌道生成インスタンス
     trajectory_t trajectory_R_core0(
-        TrajectoryLimits::R_MAX_VELOCITY,
-        TrajectoryLimits::R_MAX_ACCELERATION,
+        0.15 * TrajectoryLimits::R_MAX_VELOCITY,
+        0.95 * TrajectoryLimits::R_MAX_ACCELERATION,
         current_pos_R, target_pos_R);
     trajectory_t trajectory_P_core0(
-        TrajectoryLimits::P_MAX_VELOCITY,
-        TrajectoryLimits::P_MAX_ACCELERATION,
+        0.15 * TrajectoryLimits::P_MAX_VELOCITY,
+        0.9 * TrajectoryLimits::P_MAX_ACCELERATION,
         current_pos_P, target_pos_P);
 
     // 軌道パラメータを計算
@@ -523,16 +523,6 @@ void get_safe_trajectory_targets(float current_pos_R, float current_pos_P,
 
 // Core 1: 通信・制御担当
 void core1_entry(void) {
-    // Core1専用の軌道生成インスタンス
-    trajectory_t trajectory_R_local(
-        0.15f * TrajectoryLimits::R_MAX_VELOCITY,      // R軸最大速度の50%で軌道生成
-        0.95f * TrajectoryLimits::R_MAX_ACCELERATION,  // R軸最大加速度の50%で軌道生成
-        0.0, 0.0);
-    trajectory_t trajectory_P_local(
-        0.15f * TrajectoryLimits::P_MAX_VELOCITY,     // P軸最大速度の50%で軌道生成
-        0.9f * TrajectoryLimits::P_MAX_ACCELERATION,  // P軸最大加速度の50%で軌道生成
-        0.0, 0.0);
-
     // CANの初期化（リトライ付き）
     while (!can.init(CAN_1000KBPS)) {
         // 初期化失敗時のLED点滅
