@@ -1,0 +1,24 @@
+[
+  {
+    "name": "R: Current Pico Parameters",
+    "pos_kp": 2.5,
+    "pos_ki": 0.0,
+    "pos_kd": 0.0,
+    "vel_ki": 0.01,
+    "vel_kp": 0.15,
+    "motor_inertia": 0.024371,
+    "motor_damping": 0.036437,
+    "torque_constant": 20.201925
+  },
+  {
+    "name": "P: Current Pico Parameters",
+	"pos_kp": 0.7,
+	"pos_ki": 0.0,
+	"pos_kd": 0.0,
+	"vel_ki": 0.0,
+	"vel_kp": 1.0,
+	"motor_inertia": 0.3,
+	"motor_damping": 0.002651,
+	"torque_constant": 4.2768
+  }
+]

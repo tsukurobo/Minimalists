@@ -1,0 +1,68 @@
+[
+  {
+    "name": "R: Current Pico Parameters",
+    "pos_kp": 2.0,
+    "pos_ki": 0.0,
+    "pos_kd": 0.0,
+    "vel_ki": 2.592,
+    "vel_kp": 0.396,
+    "motor_inertia": 0.024371,
+    "motor_damping": 0.036437,
+    "torque_constant": 20.201925
+  },
+  {
+    "name": "R: Tuned High Performance",
+    "pos_kp": 3.0,
+    "pos_ki": 0.0,
+    "pos_kd": 0.0,
+    "vel_ki": 5.832,
+    "vel_kp": 0.612,
+    "motor_inertia": 0.024371,
+    "motor_damping": 0.036437,
+    "torque_constant": 20.201925
+  },
+  {
+    "name": "R: Conservative Stable",
+    "pos_kp": 1.5,
+    "pos_ki": 0.0,
+    "pos_kd": 0.0,
+    "vel_ki": 1.458,
+    "vel_kp": 0.288,
+    "motor_inertia": 0.024371,
+    "motor_damping": 0.036437,
+    "torque_constant": 20.201925
+  },
+  {
+    "name": "P: Current Pico Parameters",
+    "pos_kp": 0.5,
+    "pos_ki": 0.0,
+    "pos_kd": 0.0,
+    "vel_ki": 2.025,
+    "vel_kp": 1.35,
+    "motor_inertia": 0.3,
+    "motor_damping": 0.002651,
+    "torque_constant": 4.2768
+  },
+  {
+	"name": "P: Tuned High Performance",
+	"pos_kp": 1.0,
+	"pos_ki": 0.0,
+	"pos_kd": 0.0,
+	"vel_ki": 8.1,
+	"vel_kp": 2.7,
+	"motor_inertia": 0.3,
+	"motor_damping": 0.002651,
+	"torque_constant": 4.2768
+  },
+  {
+	"name": "P: Conservative Stable",
+	"pos_kp": 0.1,
+	"pos_ki": 0.0,
+	"pos_kd": 0.0,
+	"vel_ki": 0.081,
+	"vel_kp": 0.27,
+	"motor_inertia": 0.3,
+	"motor_damping": 0.002651,
+	"torque_constant": 4.2768
+  }
+]

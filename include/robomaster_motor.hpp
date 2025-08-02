@@ -2,34 +2,58 @@
 
 #include <stdint.h>
 
+#include "mcp25625.hpp"
+
 /**
- * RoboMasterモータ制御クラス
- * M3508モータのエンコーダ読み取り、電流値変換、角度計算などを管理
+ * @brief すべてのモータの電流を送信する関数
+ *
+ * @param can MCP25625インスタンス
+ * @param currents 送信する電流値の配列 (アンペア)
+ * @return true 送信成功
+ * @return false 送信失敗
+ */
+bool send_all_motor_currents(mcp25625_t* can, float currents[4]);
+
+/**
+ * @brief RoboMasterモータ制御クラス
+ * M3508モータのエンコーダ読み取り、電流値変換、角度計算、CAN送受信を管理
  */
 class robomaster_motor_t {
    private:
-    // エンコーダ関連の定数
     static constexpr int16_t ENCODER_MAX = 8192;
     static constexpr float ENCODER_TO_RAD = 2.0 * 3.14159265359 / ENCODER_MAX;
     static constexpr float CURRENT_CONVERSION_FACTOR = 20.0 / 16384.0;  // 電流変換係数
 
-    // エンコーダの状態を保持するメンバ変数
-    int16_t prev_encoder_raw_;  // 前回のエンコーダ生値
-    int32_t encoder_turns_;     // エンコーダの回転数（巻き数）
-    float continuous_angle_;    // 現在の連続角度（ラジアン）
-    float angular_velocity_;    // 現在の角速度（ラジアン/秒）
+    int16_t prev_encoder_raw_;
+    int32_t encoder_turns_;
+    float continuous_angle_;
+    float angular_velocity_;
+    float gear_ratio_;
+    int16_t motor_id_;  // モータID
 
-    // ギア比とその他のパラメータ
-    float gear_ratio_;   // ギア比
-    int16_t motor_id_;   // モータID
+    mcp25625_t* can_;  // MCP25625インスタンスへのポインタ
 
    public:
     /**
      * コンストラクタ
+     * @param can MCP25625インスタンス
      * @param motor_id モータID
      * @param gear_ratio ギア比
      */
-    robomaster_motor_t(int16_t motor_id, float gear_ratio);
+    robomaster_motor_t(mcp25625_t* can, int16_t motor_id, float gear_ratio);
+
+    /**
+     * モータへ電流指令を送信
+     * @param current_amp 電流値（アンペア）
+     * @return 送信成功時true
+     */
+    bool send_current(float current_amp);
+
+    /**
+     * CANから自身のモータIDのフィードバックを受信し、値を更新
+     * @return 受信成功時true
+     */
+    bool receive_feedback();
 
     /**
      * エンコーダの生値を連続的な角度（ラジアン）に変換する関数
@@ -67,16 +91,6 @@ class robomaster_motor_t {
      */
     void reset_encoder();
 
-    /**
-     * CANバッファからモータデータを解析する関数
-     * @param rx_buf 受信したCANデータバッファ
-     * @param angle_raw エンコーダ生値の出力先
-     * @param rpm RPM値の出力先
-     * @param current_raw 電流生値の出力先
-     * @param temperature 温度の出力先
-     */
-    void parse_can_data(const unsigned char* rx_buf, int16_t* angle_raw, int16_t* rpm, int16_t* current_raw, int8_t* temperature);
-
     // ゲッター関数
     float get_continuous_angle() const { return continuous_angle_; }
     float get_angular_velocity() const { return angular_velocity_; }
@@ -84,8 +98,4 @@ class robomaster_motor_t {
     int16_t get_prev_encoder_raw() const { return prev_encoder_raw_; }
     float get_gear_ratio() const { return gear_ratio_; }
     int16_t get_motor_id() const { return motor_id_; }
-
-    // セッター関数
-    void set_gear_ratio(float gear_ratio) { gear_ratio_ = gear_ratio; }
-    void set_angular_velocity(float angular_velocity) { angular_velocity_ = angular_velocity; }
 };

@@ -8,8 +8,8 @@ byte txBuf[] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
 long Pre_millis;
 MCP_CAN CAN0(53);
 
-int16_t fmap(double x, double in_min, double in_max, int16_t out_min, int16_t out_max) {
-    return (x - in_min) * ((double)(out_max - out_min)) / (in_max - in_min) + out_min;
+int16_t fmap(float x, float in_min, float in_max, int16_t out_min, int16_t out_max) {
+    return (x - in_min) * ((float)(out_max - out_min)) / (in_max - in_min) + out_min;
 }
 
 void setup() {
@@ -27,10 +27,10 @@ void setup() {
 void loop() {
     static bool is_started = false;
     static int count = 0;
-    static double motor_output_current_A = 0.0;
+    static float motor_output_current_A = 0.0;
     if (Serial.available() > 0) {
         char mode = Serial.read();
-        double val = Serial.readStringUntil('\n').toDouble();
+        float val = Serial.readStringUntil('\n').toDouble();
 
         if (mode == 'c')  // 動作開始
         {
@@ -45,27 +45,27 @@ void loop() {
         if (count < total_count) {
             // 3種類のsin波を合成した複雑な波形を生成
             // 基本波: 1000カウントで1周期、振幅1.0A
-            double freq1 = 2.0 * PI / 1000.0;
-            double wave1 = 1.0 * sin(freq1 * count);
+            float freq1 = 2.0 * PI / 1000.0;
+            float wave1 = 1.0 * sin(freq1 * count);
 
             // 高調波1: 500カウントで1周期、振幅0.5A
-            double freq2 = 2.0 * PI / 500.0;
-            double wave2 = 0.5 * sin(freq2 * count);
+            float freq2 = 2.0 * PI / 500.0;
+            float wave2 = 0.5 * sin(freq2 * count);
 
             // 高調波2: 333カウントで1周期、振幅0.3A、位相90度シフト
-            double freq3 = 2.0 * PI / 333.0;
-            double wave3 = 0.3 * sin(freq3 * count + PI / 2);
+            float freq3 = 2.0 * PI / 333.0;
+            float wave3 = 0.3 * sin(freq3 * count + PI / 2);
 
             //   低周波: 2000カウントで1周期、振幅0.5A
-            double freq4 = 2.0 * PI / 2000.0;
-            double wave4 = 0.5 * sin(freq4 * count);
+            float freq4 = 2.0 * PI / 2000.0;
+            float wave4 = 0.5 * sin(freq4 * count);
 
             //   低周波: 5000カウントで1周期、振幅0.5A、位相180度シフト
-            double freq5 = 2.0 * PI / 5000.0;
-            double wave5 = 0.3 * sin(freq5 * count + PI);
+            float freq5 = 2.0 * PI / 5000.0;
+            float wave5 = 0.3 * sin(freq5 * count + PI);
 
             // 5つの波を合成（合計振幅が約2.8Aになるので、3Aでクリップ）
-            double composite_wave = wave1 + wave2 + wave3 + wave4 + wave5;
+            float composite_wave = wave1 + wave2 + wave3 + wave4 + wave5;
 
             // -3A～+3Aの範囲にクリップ
             if (composite_wave > 3.0) {
