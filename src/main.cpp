@@ -885,16 +885,98 @@ int main(void) {
     };
     trajectory_state_t traj_state = TRAJECTORY_IDLE;
     // 軌道シーケンス管理
-    const int WORK_NUM = 3;  // ワーク数
-    trajectory_waypoint_t shooting_points[WORK_NUM] = {
-        trajectory_waypoint_t(2.344f, 0.228f / gear_radius_P, 0.0f),
-        trajectory_waypoint_t(2.344f, 0.228f / gear_radius_P, 0.0f),
-        trajectory_waypoint_t(2.344f, 0.228f / gear_radius_P, 0.0f),
-    };
+    const int WORK_NUM = 40;  // ワーク数
     trajectory_waypoint_t work_points[WORK_NUM] = {
-        trajectory_waypoint_t(3.783f, 0.1721f / gear_radius_P, 0.0f),
-        trajectory_waypoint_t(4.024f, 0.3683f / gear_radius_P, 0.0f),
-        trajectory_waypoint_t(4.43f, 0.5435f / gear_radius_P, 0.0f),
+        // 一番奥側ロボットから見て左から右へ
+        // 1行目
+        trajectory_waypoint_t(3.27f, -0.4703f / gear_radius_P, 0.0f),
+        trajectory_waypoint_t(3.368f, -0.4036f / gear_radius_P, 0.0f),
+        trajectory_waypoint_t(3.536f, -0.3141f / gear_radius_P, 0.0f),
+        trajectory_waypoint_t(3.684f, -0.277f / gear_radius_P, 0.0f),
+        trajectory_waypoint_t(3.932f, -0.2471f / gear_radius_P, 0.0f),
+        trajectory_waypoint_t(4.112f, -0.2436f / gear_radius_P, 0.0f),
+        trajectory_waypoint_t(4.365f, -0.2766f / gear_radius_P, 0.0f),
+        trajectory_waypoint_t(4.519f, -0.3181f / gear_radius_P, 0.0f),
+        trajectory_waypoint_t(4.715f, -0.3986f / gear_radius_P, 0.0f),
+        trajectory_waypoint_t(4.817f, -0.4658f / gear_radius_P, 0.0f),
+        // 2行目
+        trajectory_waypoint_t(3.164f, -0.3986f / gear_radius_P, 0.0f),
+        trajectory_waypoint_t(3.260f, -0.323f / gear_radius_P, 0.0f),
+        trajectory_waypoint_t(3.442f, -0.2321f / gear_radius_P, 0.0f),
+        trajectory_waypoint_t(3.598f, -0.1860f / gear_radius_P, 0.0f),
+        trajectory_waypoint_t(3.897f, -0.1451f / gear_radius_P, 0.0f),
+        trajectory_waypoint_t(4.113f, -0.1426f / gear_radius_P, 0.0f),
+        trajectory_waypoint_t(4.420f, -0.1784f / gear_radius_P, 0.0f),
+        trajectory_waypoint_t(4.602f, -0.2261f / gear_radius_P, 0.0f),
+        trajectory_waypoint_t(4.806f, -0.3196f / gear_radius_P, 0.0f),
+        trajectory_waypoint_t(4.913f, -0.3954f / gear_radius_P, 0.0f),
+        // 3行目
+        trajectory_waypoint_t(3.046f, -0.3424f / gear_radius_P, 0.0f),
+        trajectory_waypoint_t(3.130f, -0.2619f / gear_radius_P, 0.0f),
+        trajectory_waypoint_t(3.320f, -0.1520f / gear_radius_P, 0.0f),
+        trajectory_waypoint_t(3.486f, -0.0924f / gear_radius_P, 0.0f),
+        trajectory_waypoint_t(3.846f, -0.0441f / gear_radius_P, 0.0f),
+        trajectory_waypoint_t(4.112f, -0.0438f / gear_radius_P, 0.0f),
+        trajectory_waypoint_t(4.501f, -0.0880f / gear_radius_P, 0.0f),
+        trajectory_waypoint_t(4.701f, -0.1516f / gear_radius_P, 0.0f),
+        trajectory_waypoint_t(4.915f, -0.2591f / gear_radius_P, 0.0f),
+        trajectory_waypoint_t(5.021f, -0.3384f / gear_radius_P, 0.0f),
+        // 4行目（ロボットに一番近い行）
+        trajectory_waypoint_t(2.899f, -0.2917f / gear_radius_P, 0.0f),
+        trajectory_waypoint_t(2.979f, -0.2038f / gear_radius_P, 0.0f),
+        trajectory_waypoint_t(3.140f, -0.0807f / gear_radius_P, 0.0f),
+        trajectory_waypoint_t(3.319f, -0.0107f / gear_radius_P, 0.0f),
+        trajectory_waypoint_t(3.766f, -0.0365f / gear_radius_P, 0.0f),
+        trajectory_waypoint_t(4.132f, -0.0365f / gear_radius_P, 0.0f),
+        trajectory_waypoint_t(4.620f, -0.0086f / gear_radius_P, 0.0f),
+        trajectory_waypoint_t(4.849f, -0.0749f / gear_radius_P, 0.0f),
+        trajectory_waypoint_t(5.067f, -0.1997f / gear_radius_P, 0.0f),
+        trajectory_waypoint_t(5.151f, -0.2896f / gear_radius_P, 0.0f),
+    };
+    trajectory_waypoint_t shooting_points[WORK_NUM] = {
+        trajectory_waypoint_t(2.380f, -0.5645f / gear_radius_P, 0.0f),
+        trajectory_waypoint_t(2.380f, -0.5645f / gear_radius_P, 0.0f),
+        trajectory_waypoint_t(2.380f, -0.5645f / gear_radius_P, 0.0f),
+        trajectory_waypoint_t(2.380f, -0.5645f / gear_radius_P, 0.0f),
+        trajectory_waypoint_t(2.380f, -0.5645f / gear_radius_P, 0.0f),
+        trajectory_waypoint_t(2.380f, -0.5645f / gear_radius_P, 0.0f),
+        trajectory_waypoint_t(2.380f, -0.5645f / gear_radius_P, 0.0f),
+        trajectory_waypoint_t(2.380f, -0.5645f / gear_radius_P, 0.0f),
+        trajectory_waypoint_t(2.380f, -0.5645f / gear_radius_P, 0.0f),
+        trajectory_waypoint_t(2.380f, -0.5645f / gear_radius_P, 0.0f),
+
+        trajectory_waypoint_t(2.380f, -0.5645f / gear_radius_P, 0.0f),
+        trajectory_waypoint_t(2.380f, -0.5645f / gear_radius_P, 0.0f),
+        trajectory_waypoint_t(2.380f, -0.5645f / gear_radius_P, 0.0f),
+        trajectory_waypoint_t(2.380f, -0.5645f / gear_radius_P, 0.0f),
+        trajectory_waypoint_t(2.380f, -0.5645f / gear_radius_P, 0.0f),
+        trajectory_waypoint_t(2.380f, -0.5645f / gear_radius_P, 0.0f),
+        trajectory_waypoint_t(2.380f, -0.5645f / gear_radius_P, 0.0f),
+        trajectory_waypoint_t(2.380f, -0.5645f / gear_radius_P, 0.0f),
+        trajectory_waypoint_t(2.380f, -0.5645f / gear_radius_P, 0.0f),
+        trajectory_waypoint_t(2.380f, -0.5645f / gear_radius_P, 0.0f),
+
+        trajectory_waypoint_t(2.380f, -0.5645f / gear_radius_P, 0.0f),
+        trajectory_waypoint_t(2.380f, -0.5645f / gear_radius_P, 0.0f),
+        trajectory_waypoint_t(2.380f, -0.5645f / gear_radius_P, 0.0f),
+        trajectory_waypoint_t(2.380f, -0.5645f / gear_radius_P, 0.0f),
+        trajectory_waypoint_t(2.380f, -0.5645f / gear_radius_P, 0.0f),
+        trajectory_waypoint_t(2.380f, -0.5645f / gear_radius_P, 0.0f),
+        trajectory_waypoint_t(2.380f, -0.5645f / gear_radius_P, 0.0f),
+        trajectory_waypoint_t(2.380f, -0.5645f / gear_radius_P, 0.0f),
+        trajectory_waypoint_t(2.380f, -0.5645f / gear_radius_P, 0.0f),
+        trajectory_waypoint_t(2.380f, -0.5645f / gear_radius_P, 0.0f),
+
+        trajectory_waypoint_t(2.380f, -0.5645f / gear_radius_P, 0.0f),
+        trajectory_waypoint_t(2.380f, -0.5645f / gear_radius_P, 0.0f),
+        trajectory_waypoint_t(2.380f, -0.5645f / gear_radius_P, 0.0f),
+        trajectory_waypoint_t(2.380f, -0.5645f / gear_radius_P, 0.0f),
+        trajectory_waypoint_t(2.380f, -0.5645f / gear_radius_P, 0.0f),
+        trajectory_waypoint_t(2.380f, -0.5645f / gear_radius_P, 0.0f),
+        trajectory_waypoint_t(2.380f, -0.5645f / gear_radius_P, 0.0f),
+        trajectory_waypoint_t(2.380f, -0.5645f / gear_radius_P, 0.0f),
+        trajectory_waypoint_t(2.380f, -0.5645f / gear_radius_P, 0.0f),
+        trajectory_waypoint_t(2.380f, -0.5645f / gear_radius_P, 0.0f),
     };
     TrajectorySequenceManager* seq_manager = new TrajectorySequenceManager(g_debug_manager);
     trajectory_waypoint_t all_waypoints[2 * WORK_NUM];
