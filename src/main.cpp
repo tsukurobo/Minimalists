@@ -502,6 +502,32 @@ void hand_tick(hand_state_t* hand_state, bool* has_work, absolute_time_t* hand_t
                 g_debug_manager->debug("Hand released\n");
             }
             break;
+// デバッグ用ユーティリティ関数: 軌道目標値を安全に取得する共通関数
+void get_safe_trajectory_targets(float current_pos_R, float current_pos_P,
+                                 float* traj_pos_R, float* traj_pos_P,
+                                 float* traj_vel_R, float* traj_vel_P) {
+    // mutex_enter_blocking(&g_trajectory_mutex); // 呼び出し元でミューテックス取得済み
+
+    if (g_trajectory_data.active && g_trajectory_data.current_index < g_trajectory_data.point_count) {
+        // 軌道実行中
+        int idx = g_trajectory_data.current_index;
+        *traj_pos_R = g_trajectory_data.points[idx].position_R;
+        *traj_pos_P = g_trajectory_data.points[idx].position_P;
+        *traj_vel_R = g_trajectory_data.points[idx].velocity_R;
+        *traj_vel_P = g_trajectory_data.points[idx].velocity_P;
+    } else if (g_trajectory_data.current_index >= g_trajectory_data.point_count &&
+               g_trajectory_data.point_count > 0) {
+        // 軌道データ終了後
+        *traj_pos_R = g_trajectory_data.final_target_R;
+        *traj_pos_P = g_trajectory_data.final_target_P;
+        *traj_vel_R = 0.0;
+        *traj_vel_P = 0.0;
+    } else {
+        // 軌道停止時
+        *traj_pos_R = current_pos_R;
+        *traj_pos_P = current_pos_P;
+        *traj_vel_R = 0.0;
+        *traj_vel_P = 0.0;
     }
 }
 
@@ -689,7 +715,7 @@ void core1_entry(void) {
             }
         }
 
-        // 位置PID制御（位置偏差 → 速度補正）
+        // 位置PID制御（位置偏差 → 目標速度補正）
         float vel_correction_R = position_pid_R.computePosition(trajectory_target_pos_R, motor_position_R);
         float vel_correction_P = position_pid_P.computePosition(trajectory_target_pos_P, motor_position_P);
 
@@ -1008,10 +1034,11 @@ int main(void) {
             float target_cur_P = g_robot_state.target_current_P;
 
             // 台形プロファイル制御情報
-            float traj_target_pos_R = g_trajectory_data.points[g_trajectory_data.current_index].position_R;
-            float traj_target_pos_P = g_trajectory_data.points[g_trajectory_data.current_index].position_P;
-            float traj_target_vel_R = g_trajectory_data.points[g_trajectory_data.current_index].velocity_R;
-            float traj_target_vel_P = g_trajectory_data.points[g_trajectory_data.current_index].velocity_P;
+            float traj_target_pos_R, traj_target_pos_P;
+            float traj_target_vel_R, traj_target_vel_P;
+            get_safe_trajectory_targets(current_pos_R, current_pos_P,
+                                        &traj_target_pos_R, &traj_target_pos_P,
+                                        &traj_target_vel_R, &traj_target_vel_P);
             bool traj_active_R = g_trajectory_data.active;
             bool traj_active_P = g_trajectory_data.active;
 
