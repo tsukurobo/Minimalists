@@ -126,15 +126,6 @@ constexpr float P_MAX_ACCELERATION = P_MAX_TORQUE / P_EQ_INERTIA;    // P軸最�
 robomaster_motor_t motor1(&can, 1, gear_ratio_R);  // motor_id=1
 robomaster_motor_t motor2(&can, 2, gear_ratio_P);  // motor_id=2
 
-// PIDコントローラ（モータ1: 回転軸、モータ2: 直動軸）
-// 位置PID制御器（位置[rad] → 目標速度[rad/s]）
-constexpr float R_POSITION_KP = 1.25;  // R軸位置PIDの比例ゲイン
-constexpr float R_VELOCITY_KP = 0.1;   // R軸速度I-Pの比例ゲイン
-constexpr float R_VELOCITY_KI = 0.7;   // R軸速度I-Pの積分ゲイン
-constexpr float P_POSITION_KP = 1.25;  // P軸位置PIDの比例ゲイン
-constexpr float P_VELOCITY_KP = 0.1;   // P軸速度I-Pの比例ゲイン
-constexpr float P_VELOCITY_KI = 1.0;   // P軸速度I-Pの積分ゲイン
-
 // 外乱オブザーバのパラメータ
 constexpr float R_CUTOFF_FREQ = 6.0f;                                             // R軸 外乱オブザーバのカットオフ周波数 [rad/s]
 constexpr float sqrtf_R_POSITION_GAIN = 7.0f;                                     // R軸 外乱オブザーバの位置ゲインの平方根
@@ -162,21 +153,7 @@ constexpr float INTEGRAL_VELOCITY = 0.6 * TrajectoryLimits::P_MAX_VELOCITY;  // 
 constexpr float MAX_TORQUE = TrajectoryLimits::P_MAX_TORQUE;                 // 速度I-P出力の最大トルク制限 [Nm] - 軌道生成と共通
 constexpr float INTEGRAL_TORQUE = 0.3 * TrajectoryLimits::P_MAX_TORQUE;      // 速度I-P積分制限 [Nm]
 }  // namespace P_Axis
-
-// フィードフォワード制御ゲイン
-namespace FeedForward {
-constexpr float POSITION_GAIN = 0.3;              // 位置フィードフォワードゲイン [0~1.0]
-constexpr float R_VELOCITY_GAIN = R_VELOCITY_KP;  // R軸速度フィードフォワードゲイン [0~VELOCITY_KP]
-constexpr float P_VELOCITY_GAIN = P_VELOCITY_KP;  // P軸速度フィードフォワードゲイン [0~VELOCITY_KP]
-}  // namespace FeedForward
 }  // namespace ControlLimits
-
-PositionPIDController position_pid_R(R_POSITION_KP, 0.0, 0.0, CONTROL_PERIOD_S);  // Kp, Ki, Kd
-PositionPIDController position_pid_P(P_POSITION_KP, 0.0, 0.0, CONTROL_PERIOD_S);  // Kp, Ki, Kd
-
-// 速度I-P制御器（速度[rad/s] → トルク[Nm]）
-VelocityIPController velocity_ip_R(R_VELOCITY_KI, R_VELOCITY_KP, CONTROL_PERIOD_S);  // Ki, Kp
-VelocityIPController velocity_ip_P(P_VELOCITY_KI, P_VELOCITY_KP, CONTROL_PERIOD_S);  // Ki, Kp
 
 float clampTorque(float torque, float max_torque) {
     if (torque > max_torque) {
@@ -319,20 +296,6 @@ bool init_pid_controllers() {
     g_debug_manager->info("  Encoder R direction: %+.1f\n", ENCODER_R_DIRECTION);
     g_debug_manager->info("  Encoder P direction: %+.1f\n", ENCODER_P_DIRECTION);
 
-    // 位置PID制御器の設定
-    position_pid_R.setOutputLimits(-ControlLimits::R_Axis::MAX_VELOCITY, ControlLimits::R_Axis::MAX_VELOCITY);
-    position_pid_R.setIntegralLimits(-ControlLimits::R_Axis::INTEGRAL_VELOCITY, ControlLimits::R_Axis::INTEGRAL_VELOCITY);
-
-    position_pid_P.setOutputLimits(-ControlLimits::P_Axis::MAX_VELOCITY, ControlLimits::P_Axis::MAX_VELOCITY);
-    position_pid_P.setIntegralLimits(-ControlLimits::P_Axis::INTEGRAL_VELOCITY, ControlLimits::P_Axis::INTEGRAL_VELOCITY);
-
-    // 速度I-P制御器の設定
-    velocity_ip_R.setOutputLimits(-ControlLimits::R_Axis::MAX_TORQUE, ControlLimits::R_Axis::MAX_TORQUE);
-    velocity_ip_R.setIntegralLimits(-ControlLimits::R_Axis::INTEGRAL_TORQUE, ControlLimits::R_Axis::INTEGRAL_TORQUE);
-
-    velocity_ip_P.setOutputLimits(-ControlLimits::P_Axis::MAX_TORQUE, ControlLimits::P_Axis::MAX_TORQUE);
-    velocity_ip_P.setIntegralLimits(-ControlLimits::P_Axis::INTEGRAL_TORQUE, ControlLimits::P_Axis::INTEGRAL_TORQUE);
-
     g_debug_manager->info("PID controllers initialized successfully!\n");
 
     // 制限値設定の表示
@@ -350,10 +313,9 @@ bool init_pid_controllers() {
                           ControlLimits::P_Axis::MAX_TORQUE, ControlLimits::P_Axis::INTEGRAL_TORQUE);
 
     g_debug_manager->info("FeedForward Gains:\n");
-    g_debug_manager->info("  Position FF Gain: %.1f, R-Velocity FF: %.1f, P-Velocity FF: %.1f\n",
-                          ControlLimits::FeedForward::POSITION_GAIN,
-                          ControlLimits::FeedForward::R_VELOCITY_GAIN,
-                          ControlLimits::FeedForward::P_VELOCITY_GAIN);
+    g_debug_manager->info("  R-Velocity FF: %.1f, P-Velocity FF: %.1f\n",
+                          R_VELOCITY_GAIN,
+                          P_VELOCITY_GAIN);
 
     return true;
 }
@@ -760,36 +722,6 @@ void core1_entry(void) {
             }
         }
 
-        // 位置PID制御（位置偏差 → 目標速度補正）
-        float vel_correction_R = position_pid_R.computePosition(trajectory_target_pos_R, motor_position_R);
-        float vel_correction_P = position_pid_P.computePosition(trajectory_target_pos_P, motor_position_P);
-
-        // デッドゾーン適用（小さな偏差では制御出力をゼロにする）
-        constexpr float DEADZONE_R = 0.02;   // R軸デッドゾーン [rad] (約1度)
-        constexpr float DEADZONE_P = 0.001;  // P軸デッドゾーン [rad] (約25μm相当)
-
-        float position_error_R = trajectory_target_pos_R - motor_position_R;
-        float position_error_P = trajectory_target_pos_P - motor_position_P;
-
-        if (std::abs(position_error_R) < DEADZONE_R) {
-            vel_correction_R = 0.0;
-        }
-        if (std::abs(position_error_P) < DEADZONE_P) {
-            vel_correction_P = 0.0;
-        }
-
-        // 最終目標速度 = 台形プロファイル目標速度 + 位置偏差による速度補正
-        float final_target_vel_R = ControlLimits::FeedForward::POSITION_GAIN * trajectory_target_vel_R + vel_correction_R;
-        float final_target_vel_P = ControlLimits::FeedForward::POSITION_GAIN * trajectory_target_vel_P + vel_correction_P;
-        // float final_target_vel_R = vel_correction_R;
-        // float final_target_vel_P = vel_correction_P;
-
-        // 速度I-P制御（速度偏差 → 目標トルク）
-        float target_torque_R = velocity_ip_R.computeVelocity(final_target_vel_R, motor_velocity_R) + ControlLimits::FeedForward::R_VELOCITY_GAIN * trajectory_target_vel_R;
-        float target_torque_P = velocity_ip_P.computeVelocity(final_target_vel_P, motor_velocity_P) + ControlLimits::FeedForward::P_VELOCITY_GAIN * trajectory_target_vel_P;
-        // float target_torque_R = velocity_ip_R.computeVelocity(final_target_vel_R, motor_velocity_R);
-        // float target_torque_P = velocity_ip_P.computeVelocity(final_target_vel_P, motor_velocity_P);
-
         // --- 制御計算 ---
         // R軸の制御計算
         error_position_R = R_EQ_INERTIA * R_POSITION_GAIN * (trajectory_target_pos_R - motor_position_R);
@@ -817,8 +749,6 @@ void core1_entry(void) {
 
         // --- 制御結果を共有データに保存 ---
         mutex_enter_blocking(&g_state_mutex);
-        g_robot_state.target_velocity_R = final_target_vel_R;
-        g_robot_state.target_velocity_P = final_target_vel_P;
         g_robot_state.target_torque_R = target_torque_R;
         g_robot_state.target_torque_P = target_torque_P;
         g_robot_state.target_current_R = target_current[0];
