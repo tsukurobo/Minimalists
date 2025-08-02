@@ -23,12 +23,12 @@ constexpr int SYNC_EVERY_N_LOOPS = 200;  // 200ループごとにCore0に同期�
 constexpr uint32_t SYNC_SIGNAL = 1;      // 同期信号の値
 
 // 軌道完了判定の許容誤差
-constexpr float TRAJECTORY_COMPLETION_TOLERANCE_R = 0.01;        // R軸完了判定許容誤差 [rad] (約0.6度)
-constexpr float TRAJECTORY_COMPLETION_TOLERANCE_P = 0.0005;      // P軸完了判定許容誤差 [rad] (約12.5μm相当)
+constexpr float TRAJECTORY_COMPLETION_TOLERANCE_R = 0.1;         // R軸完了判定許容誤差 [rad] (約0.6度)
+constexpr float TRAJECTORY_COMPLETION_TOLERANCE_P = 0.1;         // P軸完了判定許容誤差 [rad] (約12.5μm相当)
 constexpr float TRAJECTORY_COMPLETION_VELOCITY_THRESHOLD = 0.1;  // 完了判定時の速度閾値 [rad/s]
 
 // 軌道データ配列設定
-constexpr int MAX_TRAJECTORY_POINTS = 2000;         // 最大軌道点数
+constexpr int MAX_TRAJECTORY_POINTS = 3000;         // 最大軌道点数
 constexpr uint32_t TRAJECTORY_DATA_SIGNAL = 2;      // 軌道データ送信信号
 constexpr uint32_t TRAJECTORY_COMPLETE_SIGNAL = 3;  // 軌道完了信号
 
@@ -106,8 +106,8 @@ constexpr float R_EQ_DAMPING = 0.4084f;                   // 等価粘性摩擦�
 constexpr float R_TORQUE_CONSTANT = 0.3f * gear_ratio_R;  // 等価トルク定数（M3508のトルク定数xギア比） (Nm/A)
 
 // P軸（アーム直動）の動力学パラメータ（定数で表現）
-constexpr float P_EQ_INERTIA = 0.017f;                     // 等価慣性モーメント (kg·m^2)
-constexpr float P_EQ_DAMPING = 0.068f;                     // 粘性摩擦係数 (N·m·s/rad)
+constexpr float P_EQ_INERTIA = 0.00448f;                   // 等価慣性モーメント (kg·m^2)
+constexpr float P_EQ_DAMPING = 0.00785f;                   // 粘性摩擦係数 (N·m·s/rad)
 constexpr float P_TORQUE_CONSTANT = 0.18f * gear_ratio_P;  // 等価トルク定数（M2006のトルク定数xギア比） (Nm/A)
 
 // 軌道生成と制御器で共通の制限定数
@@ -953,9 +953,13 @@ int main(void) {
     // 軌道シーケンス管理
     TrajectorySequenceManager* seq_manager = new TrajectorySequenceManager(g_debug_manager);
     trajectory_waypoint_t test_waypoints[] = {
-        trajectory_waypoint_t(4.0f, 0.1f / gear_radius_P, 0.0f),
-        trajectory_waypoint_t(4.0f, 0.252f / gear_radius_P, 0.0f),
-        trajectory_waypoint_t(4.0f, 0.37f / gear_radius_P, 0.0f)};
+        trajectory_waypoint_t(3.783f, 0.1721f / gear_radius_P, 0.0f),
+        trajectory_waypoint_t(3.0f, 0.26f / gear_radius_P, 0.0f),
+        trajectory_waypoint_t(4.024f, 0.3683f / gear_radius_P, 0.0f),
+        trajectory_waypoint_t(3.0f, 0.26f / gear_radius_P, 0.0f),
+        trajectory_waypoint_t(4.43f, 0.5435f / gear_radius_P, 0.0f),
+        trajectory_waypoint_t(3.0f, 0.26f / gear_radius_P, 0.0f),
+    };
     seq_manager->setup_sequence(test_waypoints, 3);
 
     // ハンド状態管理用ローカル変数
