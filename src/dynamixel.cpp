@@ -69,7 +69,9 @@ void send_packet(const uart_config_t* config, const uint8_t* data, size_t length
     while (uart_hw->fr & UART_UARTFR_BUSY_BITS) {
         tight_loop_contents();
     }
+    sleep_us(1);
     set_rx_mode(config);
+    sleep_us(1);
 }
 
 int receive_packet(const uart_config_t* config, uint8_t* rx_buf, size_t expected_len) {
@@ -124,7 +126,7 @@ int write_operatingMode(const uart_config_t* config, uint8_t id, bool currentCon
     packet[8] = 0x0B;  // Address L
     packet[9] = 0x00;  // Address H
     // 0x00 電流制御, 0x01 速度制御, 0x03 位置制御, 0x04 拡張位置制御, 0x05 電流ベース位置制御, 0x16 PWM制御
-    packet[10] = currentControlEnable ? 0x04 : 0x03;
+    packet[10] = currentControlEnable ? 0x04 : 0x05;
 
     crc = update_crc(0, packet, 11);
     packet[11] = crc & 0xFF;
@@ -372,6 +374,51 @@ int control_position(const uart_config_t* config, uint8_t id, float angle) {
     return 0;
 }
 
+int control_position_multiturn(const uart_config_t* config, uint8_t id, int32_t position) {
+    uint8_t packet[17];
+    uint16_t crc;
+
+    // Extended Position Control Mode: -1,048,575 ~ 1,048,575 (-256[rev] ~ 256[rev])
+    // 1回転 = 4095 pulse, マルチターンでは複数回転を考慮
+    // angleは度単位で入力されるため、pulse値に変換
+    // float revolutions = angle / 360.0f;  // 回転数
+    // int32_t position = static_cast<int32_t>(revolutions * 4095.0f);
+
+    // マルチターン範囲チェック：-1,048,575 ~ 1,048,575
+    // これは約-256.0回転から256.0回転の範囲に相当
+    if (position > 1048575) {
+        position = 1048575;
+        printf("Warning: Position clamped to max value (256 rev)\n");
+    } else if (position < -1048575) {
+        position = -1048575;
+        printf("Warning: Position clamped to min value (-256 rev)\n");
+    }
+
+    packet[0] = 0xFF;  // Header
+    packet[1] = 0xFF;
+    packet[2] = 0xFD;
+    packet[3] = 0x00;
+    packet[4] = id;
+    packet[5] = 0x09;  // Length: 9 bytes (Instruction + Address + Data)
+    packet[6] = 0x00;
+    packet[7] = 0x03;  // Instruction: WRITE
+    packet[8] = 0x74;  // Goal Position address (116 = 0x74)
+    packet[9] = 0x00;
+
+    // 32ビット符号付き整数を4バイトで送信（Little Endian）
+    packet[10] = position & 0xFF;
+    packet[11] = (position >> 8) & 0xFF;
+    packet[12] = (position >> 16) & 0xFF;
+    packet[13] = (position >> 24) & 0xFF;
+
+    crc = update_crc(0, packet, 14);
+    packet[14] = crc & 0xFF;
+    packet[15] = (crc >> 8) & 0xFF;
+
+    send_packet(config, packet, 16);
+    return 0;
+}
+
 float control_current_limit(float present_current) {
     if (present_current > current_limit) {
         present_current = current_limit;
@@ -379,4 +426,75 @@ float control_current_limit(float present_current) {
         present_current = -current_limit;
     }
     return present_current;
+}
+
+int write_dxl_current_limit(const uart_config_t* config, uint8_t id, uint16_t current_limit_mA) {
+    uint8_t packet[14];  // 正しいサイズ
+    uint16_t crc;
+
+    // --- パケット構築 ---
+    packet[0] = 0xFF;
+    packet[1] = 0xFF;
+    packet[2] = 0xFD;
+    packet[3] = 0x00;
+    packet[4] = id;                               // ID
+    packet[5] = 0x07;                             // LEN_L = 7 (Instruction + Addr_L + Addr_H + Data_L + Data_H)
+    packet[6] = 0x00;                             // LEN_H
+    packet[7] = 0x03;                             // Instruction: WRITE
+    packet[8] = 0x26;                             // Address L: Current Limit L (38)
+    packet[9] = 0x00;                             // Address H
+    packet[10] = current_limit_mA & 0xFF;         // Data L
+    packet[11] = (current_limit_mA >> 8) & 0xFF;  // Data H
+
+    // --- CRC計算 ---
+    crc = update_crc(0, packet, 12);  // CRCはHEADER〜データまで
+    packet[12] = crc & 0xFF;
+    packet[13] = (crc >> 8) & 0xFF;
+
+    // --- 送信 ---
+    send_packet(config, packet, 14);  // 正しいサイズで送信
+
+    return 0;
+}
+
+int read_position_multiturn(const uart_config_t* config, uint8_t id, int32_t* position) {
+    uint8_t packet[14];
+    uint16_t crc;
+
+    packet[0] = 0xFF;
+    packet[1] = 0xFF;
+    packet[2] = 0xFD;
+    packet[3] = 0x00;
+    packet[4] = id;
+    packet[5] = 0x07;   // Length L
+    packet[6] = 0x00;   // Length H
+    packet[7] = 0x02;   // Instruction: READ
+    packet[8] = 0x84;   // Address L (Present Position = 132 = 0x84)
+    packet[9] = 0x00;   // Address H
+    packet[10] = 0x04;  // Data length L (4 bytes for 32-bit position)
+    packet[11] = 0x00;  // Data length H
+
+    crc = update_crc(0, packet, 12);
+    packet[12] = crc & 0xFF;
+    packet[13] = (crc >> 8) & 0xFF;
+
+    send_packet(config, packet, 14);
+
+    uint8_t rx[15];
+    int len = receive_packet(config, rx, 15);
+
+    if (len < 15) return -1;
+
+    uint16_t received_crc = rx[13] | (rx[14] << 8);
+    uint16_t calc_crc = update_crc(0, rx, 13);
+    if (received_crc != calc_crc) {
+        printf("CRC mismatch! received=0x%04X, calculated=0x%04X\n", received_crc, calc_crc);
+        return -1;
+    }
+
+    // 32ビット符号付き整数として読み取り（Little Endian）
+    uint32_t raw_position = rx[9] | (rx[10] << 8) | (rx[11] << 16) | (rx[12] << 24);
+    *position = static_cast<int32_t>(raw_position);
+
+    return 0;
 }

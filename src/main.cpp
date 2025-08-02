@@ -399,32 +399,35 @@ void init_hand() {
     g_debug_manager->info("Initializing Dynamixels (Daisy Chain on UART0)...\n");
     init_crc();
     configure_uart(&UART0, BAUD_RATE);
-    sleep_ms(1000);
+    sleep_ms(100);
     write_statusReturnLevel(&UART0, DXL_ID1, 0x00);
     write_statusReturnLevel(&UART0, DXL_ID2, 0x00);
-    sleep_ms(1000);
+    sleep_ms(100);
     write_dxl_led(&UART0, DXL_ID1, true);
     write_dxl_led(&UART0, DXL_ID2, true);
     sleep_ms(1000);
     write_dxl_led(&UART0, DXL_ID1, false);
     write_dxl_led(&UART0, DXL_ID2, false);
-    sleep_ms(1000);
+    sleep_ms(100);
     write_torqueEnable(&UART0, DXL_ID1, false);
     write_torqueEnable(&UART0, DXL_ID2, false);
-    sleep_ms(1000);
+    sleep_ms(100);
+    write_dxl_current_limit(&UART0, DXL_ID1, 100);  // ID=1, 電流制限=100mA
+    write_dxl_current_limit(&UART0, DXL_ID2, 100);  // ID=2, 電流制限=100mA
+    sleep_ms(100);
     write_operatingMode(&UART0, DXL_ID1, false);  // false : 位置制御, true : 拡張位置制御(マルチターン)
     write_operatingMode(&UART0, DXL_ID2, false);
     sleep_ms(1000);
     write_torqueEnable(&UART0, DXL_ID1, true);
     write_torqueEnable(&UART0, DXL_ID2, true);
+    sleep_ms(500);
+    control_position(&UART0, DXL_ID1, START_HAND_ANGLE);
+    sleep_ms(500);
+    control_position_multiturn(&UART0, DXL_ID2, START_UP_ANGLE);
     sleep_ms(1000);
     gpio_put(SOLENOID_PIN, 0);  // ソレノイドを吸着状態にする
     gpio_put(PUMP_PIN, 1);
     g_debug_manager->info("hand initialized\n");
-    sleep_ms(500);
-    control_position(&UART0, DXL_ID1, START_HAND_ANGLE);
-    sleep_ms(500);
-    control_position(&UART0, DXL_ID2, START_UP_ANGLE);
 }
 
 // 　ハンドの動作実行
@@ -438,7 +441,7 @@ void hand_tick(hand_state_t* hand_state, bool* has_work, absolute_time_t* state_
                 *state_start_time = get_absolute_time();
                 gpio_put(PUMP_PIN, 1);
                 g_debug_manager->debug("Hand lowering...");
-                control_position(&UART0, DXL_ID2, DOWN_ANGLE);
+                control_position_multiturn(&UART0, DXL_ID2, DOWN_ANGLE);
             } else {
                 *hand_state = HAND_RELEASE;
                 *state_start_time = get_absolute_time();
@@ -447,7 +450,7 @@ void hand_tick(hand_state_t* hand_state, bool* has_work, absolute_time_t* state_
             break;
 
         case HAND_LOWERING:
-            if (elapsed_ms >= 100) {
+            if (elapsed_ms >= 300) {
                 *hand_state = HAND_SUCTION_WAIT;
                 *state_start_time = get_absolute_time();
                 g_debug_manager->debug("Hand suction wait...\n");
@@ -458,13 +461,13 @@ void hand_tick(hand_state_t* hand_state, bool* has_work, absolute_time_t* state_
             if (elapsed_ms >= 100) {
                 *hand_state = HAND_RAISING;
                 *state_start_time = get_absolute_time();
-                control_position(&UART0, DXL_ID2, UP_ANGLE);
+                control_position_multiturn(&UART0, DXL_ID2, UP_ANGLE);
                 g_debug_manager->debug("Hand raising...\n");
             }
             break;
 
         case HAND_RAISING:
-            if (elapsed_ms >= 100) {
+            if (elapsed_ms >= 200) {
                 *has_work = true;
                 control_position(&UART0, DXL_ID1, RELEASE_ANGLE);
                 g_debug_manager->debug("Hand raised, work done.\n");
@@ -474,7 +477,7 @@ void hand_tick(hand_state_t* hand_state, bool* has_work, absolute_time_t* state_
             break;
 
         case HAND_RELEASE:
-            if (elapsed_ms >= 100) {
+            if (elapsed_ms >= 150) {
                 *has_work = false;
                 gpio_put(SOLENOID_PIN, 0);
                 control_position(&UART0, DXL_ID1, GRAB_ANGLE);
@@ -485,7 +488,7 @@ void hand_tick(hand_state_t* hand_state, bool* has_work, absolute_time_t* state_
             break;
 
         case HAND_WAITING:
-            if (elapsed_ms >= 100) {
+            if (elapsed_ms >= 150) {
                 *hand_state = HAND_IDLE;
             }
             break;
