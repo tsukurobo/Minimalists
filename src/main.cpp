@@ -792,6 +792,7 @@ int main(void) {
 
     // ミューテックス初期化
     mutex_init(&g_state_mutex);
+    mutex_init(&g_trajectory_mutex);
 
     g_robot_state.motor_speed = 0;
     g_robot_state.sensor_value = 0;
