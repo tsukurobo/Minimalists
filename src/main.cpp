@@ -23,6 +23,9 @@ constexpr int SYNC_EVERY_N_LOOPS = 200;  // 200ループごとにCore0に同期�
 constexpr uint32_t SYNC_SIGNAL = 1;      // 同期信号の値
 
 // 軌道完了判定の許容誤差
+constexpr float TRAJECTORY_COMPLETION_TOLERANCE_R = 0.01;         // R軸完了判定許容誤差 [rad]
+constexpr float TRAJECTORY_COMPLETION_TOLERANCE_P = 0.1;          // P軸完了判定許容誤差 [rad]
+constexpr float TRAJECTORY_COMPLETION_VELOCITY_THRESHOLD = 0.05;  // 完了判定時の速度閾値 [rad/s]
 constexpr float TRAJECTORY_COMPLETION_TOLERANCE_R = 0.1;         // R軸完了判定許容誤差 [rad] (約0.6度)
 constexpr float TRAJECTORY_COMPLETION_TOLERANCE_P = 0.1;         // P軸完了判定許容誤差 [rad] (約12.5μm相当)
 constexpr float TRAJECTORY_COMPLETION_VELOCITY_THRESHOLD = 0.1;  // 完了判定時の速度閾値 [rad/s]
@@ -131,7 +134,7 @@ constexpr float R_CUTOFF_FREQ = 6.0f;                                           
 constexpr float sqrtf_R_POSITION_GAIN = 7.0f;                                     // R軸 外乱オブザーバの位置ゲインの平方根
 constexpr float R_POSITION_GAIN = sqrtf_R_POSITION_GAIN * sqrtf_R_POSITION_GAIN;  // R軸 外乱オブザーバの位置ゲイン
 constexpr float R_VELOCITY_GAIN = 2.0f * sqrtf_R_POSITION_GAIN;                   // R軸 外乱オブザーバの速度ゲイン
-constexpr float P_CUTOFF_FREQ = 6.0f;                                             // P軸 外乱オブザーバのカットオフ周波数 [rad/s]
+constexpr float P_CUTOFF_FREQ = 4.0f;                                             // P軸 外乱オブザーバのカットオフ周波数 [rad/s]
 constexpr float sqrtf_P_POSITION_GAIN = 7.0f;                                     // P軸 外乱オブザーバの位置ゲインの平方根
 constexpr float P_POSITION_GAIN = sqrtf_P_POSITION_GAIN * sqrtf_P_POSITION_GAIN;  // P軸 外乱オブザーバの位置ゲイン
 constexpr float P_VELOCITY_GAIN = 2.0f * sqrtf_P_POSITION_GAIN;                   // P軸 外乱オブザーバの速度ゲイン
@@ -328,7 +331,7 @@ bool calculate_trajectory_core0(float current_pos_R, float current_pos_P, float 
         0.95 * TrajectoryLimits::R_MAX_ACCELERATION,
         current_pos_R, target_pos_R);
     trajectory_t trajectory_P_core0(
-        0.15 * TrajectoryLimits::P_MAX_VELOCITY,
+        0.7 * TrajectoryLimits::P_MAX_VELOCITY,
         0.9 * TrajectoryLimits::P_MAX_ACCELERATION,
         current_pos_P, target_pos_P);
 
