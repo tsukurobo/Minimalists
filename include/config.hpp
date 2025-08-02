@@ -31,7 +31,7 @@ constexpr float GRAB_ANGLE = 210.0f;
 constexpr float RELEASE_ANGLE = 300.0f;
 // 昇降用dynamixcelの角度定数　
 constexpr float UP_ANGLE = 20.0f;
-constexpr float DOWN_ANGLE = 160.0f;
+constexpr float DOWN_ANGLE = 200.0f;
 
 // dynamixelのID
 constexpr short DXL_ID1 = 0x01;  // 手先
