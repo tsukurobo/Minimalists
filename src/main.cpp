@@ -19,7 +19,7 @@ constexpr float CONTROL_PERIOD_MS = 0.5;                        // 制御周期 
 constexpr float CONTROL_PERIOD_S = CONTROL_PERIOD_MS / 1000.0;  // 制御周期 [s]
 
 // Core間同期設定
-constexpr int SYNC_EVERY_N_LOOPS = 100;  // 100ループごとにCore0に同期信号を送信
+constexpr int SYNC_EVERY_N_LOOPS = 200;  // 200ループごとにCore0に同期信号を送信
 constexpr uint32_t SYNC_SIGNAL = 1;      // 同期信号の値
 
 // 軌道完了判定の許容誤差
@@ -28,7 +28,7 @@ constexpr float TRAJECTORY_COMPLETION_TOLERANCE_P = 0.0005;      // P軸完了�
 constexpr float TRAJECTORY_COMPLETION_VELOCITY_THRESHOLD = 0.1;  // 完了判定時の速度閾値 [rad/s]
 
 // 軌道データ配列設定
-constexpr int MAX_TRAJECTORY_POINTS = 1000;         // 最大軌道点数
+constexpr int MAX_TRAJECTORY_POINTS = 2000;         // 最大軌道点数
 constexpr uint32_t TRAJECTORY_DATA_SIGNAL = 2;      // 軌道データ送信信号
 constexpr uint32_t TRAJECTORY_COMPLETE_SIGNAL = 3;  // 軌道完了信号
 
@@ -471,7 +471,7 @@ void hand_tick(hand_state_t* hand_state, bool* has_work, absolute_time_t* state_
                 *hand_state = HAND_LOWERING;
                 *state_start_time = get_absolute_time();
                 gpio_put(PUMP_PIN, 1);
-                std::cout << "Hand lowering..." << std::endl;
+                g_debug_manager->debug("Hand lowering...");
                 control_position(&UART0, DXL_ID2, DOWN_ANGLE);
             } else {
                 *hand_state = HAND_RELEASE;
@@ -829,6 +829,7 @@ void core1_entry(void) {
             // FIFOに同期信号を送信（ノンブロッキング）
             if (!multicore_fifo_push_timeout_us(SYNC_SIGNAL, 0)) {
                 // FIFO満杯の場合は何もしない（次回再試行）
+                g_debug_manager->error("Core1: Failed to push sync signal to Core0 FIFO");
             }
         }
 
@@ -846,7 +847,7 @@ bool initialize_system() {
     sleep_ms(2000);             // 少し待機して安定化
 
     // デバッグマネージャの初期化
-    g_debug_manager = new DebugManager(DebugLevel::OFF, 0.1f);
+    g_debug_manager = new DebugManager(DebugLevel::ERROR, 0.1f);
 
     // 全SPIデバイスの初期化
     while (!init_all_spi_devices()) {
