@@ -80,8 +80,8 @@ constexpr float P_TORQUE_CONSTANT = 0.18f * gear_ratio_P;  // 等価トルク定
 
 // 軌道生成と制御器で共通の制限定数
 namespace TrajectoryLimits {
-constexpr float R_MAX_VELOCITY = 482.0 / 60.0 * 2.0 * M_PI / gear_ratio_R;        // R軸最大速度制限 [rad/s] 無負荷回転数482rpm
-constexpr float P_MAX_VELOCITY = 0.4 * 500.0 / 60.0 * 2.0 * M_PI / gear_ratio_P;  // P軸最大速度制限 [rad/s] 無負荷回転数500rpm
+constexpr float R_MAX_VELOCITY = 482.0 / 60.0 * 2.0 * M_PI / gear_ratio_R;  // R軸最大速度制限 [rad/s] 無負荷回転数482rpm
+constexpr float P_MAX_VELOCITY = 416.0 / 60.0 * 2.0 * M_PI / gear_ratio_P;  // P軸最大速度制限 [rad/s] Maximum speed at 1N•m: 416 rpm
 
 // 動力学パラメータとトルク制限から計算した最大角加速度
 constexpr float R_MAX_TORQUE = 3.0 * gear_ratio_R;                 // R軸最大トルク制限 [Nm] (M3508最大連続トルク 3.0Nm)
@@ -99,9 +99,9 @@ robomaster_motor_t motor2(&can, 2, gear_ratio_P);  // motor_id=2
 constexpr float R_POSITION_KP = 16.0;  // R軸位置PIDの比例ゲイン
 constexpr float R_VELOCITY_KP = 8.0;   // R軸速度I-Pの比例ゲイン
 constexpr float R_VELOCITY_KI = 64.0;  // R軸速度I-Pの積分ゲイン
-constexpr float P_POSITION_KP = 16.0;  // P軸位置PIDの比例ゲイン
-constexpr float P_VELOCITY_KP = 3.0;   // P軸速度I-Pの比例ゲイン
-constexpr float P_VELOCITY_KI = 32.0;  // P軸速度I-Pの積分ゲイン
+constexpr float P_POSITION_KP = 1.25;  // P軸位置PIDの比例ゲイン
+constexpr float P_VELOCITY_KP = 0.1;   // P軸速度I-Pの比例ゲイン
+constexpr float P_VELOCITY_KI = 1.0;   // P軸速度I-Pの積分ゲイン
 
 // 制御器の制限値設定
 namespace ControlLimits {
@@ -118,7 +118,7 @@ namespace P_Axis {
 constexpr float MAX_VELOCITY = 0.7 * TrajectoryLimits::P_MAX_VELOCITY;       // 位置PID出力の最大速度制限 [rad/s] - 軌道生成より小さく設定
 constexpr float INTEGRAL_VELOCITY = 0.6 * TrajectoryLimits::P_MAX_VELOCITY;  // 位置PID積分制限 [rad/s]
 constexpr float MAX_TORQUE = TrajectoryLimits::P_MAX_TORQUE;                 // 速度I-P出力の最大トルク制限 [Nm] - 軌道生成と共通
-constexpr float INTEGRAL_TORQUE = 0.8 * TrajectoryLimits::P_MAX_TORQUE;      // 速度I-P積分制限 [Nm]
+constexpr float INTEGRAL_TORQUE = 0.3 * TrajectoryLimits::P_MAX_TORQUE;      // 速度I-P積分制限 [Nm]
 }  // namespace P_Axis
 
 // フィードフォワード制御ゲイン
@@ -617,9 +617,9 @@ void core1_entry(void) {
         }
 
         // // トルクから電流への変換
-        target_current[0] = target_torque_R / R_TORQUE_CONSTANT;  // Motor1 (R軸)
+        // target_current[0] = target_torque_R / R_TORQUE_CONSTANT;  // Motor1 (R軸)
         target_current[1] = target_torque_P / P_TORQUE_CONSTANT;  // Motor2 (P軸)
-        // target_current[0] = 0.0;  // Motor1 (R軸)
+        target_current[0] = 0.0;                                  // Motor1 (R軸)
         // target_current[1] = 0.0;  // Motor2 (P軸)
 
         // --- 制御結果を共有データに保存 ---
