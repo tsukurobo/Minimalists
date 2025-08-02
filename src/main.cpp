@@ -4,6 +4,7 @@
 #include "config.hpp"
 #include "control_timing.hpp"
 #include "debug_manager.hpp"
+#include "disturbance_observer.hpp"
 #include "mcp25625.hpp"
 #include "pico/multicore.h"
 #include "pico/mutex.h"
@@ -14,7 +15,7 @@
 #include "trajectory_sequence_manager.hpp"
 
 // 制御周期定数
-constexpr float CONTROL_PERIOD_MS = 1.0;                        // 制御周期 [ms]
+constexpr float CONTROL_PERIOD_MS = 0.5;                        // 制御周期 [ms]
 constexpr float CONTROL_PERIOD_S = CONTROL_PERIOD_MS / 1000.0;  // 制御周期 [s]
 
 // Core間同期設定
@@ -115,10 +116,10 @@ constexpr float R_MAX_VELOCITY = 482.0 / 60.0 * 2.0 * M_PI / gear_ratio_R;  // R
 constexpr float P_MAX_VELOCITY = 416.0 / 60.0 * 2.0 * M_PI / gear_ratio_P;  // P軸最大速度制限 [rad/s] Maximum speed at 1N•m: 416 rpm
 
 // 動力学パラメータとトルク制限から計算した最大角加速度
-constexpr float R_MAX_TORQUE = 3.0 * gear_ratio_R;                 // R軸最大トルク制限 [Nm] (M3508最大連続トルク 3.0Nm)
-constexpr float P_MAX_TORQUE = 1.0 * gear_ratio_P;                 // P軸最大トルク制限 [Nm] (M2006最大連続トルク 1.0Nm)
-constexpr float R_MAX_ACCELERATION = R_MAX_TORQUE / R_EQ_INERTIA;  // R軸最大角加速度 [rad/s^2]
-constexpr float P_MAX_ACCELERATION = P_MAX_TORQUE / P_EQ_INERTIA;  // P軸最大角加速度 [rad/s^2]
+constexpr float R_MAX_TORQUE = std::min(3.0f, 1.0f) * gear_ratio_R;  // R軸最大トルク制限 [Nm] (M3508最大連続トルク 3.0Nm と カップリング最大トルク 1.0Nm の最小値)
+constexpr float P_MAX_TORQUE = 1.0f * gear_ratio_P;                  // P軸最大トルク制限 [Nm] (M2006最大連続トルク 1.0Nm)
+constexpr float R_MAX_ACCELERATION = R_MAX_TORQUE / R_EQ_INERTIA;    // R軸最大角加速度 [rad/s^2] 最大トルク
+constexpr float P_MAX_ACCELERATION = P_MAX_TORQUE / P_EQ_INERTIA;    // P軸最大角加速度 [rad/s^2] 最大トルク
 }  // namespace TrajectoryLimits
 
 // RoboMasterモータオブジェクト
@@ -127,12 +128,18 @@ robomaster_motor_t motor2(&can, 2, gear_ratio_P);  // motor_id=2
 
 // PIDコントローラ（モータ1: 回転軸、モータ2: 直動軸）
 // 位置PID制御器（位置[rad] → 目標速度[rad/s]）
-constexpr float R_POSITION_KP = 16.0;  // R軸位置PIDの比例ゲイン
-constexpr float R_VELOCITY_KP = 8.0;   // R軸速度I-Pの比例ゲイン
-constexpr float R_VELOCITY_KI = 64.0;  // R軸速度I-Pの積分ゲイン
+constexpr float R_POSITION_KP = 1.25;  // R軸位置PIDの比例ゲイン
+constexpr float R_VELOCITY_KP = 0.1;   // R軸速度I-Pの比例ゲイン
+constexpr float R_VELOCITY_KI = 0.7;   // R軸速度I-Pの積分ゲイン
 constexpr float P_POSITION_KP = 1.25;  // P軸位置PIDの比例ゲイン
 constexpr float P_VELOCITY_KP = 0.1;   // P軸速度I-Pの比例ゲイン
 constexpr float P_VELOCITY_KI = 1.0;   // P軸速度I-Pの積分ゲイン
+
+// 外乱オブザーバのパラメータ
+constexpr float R_CUTOFF_FREQ = 6.0f;                                             // R軸 外乱オブザーバのカットオフ周波数 [rad/s]
+constexpr float sqrtf_R_POSITION_GAIN = 7.0f;                                     // R軸 外乱オブザーバの位置ゲインの平方根
+constexpr float R_POSITION_GAIN = sqrtf_R_POSITION_GAIN * sqrtf_R_POSITION_GAIN;  // R軸 外乱オブザーバの位置ゲイン
+constexpr float R_VELOCITY_GAIN = 2.0f * sqrtf_R_POSITION_GAIN;                   // R軸 外乱オブザーバの速度ゲイン
 
 // 制御器の制限値設定
 namespace ControlLimits {
@@ -166,6 +173,15 @@ PositionPIDController position_pid_P(P_POSITION_KP, 0.0, 0.0, CONTROL_PERIOD_S);
 // 速度I-P制御器（速度[rad/s] → トルク[Nm]）
 VelocityIPController velocity_ip_R(R_VELOCITY_KI, R_VELOCITY_KP, CONTROL_PERIOD_S);  // Ki, Kp
 VelocityIPController velocity_ip_P(P_VELOCITY_KI, P_VELOCITY_KP, CONTROL_PERIOD_S);  // Ki, Kp
+
+float clampTorque(float torque, float max_torque) {
+    if (torque > max_torque) {
+        return max_torque;
+    } else if (torque < -max_torque) {
+        return -max_torque;
+    }
+    return torque;
+}
 
 // 共有データ構造体
 typedef struct
@@ -543,12 +559,12 @@ void get_safe_trajectory_targets(float current_pos_R, float current_pos_P,
 void core1_entry(void) {
     // Core1専用の軌道生成インスタンス
     trajectory_t trajectory_R_local(
-        TrajectoryLimits::R_MAX_VELOCITY,
-        TrajectoryLimits::R_MAX_ACCELERATION,
+        0.15f * TrajectoryLimits::R_MAX_VELOCITY,      // R軸最大速度の50%で軌道生成
+        0.95f * TrajectoryLimits::R_MAX_ACCELERATION,  // R軸最大加速度の50%で軌道生成
         0.0, 0.0);
     trajectory_t trajectory_P_local(
-        TrajectoryLimits::P_MAX_VELOCITY,
-        TrajectoryLimits::P_MAX_ACCELERATION,
+        0.15f * TrajectoryLimits::P_MAX_VELOCITY,     // P軸最大速度の50%で軌道生成
+        0.9f * TrajectoryLimits::P_MAX_ACCELERATION,  // P軸最大加速度の50%で軌道生成
         0.0, 0.0);
 
     // CANの初期化（リトライ付き）
@@ -568,6 +584,14 @@ void core1_entry(void) {
 
     // 制御開始時刻を記録
     absolute_time_t control_start_time = get_absolute_time();
+
+    float disturbance_torque_R = 0.0f;                                            // R軸の外乱トルク
+    float control_torque_R = 0.0f;                                                // R軸の制御トルク
+    float target_torque_R = 0.0f;                                                 // R軸の目標トルク
+    float error_position_R = 0.0f;                                                // R軸の位置誤差
+    float error_velocity_R = 0.0f;                                                // R軸の速度誤差
+    float acceleration_feedforward_R = 0.0f;                                      // R軸の加速度フィードフォワード
+    disturbance_observer_t dob_R(R_EQ_INERTIA, R_CUTOFF_FREQ, CONTROL_PERIOD_S);  // R軸の外乱オブザーバ
 
     // ループカウンタの初期化
     int loop_counter = 0;
@@ -754,13 +778,16 @@ void core1_entry(void) {
         // float target_torque_R = velocity_ip_R.computeVelocity(final_target_vel_R, motor_velocity_R);
         // float target_torque_P = velocity_ip_P.computeVelocity(final_target_vel_P, motor_velocity_P);
 
-        // --- 制御出力の制限 ---
-        // R軸のトルク制限
-        if (target_torque_R > ControlLimits::R_Axis::MAX_TORQUE) {
-            target_torque_R = ControlLimits::R_Axis::MAX_TORQUE;
-        } else if (target_torque_R < -ControlLimits::R_Axis::MAX_TORQUE) {
-            target_torque_R = -ControlLimits::R_Axis::MAX_TORQUE;
-        }
+        // --- 制御計算 ---
+        // R軸の制御計算
+        error_position_R = R_EQ_INERTIA * R_POSITION_GAIN * (trajectory_target_pos_R - motor_position_R);
+        error_velocity_R = R_EQ_INERTIA * R_VELOCITY_GAIN * (trajectory_target_vel_R - motor_velocity_R);
+        acceleration_feedforward_R = R_EQ_INERTIA * trajectory_target_accel_R;
+        control_torque_R = error_position_R + error_velocity_R + disturbance_torque_R + acceleration_feedforward_R;  // 制御トルク計算
+        target_torque_R = clampTorque(control_torque_R, ControlLimits::R_Axis::MAX_TORQUE);                          // 制御トルク制限
+        control_torque_R = target_torque_R;                                                                          // 制御トルクを目標トルクに設定
+        disturbance_torque_R = dob_R.update(control_torque_R, motor_velocity_R);                                     // 外乱トルクの更新
+
         // P軸のトルク制限
         if (target_torque_P > ControlLimits::P_Axis::MAX_TORQUE) {
             target_torque_P = ControlLimits::P_Axis::MAX_TORQUE;

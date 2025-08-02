@@ -48,6 +48,7 @@ add_executable(minimalists
         src/trajectory_sequence_manager.cpp
         src/dynamixel.cpp
         src/hand.cpp
+        src/disturbance_observer.cpp
         )
 
 # Add pico_multicore which is required for multicore functionality
