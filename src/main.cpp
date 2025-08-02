@@ -6,6 +6,7 @@
 #include "amt223v.hpp"
 #include "control_timing.hpp"
 #include "debug_manager.hpp"
+#include "disturbance_observer.hpp"
 #include "mcp25625.hpp"
 #include "pico/multicore.h"
 #include "pico/mutex.h"
@@ -400,15 +401,11 @@ void core1_entry(void) {
     float disturbance_torque_R = 0.0f;        // R軸の外乱トルク
     float control_torque_R = 0.0f;            // R軸の制御トルク
     float target_torque_R = 0.0f;             // R軸の目標トルク
-    float dot_control_torque_R = 0.0f;        // R軸の制御トルクの微分値
-    float LPF_control_torque_R = 0.0f;        // 制御トルクのローパスフィルタ出力
-    float dob_0_R = 0.0f;                     // R軸の外乱オブザーバ中間値0
-    float dob_1_R = 0.0f;                     // R軸の外乱オブザーバ中間値1
-    float dob_2_R = 0.0f;                     // R軸の外乱オブザーバ中間値2
-    float dob_rightloop_R = 0.0f;             // R軸の外乱オブザーバ右ループ値
     float error_position_R = 0.0f;            // R軸の位置誤差
     float error_velocity_R = 0.0f;            // R軸の速度誤差
     float acceleration_feedforward_R = 0.0f;  // R軸の加速度フィードフォワード
+
+    disturbance_observer_t dob_R(R_EQ_INERTIA, R_CUTOFF_FREQ, CONTROL_PERIOD_S);
 
     float disturbance_torque_P = 0.0f;        // P軸の外乱トルク
     float control_torque_P = 0.0f;            // P軸の制御トルク
@@ -643,24 +640,11 @@ void core1_entry(void) {
         // R軸の制御計算
         error_position_R = R_EQ_INERTIA * R_POSITION_GAIN * (trajectory_target_pos_R - motor_position_R);
         error_velocity_R = R_EQ_INERTIA * R_VELOCITY_GAIN * (trajectory_target_vel_R - motor_velocity_R);
-        // error_position_R = 0.0f;  // 位置PIDの出力は無効化
-        // error_velocity_R = 0.0f;  // 速度PIDの出力は無効化
-        acceleration_feedforward_R = R_EQ_INERTIA * trajectory_target_accel_R * 0.9f;
-        // acceleration_feedforward_R = 0.0f;                                                                           // 加速度フィードフォワードは無効化
+        acceleration_feedforward_R = R_EQ_INERTIA * trajectory_target_accel_R;
         control_torque_R = error_position_R + error_velocity_R + disturbance_torque_R + acceleration_feedforward_R;  // 制御トルク計算
         target_torque_R = clampTorque(control_torque_R, ControlLimits::R_Axis::MAX_TORQUE);                          // 制御トルク制限
         control_torque_R = target_torque_R;                                                                          // 制御トルクを目標トルクに設定
-        // 外乱オブザーバの計算
-        dot_control_torque_R = (control_torque_R - LPF_control_torque_R) * R_CUTOFF_FREQ;
-        LPF_control_torque_R += dot_control_torque_R * CONTROL_PERIOD_S;  // ローパスフィルタによる平滑化
-
-        dob_rightloop_R = R_EQ_INERTIA * R_CUTOFF_FREQ * motor_velocity_R;  // R軸の外乱オブザーバ右ループ値
-        dob_0_R = LPF_control_torque_R + dob_rightloop_R;
-        dob_1_R = (dob_0_R - dob_2_R) * R_CUTOFF_FREQ;
-        dob_2_R += dob_1_R * CONTROL_PERIOD_S;
-        disturbance_torque_R = dob_2_R - dob_rightloop_R;  // 外乱トルクの更新
-
-        // target_torque_R = control_torque_R;  // 制御トルクを目標トルクに設定
+        disturbance_torque_R = dob_R.update(control_torque_R, motor_velocity_R);                                     // 外乱トルクの更新
 
         // P軸の制御計算
         error_position_P = P_EQ_INERTIA * P_POSITION_GAIN * (trajectory_target_pos_P - motor_position_P);
