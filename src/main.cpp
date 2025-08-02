@@ -140,6 +140,10 @@ constexpr float R_CUTOFF_FREQ = 6.0f;                                           
 constexpr float sqrtf_R_POSITION_GAIN = 7.0f;                                     // R軸 外乱オブザーバの位置ゲインの平方根
 constexpr float R_POSITION_GAIN = sqrtf_R_POSITION_GAIN * sqrtf_R_POSITION_GAIN;  // R軸 外乱オブザーバの位置ゲイン
 constexpr float R_VELOCITY_GAIN = 2.0f * sqrtf_R_POSITION_GAIN;                   // R軸 外乱オブザーバの速度ゲイン
+constexpr float P_CUTOFF_FREQ = 6.0f;                                             // P軸 外乱オブザーバのカットオフ周波数 [rad/s]
+constexpr float sqrtf_P_POSITION_GAIN = 7.0f;                                     // P軸 外乱オブザーバの位置ゲインの平方根
+constexpr float P_POSITION_GAIN = sqrtf_P_POSITION_GAIN * sqrtf_P_POSITION_GAIN;  // P軸 外乱オブザーバの位置ゲイン
+constexpr float P_VELOCITY_GAIN = 2.0f * sqrtf_P_POSITION_GAIN;                   // P軸 外乱オブザーバの速度ゲイン
 
 // 制御器の制限値設定
 namespace ControlLimits {
@@ -593,6 +597,14 @@ void core1_entry(void) {
     float acceleration_feedforward_R = 0.0f;                                      // R軸の加速度フィードフォワード
     disturbance_observer_t dob_R(R_EQ_INERTIA, R_CUTOFF_FREQ, CONTROL_PERIOD_S);  // R軸の外乱オブザーバ
 
+    float disturbance_torque_P = 0.0f;                                            // P軸の外乱トルク
+    float control_torque_P = 0.0f;                                                // P軸の制御トルク
+    float target_torque_P = 0.0f;                                                 // P軸の目標トルク
+    float error_position_P = 0.0f;                                                // P軸の位置誤差
+    float error_velocity_P = 0.0f;                                                // P軸の速度誤差
+    float acceleration_feedforward_P = 0.0f;                                      // P軸の加速度フィードフォワード
+    disturbance_observer_t dob_P(P_EQ_INERTIA, P_CUTOFF_FREQ, CONTROL_PERIOD_S);  // P軸の外乱オブザーバ
+
     // ループカウンタの初期化
     int loop_counter = 0;
 
@@ -788,18 +800,20 @@ void core1_entry(void) {
         control_torque_R = target_torque_R;                                                                          // 制御トルクを目標トルクに設定
         disturbance_torque_R = dob_R.update(control_torque_R, motor_velocity_R);                                     // 外乱トルクの更新
 
-        // P軸のトルク制限
-        if (target_torque_P > ControlLimits::P_Axis::MAX_TORQUE) {
-            target_torque_P = ControlLimits::P_Axis::MAX_TORQUE;
-        } else if (target_torque_P < -ControlLimits::P_Axis::MAX_TORQUE) {
-            target_torque_P = -ControlLimits::P_Axis::MAX_TORQUE;
-        }
+        // P軸の制御計算
+        error_position_P = P_EQ_INERTIA * P_POSITION_GAIN * (trajectory_target_pos_P - motor_position_P);
+        error_velocity_P = P_EQ_INERTIA * P_VELOCITY_GAIN * (trajectory_target_vel_P - motor_velocity_P);
+        acceleration_feedforward_P = P_EQ_INERTIA * trajectory_target_accel_P;
+        control_torque_P = error_position_P + error_velocity_P + disturbance_torque_P + acceleration_feedforward_P;
+        target_torque_P = clampTorque(control_torque_P, ControlLimits::P_Axis::MAX_TORQUE);
+        control_torque_P = target_torque_P;
+        disturbance_torque_P = dob_P.update(control_torque_P, motor_velocity_P);  // 外乱トルクの更新
 
         // // トルクから電流への変換
-        // target_current[0] = target_torque_R / R_TORQUE_CONSTANT;  // Motor1 (R軸)
+        target_current[0] = target_torque_R / R_TORQUE_CONSTANT;  // Motor1 (R軸)
         target_current[1] = target_torque_P / P_TORQUE_CONSTANT;  // Motor2 (P軸)
-        target_current[0] = 0.0;                                  // Motor1 (R軸)
-        // target_current[1] = 0.0;  // Motor2 (P軸)
+        // target_current[0] = 0.0;                                  // Motor1 (R軸)
+        // target_current[1] = 0.0;                                  // Motor2 (P軸)
 
         // --- 制御結果を共有データに保存 ---
         mutex_enter_blocking(&g_state_mutex);
