@@ -14,7 +14,7 @@ TrajectorySequenceManager::TrajectorySequenceManager(DebugManager* debug_mgr)
 void TrajectorySequenceManager::initialize() {
     waypoint_count = 0;
     current_waypoint_index = 0;
-    sequence_active = false;
+    sequence_active = true;
     sequence_complete = false;
     wait_duration = 1.0f;  // デフォルト1秒待機
 }
@@ -40,20 +40,13 @@ void TrajectorySequenceManager::setup_sequence(const trajectory_waypoint_t* wayp
     }
 }
 
-void TrajectorySequenceManager::start_sequence() {
-    current_waypoint_index = 0;
-    sequence_active = true;
-    sequence_complete = false;
-
-    if (debug_manager) {
-        debug_manager->info("Started trajectory sequence with %d waypoints", waypoint_count);
-    }
-}
-
 bool TrajectorySequenceManager::get_next_waypoint(float& target_R, float& target_P) {
     if (!sequence_active || current_waypoint_index >= waypoint_count) {
         return false;
     }
+
+    sequence_active = true;
+    sequence_complete = false;
 
     int index = current_waypoint_index;
     target_R = waypoints[index].position_R;

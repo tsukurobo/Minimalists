@@ -63,11 +63,6 @@ class TrajectorySequenceManager {
     void setup_sequence(const trajectory_waypoint_t* waypoint_array, int count);
 
     /**
-     * @brief シーケンスの開始
-     */
-    void start_sequence();
-
-    /**
      * @brief 次のウェイポイントの取得
      * @param target_R R軸目標位置 [rad] (出力)
      * @param target_P P軸目標位置 [rad] (出力)

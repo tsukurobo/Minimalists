@@ -658,20 +658,21 @@ void core1_entry(void) {
         // 軌道データから目標値を取得
         mutex_enter_blocking(&g_trajectory_mutex);
         bool trajectory_completed = false;
-        if (g_trajectory_data.active && g_trajectory_data.current_index < g_trajectory_data.point_count) {
-            int idx = g_trajectory_data.current_index;
-            trajectory_target_pos_R = g_trajectory_data.points[idx].position_R;
-            trajectory_target_vel_R = g_trajectory_data.points[idx].velocity_R;
-            trajectory_target_accel_R = g_trajectory_data.points[idx].acceleration_R;
-            trajectory_target_pos_P = g_trajectory_data.points[idx].position_P;
-            trajectory_target_vel_P = g_trajectory_data.points[idx].velocity_P;
-            trajectory_target_accel_P = g_trajectory_data.points[idx].acceleration_P;
+        if (g_trajectory_data.active) {
+            if (g_trajectory_data.current_index < g_trajectory_data.point_count) {
+                int idx = g_trajectory_data.current_index;
+                trajectory_target_pos_R = g_trajectory_data.points[idx].position_R;
+                trajectory_target_vel_R = g_trajectory_data.points[idx].velocity_R;
+                trajectory_target_accel_R = g_trajectory_data.points[idx].acceleration_R;
+                trajectory_target_pos_P = g_trajectory_data.points[idx].position_P;
+                trajectory_target_vel_P = g_trajectory_data.points[idx].velocity_P;
+                trajectory_target_accel_P = g_trajectory_data.points[idx].acceleration_P;
 
-            // インデックスを進める
-            g_trajectory_data.current_index++;
+                // インデックスを進める
+                g_trajectory_data.current_index++;
 
-            // 軌道の時系列が完了した場合、位置ベースの完了判定に移行
-            if (g_trajectory_data.current_index >= g_trajectory_data.point_count) {
+                // 軌道の時系列が完了した場合、位置ベースの完了判定に移行
+            } else if (g_trajectory_data.current_index >= g_trajectory_data.point_count) {
                 // 最終目標位置を設定し、位置到達判定モードに移行
                 trajectory_target_pos_R = g_trajectory_data.final_target_R;
                 trajectory_target_pos_P = g_trajectory_data.final_target_P;
@@ -916,10 +917,9 @@ int main(void) {
     // 軌道シーケンス管理
     TrajectorySequenceManager* seq_manager = new TrajectorySequenceManager(g_debug_manager);
     trajectory_waypoint_t test_waypoints[] = {
-        trajectory_waypoint_t(0.0f, 0.01f / gear_radius_P, 0.0f),      // 1cm前進
-        trajectory_waypoint_t(M_PI / 2, 0.01f / gear_radius_P, 0.0f),  // 90度回転
-        trajectory_waypoint_t(0.0f, 0.0f / gear_radius_P, 0.0f)        // 原点復帰
-    };
+        trajectory_waypoint_t(4.0f, 0.1f / gear_radius_P, 0.0f),
+        trajectory_waypoint_t(4.0f, 0.252f / gear_radius_P, 0.0f),
+        trajectory_waypoint_t(4.0f, 0.37f / gear_radius_P, 0.0f)};
     seq_manager->setup_sequence(test_waypoints, 3);
 
     // ハンド状態管理用ローカル変数
@@ -1006,6 +1006,7 @@ int main(void) {
             // 軌道完了信号を受信
             if (traj_state == TRAJECTORY_EXECUTING) {
                 g_debug_manager->debug("Trajectory completed, starting hand operation");
+                seq_manager->advance_to_next_waypoint();
                 hand_state = HAND_IDLE;  // hand_tick()で自動的に開始
                 traj_state = TRAJECTORY_HANDLING;
             }
