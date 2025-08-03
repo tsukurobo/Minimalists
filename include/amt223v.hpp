@@ -6,6 +6,7 @@
 
 #include "hardware/gpio.h"
 #include "hardware/spi.h"
+#include "low_pass_filter.hpp"
 #include "pico/stdlib.h"
 
 /**
@@ -30,11 +31,12 @@ class AMT223V {
     float continuous_angle_deg;  // 連続角度[deg]
 
     // 角速度計算用変数
-    float previous_angle_rad;    // 前回の角度[rad]
-    float angular_velocity_rad;  // 角速度[rad/s]
-    float angular_velocity_deg;  // 角速度[deg/s]
-    uint64_t previous_time_us;   // 前回の測定時刻[μs]
-    bool velocity_initialized;   // 角速度初期化フラグ
+    float previous_angle_rad;           // 前回の角度[rad]
+    float angular_velocity_rad;         // 角速度[rad/s]
+    float angular_velocity_deg;         // 角速度[deg/s]
+    uint64_t previous_time_us;          // 前回の測定時刻[μs]
+    bool velocity_initialized;          // 角速度初期化フラグ
+    low_pass_filter_t velocity_filter;  // 角速度のローパスフィルタ
 
     // AMT223-V コマンド定義
     static const uint8_t CMD_READ_ANGLE = 0x00;  // 角度読み取りコマンド
@@ -55,7 +57,7 @@ class AMT223V {
      * @param chip_select_pin チップセレクトピン番号
      * @param multiturn_support マルチターン対応エンコーダかどうか（デフォルト: false）
      */
-    AMT223V(spi_inst_t* spi_instance, int chip_select_pin, bool multiturn_support = false);
+    AMT223V(spi_inst_t* spi_instance, float velocity_cutoff_freq, int chip_select_pin, bool multiturn_support = false);
 
     /**
      * @brief エンコーダの初期化
@@ -209,7 +211,7 @@ class AMT223V_Manager {
      * @param multiturn_support マルチターン対応エンコーダかどうか（デフォルト: false）
      * @return エンコーダのインデックス（-1は失敗）
      */
-    int add_encoder(int cs_pin, bool multiturn_support = false);
+    int add_encoder(int cs_pin, float velocity_cutoff_freq, bool multiturn_support = false);
 
     /**
      * @brief SPI設定を初期化

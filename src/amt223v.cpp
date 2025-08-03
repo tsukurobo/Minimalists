@@ -18,8 +18,8 @@ const uint8_t AMT223V::CMD_READ_MULTITURN[4] = {0x00, 0xA0, 0x00, 0x00};
 // ゼロ位置セットコマンド定義（単回転エンコーダのみ）
 const uint8_t AMT223V::CMD_SET_ZERO[2] = {0x00, 0x70};
 
-AMT223V::AMT223V(spi_inst_t* spi_instance, int chip_select_pin, bool multiturn_support)
-    : spi_port(spi_instance), cs_pin(chip_select_pin), raw_angle(0), angle_rad(0.0), angle_deg(0.0), is_multiturn(multiturn_support), turn_count(0), initial_turn_count(0), continuous_angle_rad(0.0), continuous_angle_deg(0.0), previous_angle_rad(0.0), angular_velocity_rad(0.0), angular_velocity_deg(0.0), previous_time_us(0), velocity_initialized(false) {
+AMT223V::AMT223V(spi_inst_t* spi_instance, float velocity_cutoff_freq, int chip_select_pin, bool multiturn_support)
+    : spi_port(spi_instance), velocity_filter(velocity_cutoff_freq), cs_pin(chip_select_pin), raw_angle(0), angle_rad(0.0), angle_deg(0.0), is_multiturn(multiturn_support), turn_count(0), initial_turn_count(0), continuous_angle_rad(0.0), continuous_angle_deg(0.0), previous_angle_rad(0.0), angular_velocity_rad(0.0), angular_velocity_deg(0.0), previous_time_us(0), velocity_initialized(false) {
 }
 
 bool AMT223V::init() {
@@ -292,40 +292,8 @@ bool AMT223V::verify_parity(uint16_t response) const {
 }
 
 void AMT223V::calculate_angular_velocity(float current_angle_rad, uint64_t current_time_us) {
-    if (!velocity_initialized) {
-        // 初回は角速度を0として初期化
-        previous_angle_rad = current_angle_rad;
-        previous_time_us = current_time_us;
-        angular_velocity_rad = 0.0;
-        angular_velocity_deg = 0.0;
-        velocity_initialized = true;
-        return;
-    }
-
-    // 時間差を計算
-    uint64_t delta_time_us = current_time_us - previous_time_us;
-
-    if (delta_time_us == 0) {
-        // 時間差が0の場合は計算をスキップ
-        return;
-    }
-
-    // 異常に短い時間間隔や長い時間間隔を検出
-    if (delta_time_us < 100) {  // 100μs未満は異常
-        return;
-    }
-    if (delta_time_us > 100000) {  // 100ms超過は異常（初期化直後など）
-        // 時間が長すぎる場合は初期化し直す
-        previous_angle_rad = current_angle_rad;
-        previous_time_us = current_time_us;
-        angular_velocity_rad = 0.0;
-        angular_velocity_deg = 0.0;
-        return;
-    }
-
     // 角度差を計算
     float delta_angle_rad = current_angle_rad - previous_angle_rad;
-
     // マルチターンでない場合は360度の境界を考慮
     if (!is_multiturn) {
         // 角度差が180度を超える場合は逆方向の最短経路を計算
@@ -336,40 +304,20 @@ void AMT223V::calculate_angular_velocity(float current_angle_rad, uint64_t curre
         }
     }
 
-    // 時間を秒に変換
-    float delta_time_s = (float)delta_time_us / 1000000.0;
-
-    // 生の角速度を計算 [rad/s]
-    float raw_angular_velocity = delta_angle_rad / delta_time_s;
+    velocity_filter.update(current_angle_rad);                   // フィルタを更新
+    angular_velocity_rad = velocity_filter.get_dot_value();      // 疑似微分済み角速度を取得
+    angular_velocity_deg = angular_velocity_rad * 180.0 / M_PI;  // ラジアンから度に変換
 
     // 異常値フィルタリング（物理的に不可能な角速度をチェック）
     const float MAX_ANGULAR_VELOCITY = 50.0;  // 最大角速度 [rad/s] (約477rpm)
-    if (fabs(raw_angular_velocity) > MAX_ANGULAR_VELOCITY) {
+    if (fabs(angular_velocity_rad) > MAX_ANGULAR_VELOCITY) {
         // 異常値の場合は前回値を保持
         previous_angle_rad = current_angle_rad;
         previous_time_us = current_time_us;
         return;
     }
 
-    // ローパスフィルタ適用（1次遅れフィルタ）
-    const float omega_c = 100.0f;  // 角周波数 [rad/s]
-
-    // フィルタ係数計算（後退オイラー法）
-    // H(s) = ωc / (s + ωc) を離散化
-    // alpha = ωc * dt / (1 + ωc * dt)
-    float alpha = (omega_c * delta_time_s) / (1.0 + omega_c * delta_time_s);
-
-    // alphaは0から1の範囲に制限される（安全性チェック）
-    if (alpha < 0.0) alpha = 0.0;
-    if (alpha > 1.0) alpha = 1.0;
-
-    // フィルタ適用：y[n] = α * x[n] + (1-α) * y[n-1]
-    angular_velocity_rad = alpha * raw_angular_velocity + (1.0 - alpha) * angular_velocity_rad;
-    angular_velocity_deg = angular_velocity_rad * 180.0 / M_PI;
-
-    // 次回計算用に値を保存
-    previous_angle_rad = current_angle_rad;
-    previous_time_us = current_time_us;
+    previous_angle_rad = current_angle_rad;  // 異常検出・境界判定用に保存
 }
 
 // ===== AMT223V_Manager クラス実装 =====
@@ -384,14 +332,14 @@ AMT223V_Manager::AMT223V_Manager(spi_inst_t* spi_instance, uint32_t baud, int mi
     cs_pins.fill(-1);
 }
 
-int AMT223V_Manager::add_encoder(int cs_pin, bool multiturn_support) {
+int AMT223V_Manager::add_encoder(int cs_pin, float velocity_cutoff_freq, bool multiturn_support) {
     if (num_encoders >= MAX_ENCODERS) {
         printf("Error: Maximum %d encoders supported, current count: %d\n", MAX_ENCODERS, num_encoders);
         return -1;
     }
 
     cs_pins[num_encoders] = cs_pin;
-    encoders[num_encoders] = new AMT223V(spi_port, cs_pin, multiturn_support);
+    encoders[num_encoders] = new AMT223V(spi_port, velocity_cutoff_freq, cs_pin, multiturn_support);
     num_encoders++;
 
     printf("Added encoder %d with CS pin %d (multiturn: %s)\n",
