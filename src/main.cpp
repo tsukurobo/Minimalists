@@ -1,4 +1,6 @@
 #include <cmath>
+#include <cstring>
+#include <ruckig/ruckig.hpp>
 
 #include "amt223v.hpp"
 #include "config.hpp"
@@ -11,7 +13,6 @@
 #include "pico/stdlib.h"
 #include "pid_controller.hpp"
 #include "robomaster_motor.hpp"
-#include "trajectory.hpp"
 #include "trajectory_sequence_manager.hpp"
 
 // 制御周期定数
@@ -28,7 +29,7 @@ constexpr float TRAJECTORY_COMPLETION_TOLERANCE_P = 0.1;         // P軸完了�
 constexpr float TRAJECTORY_COMPLETION_VELOCITY_THRESHOLD = 0.1;  // 完了判定時の速度閾値 [rad/s]
 
 // 軌道データ配列設定
-constexpr int MAX_TRAJECTORY_POINTS = 10000;        // 最大軌道点数
+constexpr u_int16_t MAX_TRAJECTORY_POINTS = 6000;   // 最大軌道点数
 constexpr uint32_t TRAJECTORY_DATA_SIGNAL = 2;      // 軌道データ送信信号
 constexpr uint32_t TRAJECTORY_COMPLETE_SIGNAL = 3;  // 軌道完了信号
 
@@ -45,8 +46,8 @@ typedef struct {
 // 軌道データ管理構造体
 typedef struct {
     trajectory_point_t points[MAX_TRAJECTORY_POINTS];
-    int point_count;
-    int current_index;
+    u_int16_t point_count;
+    u_int16_t current_index;
     bool active;
     bool complete;
     float final_target_R;   // 最終目標位置 R軸 [rad]
@@ -334,31 +335,100 @@ bool init_pid_controllers() {
 }
 
 // Core0用軌道計算関数
-bool calculate_trajectory_core0(float current_pos_R, float current_pos_P, float target_pos_R, float target_pos_P) {
-    // Core0専用の軌道生成インスタンス
-    trajectory_t trajectory_R_core0(
+bool calculate_trajectory_core0(
+    const float current_position[2],
+    const float target_position[2],
+    const float* intermediate_position = nullptr) {
+    ruckig::Ruckig<2> otg(CONTROL_PERIOD_S);  // 2軸のRuckigオブジェクトを作成
+    ruckig::InputParameter<2> input;
+    ruckig::OutputParameter<2> output_intermediate;
+    ruckig::InputParameter<2> input_intermediate;
+    ruckig::OutputParameter<2> output;
+
+    // 制限
+    input.max_velocity = {
         0.15 * TrajectoryLimits::R_MAX_VELOCITY,
+        0.7 * TrajectoryLimits::P_MAX_VELOCITY};
+    input.max_acceleration = {
         0.95 * TrajectoryLimits::R_MAX_ACCELERATION,
-        current_pos_R, target_pos_R);
-    trajectory_t trajectory_P_core0(
-        0.7 * TrajectoryLimits::P_MAX_VELOCITY,
-        0.9 * TrajectoryLimits::P_MAX_ACCELERATION,
-        current_pos_P, target_pos_P);
+        0.9 * TrajectoryLimits::P_MAX_ACCELERATION};
+    input.max_jerk = {input.max_acceleration[0] * 10, input.max_acceleration[1] * 10};
+    input.min_velocity = {-input.max_velocity[0], -input.max_velocity[1]};
+    input.min_acceleration = {-input.max_acceleration[0], -input.max_acceleration[1]};
+    // 中継点の制限
+    input_intermediate.max_velocity = input.max_velocity;
+    input_intermediate.max_acceleration = input.max_acceleration;
+    input_intermediate.max_jerk = input.max_jerk;
+    input_intermediate.min_velocity = input.min_velocity;
+    input_intermediate.min_acceleration = input.min_acceleration;
 
-    // 軌道パラメータを計算
-    trajectory_R_core0.calculate_trapezoidal_params();
-    trajectory_P_core0.calculate_trapezoidal_params();
+    // 出発点の設定
+    input.current_position = {current_position[0], current_position[1]};
+    input.current_velocity = {0.0, 0.0};
+    input.current_acceleration = {0.0, 0.0};
 
-    // より長い軌道時間を取得
-    float total_time_R = trajectory_R_core0.get_total_time();
-    float total_time_P = trajectory_P_core0.get_total_time();
-    float max_time = std::max(total_time_R, total_time_P);
+    // 目標位置と速度の設定
+    if (intermediate_position) {  // 中継点が指定されている場合
+        input.target_position = {intermediate_position[0], intermediate_position[1]};
+        // 中継点のR軸は目標位置に向かう方向の速度に設定
+        double R_intermediate_vel = (target_position[0] - intermediate_position[0] > 0.0) ? input.max_velocity[0] : input.min_velocity.value()[0];
+        input.target_velocity = {R_intermediate_vel, 0.0};  // R軸は中継点が合っても動く方向は変わらない
+        input.target_acceleration = {0.0, 0.0};
 
-    // 軌道点数を計算（制御周期ベース）
-    int point_count = static_cast<int>(max_time / CONTROL_PERIOD_S) + 1;
-    if (point_count > MAX_TRAJECTORY_POINTS) {
-        g_debug_manager->error("Trajectory too long: %d points (max: %d)", point_count, MAX_TRAJECTORY_POINTS);
-        return false;
+        // 中継点から（存在すれば）
+        input_intermediate.current_position = input.target_position;
+        input_intermediate.current_velocity = input.target_velocity;
+        input_intermediate.current_acceleration = input.target_acceleration;
+
+        input_intermediate.target_position = {target_position[0], target_position[1]};
+        input_intermediate.target_velocity = {0.0, 0.0};
+        input_intermediate.target_acceleration = {0.0, 0.0};
+    } else {  // 中継点がない場合は直接目標位置へ
+        input.target_position = {target_position[0], target_position[1]};
+        input.target_velocity = {0.0, 0.0};
+        input.target_acceleration = {0.0, 0.0};
+    }
+
+    trajectory_point_t trajectory_points[MAX_TRAJECTORY_POINTS];
+    uint16_t point_count = 0;
+    if (intermediate_position) {
+        while (otg.update(input, output_intermediate) == ruckig::Result::Working) {
+            if (point_count >= MAX_TRAJECTORY_POINTS) return false;
+            trajectory_point_t pt;
+            pt.position_R = output_intermediate.new_position[0];
+            pt.velocity_R = output_intermediate.new_velocity[0];
+            pt.acceleration_R = output_intermediate.new_acceleration[0];
+            pt.position_P = output_intermediate.new_position[1];
+            pt.velocity_P = output_intermediate.new_velocity[1];
+            pt.acceleration_P = output_intermediate.new_acceleration[1];
+            trajectory_points[point_count++] = pt;
+            output_intermediate.pass_to_input(input);
+        }
+        while (otg.update(input_intermediate, output) == ruckig::Result::Working) {
+            if (point_count >= MAX_TRAJECTORY_POINTS) return false;
+            trajectory_point_t pt;
+            pt.position_R = output.new_position[0];
+            pt.velocity_R = output.new_velocity[0];
+            pt.acceleration_R = output.new_acceleration[0];
+            pt.position_P = output.new_position[1];
+            pt.velocity_P = output.new_velocity[1];
+            pt.acceleration_P = output.new_acceleration[1];
+            trajectory_points[point_count++] = pt;
+            output.pass_to_input(input_intermediate);
+        }
+    } else {
+        while (otg.update(input, output) == ruckig::Result::Working) {
+            if (point_count >= MAX_TRAJECTORY_POINTS) return false;
+            trajectory_point_t pt;
+            pt.position_R = output.new_position[0];
+            pt.velocity_R = output.new_velocity[0];
+            pt.acceleration_R = output.new_acceleration[0];
+            pt.position_P = output.new_position[1];
+            pt.velocity_P = output.new_velocity[1];
+            pt.acceleration_P = output.new_acceleration[1];
+            trajectory_points[point_count++] = pt;
+            output.pass_to_input(input);
+        }
     }
 
     // 軌道データを計算して配列に格納
@@ -367,34 +437,16 @@ bool calculate_trajectory_core0(float current_pos_R, float current_pos_P, float 
     g_trajectory_data.current_index = 0;
     g_trajectory_data.active = false;
     g_trajectory_data.complete = false;
-    g_trajectory_data.final_target_R = target_pos_R;  // 最終目標位置を保存
-    g_trajectory_data.final_target_P = target_pos_P;
+    g_trajectory_data.final_target_R = target_position[0];  // 最終目標位置を保存
+    g_trajectory_data.final_target_P = target_position[1];
     g_trajectory_data.position_reached = false;
+    memcpy(g_trajectory_data.points, trajectory_points, sizeof(trajectory_point_t) * point_count);
 
-    for (int i = 0; i < point_count; i++) {
-        float time = i * CONTROL_PERIOD_S;
-
-        // R軸の軌道状態を計算
-        float pos_R, vel_R, accel_R;
-        trajectory_R_core0.get_trapezoidal_state(time, &pos_R, &vel_R, &accel_R);
-
-        // P軸の軌道状態を計算
-        float pos_P, vel_P, accel_P;
-        trajectory_P_core0.get_trapezoidal_state(time, &pos_P, &vel_P, &accel_P);
-
-        // 配列に格納
-        g_trajectory_data.points[i].position_R = pos_R;
-        g_trajectory_data.points[i].velocity_R = vel_R;
-        g_trajectory_data.points[i].acceleration_R = accel_R;
-        g_trajectory_data.points[i].position_P = pos_P;
-        g_trajectory_data.points[i].velocity_P = vel_P;
-        g_trajectory_data.points[i].acceleration_P = accel_P;
-    }
     mutex_exit(&g_trajectory_mutex);
 
-    g_debug_manager->debug("Trajectory calculated: %d points, max_time=%.2fs", point_count, max_time);
+    g_debug_manager->debug("Trajectory calculated: %d points, max_time=%.2fs", point_count, point_count * CONTROL_PERIOD_S);
     g_debug_manager->debug("  R: %.3f → %.3f rad, P: %.3f → %.3f rad",
-                           current_pos_R, target_pos_R, current_pos_P, target_pos_P);
+                           current_position[0], target_position[0], current_position[1], target_position[1]);
 
     return true;
 }
@@ -1020,19 +1072,19 @@ int main(void) {
                 case TRAJECTORY_IDLE: {
                     // シーケンスがアクティブなら次の軌道を設定
                     if (seq_manager->is_sequence_active()) {
-                        float target_R, target_P;
-                        if (seq_manager->get_next_waypoint(target_R, target_P)) {
-                            float current_pos_R, current_pos_P;
+                        float target_position[2];
+                        if (seq_manager->get_next_waypoint(target_position[0], target_position[1])) {
+                            float current_position[2];
                             mutex_enter_blocking(&g_state_mutex);
-                            current_pos_R = g_robot_state.current_position_R;
-                            current_pos_P = g_robot_state.current_position_P;
+                            current_position[0] = g_robot_state.current_position_R;
+                            current_position[1] = g_robot_state.current_position_P;
                             mutex_exit(&g_state_mutex);
 
-                            if (calculate_trajectory_core0(current_pos_R, current_pos_P, target_R, target_P)) {
+                            if (calculate_trajectory_core0(current_position, target_position)) {
                                 if (multicore_fifo_push_timeout_us(TRAJECTORY_DATA_SIGNAL, 0)) {
                                     traj_state = TRAJECTORY_EXECUTING;
                                     g_debug_manager->debug("Moving to waypoint: R=%.3f rad, P=%.1f mm",
-                                                           target_R, target_P * gear_radius_P * 1000.0);
+                                                           target_position[0], target_position[1] * gear_radius_P * 1000.0);
                                 }
                             } else {
                                 g_debug_manager->error("Failed to calculate trajectory to next waypoint");
@@ -1055,19 +1107,19 @@ int main(void) {
                     if (hand_state == HAND_IDLE) {
                         // ハンド動作完了 → 次の軌道へ
                         if (seq_manager->is_sequence_active()) {
-                            float target_R, target_P;
-                            if (seq_manager->get_next_waypoint(target_R, target_P)) {
-                                float current_pos_R, current_pos_P;
+                            float target_position[2];
+                            if (seq_manager->get_next_waypoint(target_position[0], target_position[1])) {
+                                float current_position[2];
                                 mutex_enter_blocking(&g_state_mutex);
-                                current_pos_R = g_robot_state.current_position_R;
-                                current_pos_P = g_robot_state.current_position_P;
+                                current_position[0] = g_robot_state.current_position_R;
+                                current_position[1] = g_robot_state.current_position_P;
                                 mutex_exit(&g_state_mutex);
 
-                                if (calculate_trajectory_core0(current_pos_R, current_pos_P, target_R, target_P)) {
+                                if (calculate_trajectory_core0(current_position, target_position)) {
                                     if (multicore_fifo_push_timeout_us(TRAJECTORY_DATA_SIGNAL, 0)) {
                                         traj_state = TRAJECTORY_EXECUTING;
                                         g_debug_manager->debug("Moving to waypoint: R=%.3f rad, P=%.1f mm",
-                                                               target_R, target_P * gear_radius_P * 1000.0);
+                                                               target_position[0], target_position[1] * gear_radius_P * 1000.0);
                                     }
                                 } else {
                                     g_debug_manager->error("Failed to calculate trajectory to next waypoint");
