@@ -1,7 +1,7 @@
 #include "disturbance_observer.hpp"
 
 disturbance_observer_t::disturbance_observer_t(float inertia, float leftloop_cutoff_freq, float dob_cutoff_freq)
-    : inertia_(inertia), leftloop_filter(leftloop_cutoff_freq), dob_filter(dob_cutoff_freq), dob_cutoff_freq_(dob_cutoff_freq), LPF_control_torque_(0.0f) {}
+    : inertia_(inertia), dob_cutoff_freq_(dob_cutoff_freq), LPF_control_torque_(0.0f), leftloop_filter(leftloop_cutoff_freq), dob_filter(dob_cutoff_freq) {}
 
 void disturbance_observer_t::reset() {
     LPF_control_torque_ = 0.0f;
