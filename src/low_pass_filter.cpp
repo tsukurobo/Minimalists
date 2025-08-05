@@ -35,7 +35,7 @@ int low_pass_filter_t::update(float new_value) {
     }
 
     // 無効な時間差のチェック（ゼロや異常値はスキップ）
-    if (delta_time_us_uint32t == 0 || delta_time_us_uint32t > MAX_DELTA_TIME_US) {
+    if (delta_time_us_uint32t == 0 || delta_time_us_uint32t > 10'000U) {
         reset();
         return -1;  // エラーコード
     }
