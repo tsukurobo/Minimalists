@@ -66,9 +66,12 @@ int write_dxl_led(const uart_config_t* config, uint8_t id, uint8_t on);
 int write_goalCurrent(const uart_config_t* config, uint8_t id, int16_t value);
 int write_statusReturnLevel(const uart_config_t* config, uint8_t id, uint8_t level);
 int read_position(const uart_config_t* config, uint8_t id, uint32_t* position);
+int read_position_multiturn(const uart_config_t* config, uint8_t id, int32_t* position);  // Extended Position Control Mode: 32-bit signed position
 int control_position(const uart_config_t* config, uint8_t id, float angle);
+int control_position_multiturn(const uart_config_t* config, uint8_t id, int32_t position);  // Extended Position Control Mode (Multi-turn): -256[rev] ~ 256[rev]
 // int return_DelayTime(const uart_config_t* config, uint8_t id, uint8_t time);
 int control_SyncWrite(const uart_config_t* config, uint8_t id1, uint8_t id2, float angle1, float angle2);
 float control_current_limit(float present_current);
+int write_dxl_current_limit(const uart_config_t* config, uint8_t id, uint16_t current_limit_mA);
 
 #endif

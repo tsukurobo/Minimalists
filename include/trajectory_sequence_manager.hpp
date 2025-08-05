@@ -17,7 +17,7 @@ struct trajectory_waypoint_t {
      * @brief コンストラクタ
      */
     trajectory_waypoint_t(float pos_R = 0.0f, float pos_P = 0.0f, float end_angle = 0.0f)
-        : position_R(pos_R), position_P(pos_P), end_effector_angle(end_angle) {}
+        : position_R(pos_R + 0.025f), position_P(pos_P), end_effector_angle(end_angle) {}
 };
 
 /**
@@ -27,7 +27,7 @@ struct trajectory_waypoint_t {
  */
 class TrajectorySequenceManager {
    private:
-    static constexpr int MAX_WAYPOINTS = 20;  // 最大ウェイポイント数
+    static constexpr int MAX_WAYPOINTS = 100;  // 最大ウェイポイント数
 
     trajectory_waypoint_t waypoints[MAX_WAYPOINTS];
     int waypoint_count;
