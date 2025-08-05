@@ -1,6 +1,8 @@
 #ifndef TRAJECTORY_SEQUENCE_MANAGER_HPP
 #define TRAJECTORY_SEQUENCE_MANAGER_HPP
 
+#include <cmath>
+
 #include "debug_manager.hpp"
 
 /**
@@ -9,15 +11,18 @@
  * 3次元空間での目標位置を表現する構造体
  */
 struct trajectory_waypoint_t {
-    float position_R;          // R軸目標位置 [rad]
-    float position_P;          // P軸目標位置 [rad]
-    float end_effector_angle;  // 手先角度 [rad]（現在未使用、ダミーデータ）
+    float position_R;               // R軸目標位置 [rad]
+    float position_P;               // P軸目標位置 [rad]
+    float end_effector_angle;       // 手先角度 [rad]（現在未使用、ダミーデータ）
+    float intermediate_position_R;  // 中継位置 R軸 [rad]（未定義時はNAN）
+    float intermediate_position_P;  // 中継位置 P軸 [rad]（未定義時はNAN）
 
     /**
      * @brief コンストラクタ
      */
-    trajectory_waypoint_t(float pos_R = 0.0f, float pos_P = 0.0f, float end_angle = 0.0f)
-        : position_R(pos_R + 0.025f), position_P(pos_P), end_effector_angle(end_angle) {}
+    trajectory_waypoint_t(float pos_R = 0.0f, float pos_P = 0.0f, float end_angle = 0.0f,
+                          float inter_pos_R = NAN, float inter_pos_P = NAN)
+        : position_R(pos_R), position_P(pos_P), end_effector_angle(end_angle), intermediate_position_R(inter_pos_R), intermediate_position_P(inter_pos_P) {}
 };
 
 /**
@@ -64,11 +69,11 @@ class TrajectorySequenceManager {
 
     /**
      * @brief 次のウェイポイントの取得
-     * @param target_R R軸目標位置 [rad] (出力)
-     * @param target_P P軸目標位置 [rad] (出力)
+     * @param target_position 目標位置 [rad] (出力)
+     * @param intermediate_position 中継位置 [rad] (出力)
      * @return 次のウェイポイントが存在する場合true
      */
-    bool get_next_waypoint(float& target_R, float& target_P);
+    bool get_next_waypoint(float target_position[2], float intermediate_position[2]);
 
     /**
      * @brief 次のウェイポイントに進む
