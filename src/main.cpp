@@ -23,12 +23,9 @@ constexpr int SYNC_EVERY_N_LOOPS = 200;  // 200ループごとにCore0に同期�
 constexpr uint32_t SYNC_SIGNAL = 1;      // 同期信号の値
 
 // 軌道完了判定の許容誤差
-constexpr float TRAJECTORY_COMPLETION_TOLERANCE_R = 0.01;         // R軸完了判定許容誤差 [rad]
-constexpr float TRAJECTORY_COMPLETION_TOLERANCE_P = 0.1;          // P軸完了判定許容誤差 [rad]
-constexpr float TRAJECTORY_COMPLETION_VELOCITY_THRESHOLD = 0.05;  // 完了判定時の速度閾値 [rad/s]
-constexpr float TRAJECTORY_COMPLETION_TOLERANCE_R = 0.1;          // R軸完了判定許容誤差 [rad] (約0.6度)
-constexpr float TRAJECTORY_COMPLETION_TOLERANCE_P = 0.1;          // P軸完了判定許容誤差 [rad] (約12.5μm相当)
-constexpr float TRAJECTORY_COMPLETION_VELOCITY_THRESHOLD = 0.1;   // 完了判定時の速度閾値 [rad/s]
+constexpr float TRAJECTORY_COMPLETION_TOLERANCE_R = 0.1;         // R軸完了判定許容誤差 [rad]
+constexpr float TRAJECTORY_COMPLETION_TOLERANCE_P = 0.1;         // P軸完了判定許容誤差 [rad]
+constexpr float TRAJECTORY_COMPLETION_VELOCITY_THRESHOLD = 0.1;  // 完了判定時の速度閾値 [rad/s]
 
 // 軌道データ配列設定
 constexpr int MAX_TRAJECTORY_POINTS = 10000;        // 最大軌道点数
