@@ -4,6 +4,8 @@
 
 /**
  * @brief ローパスフィルタ構造体
+ * @note 初期化完了時には1を返し、通常時には0を返す。
+ *       無効な時間差では-1を返す。
  */
 class low_pass_filter_t {
    public:
@@ -16,7 +18,7 @@ class low_pass_filter_t {
     float get_dot_value() const;
 
     // 値を更新してフィルタ済み出力を返す
-    float update(float new_value);
+    int update(float new_value);
 
    private:
     float cutoff_freq;                  // カットオフ周波数 [rad/s]

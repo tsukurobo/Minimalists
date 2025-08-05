@@ -21,7 +21,7 @@ float low_pass_filter_t::get_dot_value() const {
     return dot_value;
 }
 
-float low_pass_filter_t::update(float new_value) {
+int low_pass_filter_t::update(float new_value) {
     uint32_t current_time = time_us_32();
     uint32_t delta_time_us_uint32t = current_time - previous_time_us_uint32t;
 
@@ -31,13 +31,13 @@ float low_pass_filter_t::update(float new_value) {
         previous_time_us_uint32t = current_time;
         LPF_value = new_value;
         dot_value = 0.0f;
-        return LPF_value;
+        return 1;  // 初回更新は1を返す
     }
 
     // 無効な時間差のチェック（ゼロや異常値はスキップ）
     if (delta_time_us_uint32t == 0 || delta_time_us_uint32t > MAX_DELTA_TIME_US) {
         reset();
-        return LPF_value;
+        return -1;  // エラーコード
     }
 
     float delta_time_s = static_cast<float>(delta_time_us_uint32t) / 1e6f;
@@ -47,5 +47,5 @@ float low_pass_filter_t::update(float new_value) {
 
     // 時間を更新
     previous_time_us_uint32t = current_time;
-    return LPF_value;
+    return 0;  // 正常終了
 }
