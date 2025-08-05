@@ -1,24 +1,25 @@
 #include "disturbance_observer.hpp"
 
-disturbance_observer_t::disturbance_observer_t(float inertia, float cutoff_freq, float dt)
-    : inertia_(inertia), cutoff_freq_(cutoff_freq), dt_(dt), LPF_control_torque_(0.0f), dob_2_(0.0f) {}
+disturbance_observer_t::disturbance_observer_t(float inertia, float leftloop_cutoff_freq, float dob_cutoff_freq)
+    : inertia_(inertia), dob_cutoff_freq_(dob_cutoff_freq), LPF_control_torque_(0.0f), leftloop_filter(leftloop_cutoff_freq), dob_filter(dob_cutoff_freq) {}
 
 void disturbance_observer_t::reset() {
     LPF_control_torque_ = 0.0f;
-    dob_2_ = 0.0f;
+    dob_rightloop_ = 0.0f;
+    disturbance_ = 0.0f;
+    leftloop_filter.reset();
+    dob_filter.reset();
 }
 
 float disturbance_observer_t::update(float control_torque, float motor_velocity) {
     // Low-pass filter
-    float dot_control_torque = (control_torque - LPF_control_torque_) * cutoff_freq_;
-    LPF_control_torque_ += dot_control_torque * dt_;
+    leftloop_filter.update(control_torque);
+    LPF_control_torque_ = leftloop_filter.get_lpf_value();
 
     // Disturbance observer logic
-    float dob_rightloop = inertia_ * cutoff_freq_ * motor_velocity;
-    float dob_0 = LPF_control_torque_ + dob_rightloop;
-    float dob_1 = (dob_0 - dob_2_) * cutoff_freq_;
-    dob_2_ += dob_1 * dt_;
-    float disturbance = dob_2_ - dob_rightloop;
+    dob_rightloop_ = inertia_ * dob_cutoff_freq_ * motor_velocity;
+    dob_filter.update(LPF_control_torque_ + dob_rightloop_);
+    disturbance_ = dob_filter.get_lpf_value() - dob_rightloop_;
 
-    return disturbance;
+    return disturbance_;
 }

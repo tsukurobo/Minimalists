@@ -126,12 +126,25 @@ constexpr float P_MAX_ACCELERATION = P_MAX_TORQUE / P_EQ_INERTIA;    // P軸最�
 robomaster_motor_t motor1(&can, 1, gear_ratio_R);  // motor_id=1
 robomaster_motor_t motor2(&can, 2, gear_ratio_P);  // motor_id=2
 
+// PIDコントローラ（モータ1: 回転軸、モータ2: 直動軸）
+// 位置PID制御器（位置[rad] → 目標速度[rad/s]）
+constexpr float R_POSITION_KP = 1.25;  // R軸位置PIDの比例ゲイン
+constexpr float R_VELOCITY_KP = 0.1;   // R軸速度I-Pの比例ゲイン
+constexpr float R_VELOCITY_KI = 0.7;   // R軸速度I-Pの積分ゲイン
+constexpr float P_POSITION_KP = 1.25;  // P軸位置PIDの比例ゲイン
+constexpr float P_VELOCITY_KP = 0.1;   // P軸速度I-Pの比例ゲイン
+constexpr float P_VELOCITY_KI = 1.0;   // P軸速度I-Pの積分ゲイン
+
+// 速度推定のパラメータ
+constexpr float R_VELOCITY_CUTOFF_FREQ = 50.0f;  // R軸 角速度のカットオフ周波数 [rad/s]
+constexpr float P_VELOCITY_CUTOFF_FREQ = 50.0f;  // P軸 角速度のカットオフ周波数 [rad/s]
+
 // 外乱オブザーバのパラメータ
-constexpr float R_CUTOFF_FREQ = 6.0f;                                             // R軸 外乱オブザーバのカットオフ周波数 [rad/s]
+constexpr float R_DOB_CUTOFF_FREQ = 6.0f;                                         // R軸 外乱オブザーバのカットオフ周波数 [rad/s]
 constexpr float sqrtf_R_POSITION_GAIN = 7.0f;                                     // R軸 外乱オブザーバの位置ゲインの平方根
 constexpr float R_POSITION_GAIN = sqrtf_R_POSITION_GAIN * sqrtf_R_POSITION_GAIN;  // R軸 外乱オブザーバの位置ゲイン
 constexpr float R_VELOCITY_GAIN = 2.0f * sqrtf_R_POSITION_GAIN;                   // R軸 外乱オブザーバの速度ゲイン
-constexpr float P_CUTOFF_FREQ = 4.0f;                                             // P軸 外乱オブザーバのカットオフ周波数 [rad/s]
+constexpr float P_DOB_CUTOFF_FREQ = 4.0f;                                         // P軸 外乱オブザーバのカットオフ周波数 [rad/s]
 constexpr float sqrtf_P_POSITION_GAIN = 7.0f;                                     // P軸 外乱オブザーバの位置ゲインの平方根
 constexpr float P_POSITION_GAIN = sqrtf_P_POSITION_GAIN * sqrtf_P_POSITION_GAIN;  // P軸 外乱オブザーバの位置ゲイン
 constexpr float P_VELOCITY_GAIN = 2.0f * sqrtf_P_POSITION_GAIN;                   // P軸 外乱オブザーバの速度ゲイン
@@ -259,8 +272,8 @@ bool init_encoders() {
     if (encoder_manager.get_current_encoder_count() == 0) {
         g_debug_manager->info("Adding encoders to manager...\n");
         // エンコーダを追加
-        encoder1_index = encoder_manager.add_encoder(7, false);  // CS pin 7 (R軸: 単回転)
-        encoder2_index = encoder_manager.add_encoder(6, true);   // CS pin 6 (P軸: マルチターン対応)
+        encoder1_index = encoder_manager.add_encoder(7, R_VELOCITY_CUTOFF_FREQ, false);  // CS pin 7 (R軸: 単回転)
+        encoder2_index = encoder_manager.add_encoder(6, P_VELOCITY_CUTOFF_FREQ, true);   // CS pin 6 (P軸: マルチターン対応)
 
         if (encoder1_index < 0 || encoder2_index < 0) {
             g_debug_manager->error("Failed to add encoders!\n");
@@ -544,21 +557,21 @@ void core1_entry(void) {
     // 制御開始時刻を記録
     absolute_time_t control_start_time = get_absolute_time();
 
-    float disturbance_torque_R = 0.0f;                                            // R軸の外乱トルク
-    float control_torque_R = 0.0f;                                                // R軸の制御トルク
-    float target_torque_R = 0.0f;                                                 // R軸の目標トルク
-    float error_position_R = 0.0f;                                                // R軸の位置誤差
-    float error_velocity_R = 0.0f;                                                // R軸の速度誤差
-    float acceleration_feedforward_R = 0.0f;                                      // R軸の加速度フィードフォワード
-    disturbance_observer_t dob_R(R_EQ_INERTIA, R_CUTOFF_FREQ, CONTROL_PERIOD_S);  // R軸の外乱オブザーバ
+    float disturbance_torque_R = 0.0f;                                                      // R軸の外乱トルク
+    float control_torque_R = 0.0f;                                                          // R軸の制御トルク
+    float target_torque_R = 0.0f;                                                           // R軸の目標トルク
+    float error_position_R = 0.0f;                                                          // R軸の位置誤差
+    float error_velocity_R = 0.0f;                                                          // R軸の速度誤差
+    float acceleration_feedforward_R = 0.0f;                                                // R軸の加速度フィードフォワード
+    disturbance_observer_t dob_R(R_EQ_INERTIA, R_VELOCITY_CUTOFF_FREQ, R_DOB_CUTOFF_FREQ);  // R軸の外乱オブザーバ
 
-    float disturbance_torque_P = 0.0f;                                            // P軸の外乱トルク
-    float control_torque_P = 0.0f;                                                // P軸の制御トルク
-    float target_torque_P = 0.0f;                                                 // P軸の目標トルク
-    float error_position_P = 0.0f;                                                // P軸の位置誤差
-    float error_velocity_P = 0.0f;                                                // P軸の速度誤差
-    float acceleration_feedforward_P = 0.0f;                                      // P軸の加速度フィードフォワード
-    disturbance_observer_t dob_P(P_EQ_INERTIA, P_CUTOFF_FREQ, CONTROL_PERIOD_S);  // P軸の外乱オブザーバ
+    float disturbance_torque_P = 0.0f;                                                      // P軸の外乱トルク
+    float control_torque_P = 0.0f;                                                          // P軸の制御トルク
+    float target_torque_P = 0.0f;                                                           // P軸の目標トルク
+    float error_position_P = 0.0f;                                                          // P軸の位置誤差
+    float error_velocity_P = 0.0f;                                                          // P軸の速度誤差
+    float acceleration_feedforward_P = 0.0f;                                                // P軸の加速度フィードフォワード
+    disturbance_observer_t dob_P(P_EQ_INERTIA, P_VELOCITY_CUTOFF_FREQ, P_DOB_CUTOFF_FREQ);  // P軸の外乱オブザーバ
 
     // ループカウンタの初期化
     int loop_counter = 0;
