@@ -6,6 +6,7 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 set(BUILD_EXAMPLES OFF CACHE BOOL "Disable Ruckig examples")
+set(BUILD_CLOUD_CLIENT OFF CACHE BOOL "Disable Ruckig cloud client")
 set(BUILD_TESTS OFF CACHE BOOL "Disable Ruckig tests")
 set(BUILD_BENCHMARK OFF CACHE BOOL "Disable Ruckig benchmark")
 
@@ -43,7 +44,6 @@ add_executable(minimalists
         src/mcp25625.cpp
         src/amt223v.cpp
         src/pid_controller.cpp
-        src/dynamics.cpp
         src/robomaster_motor.cpp
         src/control_timing.cpp
         src/debug_manager.cpp
