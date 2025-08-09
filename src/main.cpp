@@ -849,7 +849,7 @@ bool initialize_system() {
     sleep_ms(2000);             // 少し待機して安定化
 
     // デバッグマネージャの初期化
-    g_debug_manager = new DebugManager(DebugLevel::ERROR, 0.1f);
+    g_debug_manager = new DebugManager(DebugLevel::DEBUG, 0.1f);
 
     // 全SPIデバイスの初期化
     while (!init_all_spi_devices()) {
@@ -1068,69 +1068,44 @@ int main(void) {
             core0_loop_count++;
 
             // 軌道状態機械による処理
-            switch (traj_state) {
-                case TRAJECTORY_IDLE: {
-                    // シーケンスがアクティブなら次の軌道を設定
-                    if (seq_manager->is_sequence_active()) {
-                        float target_position[2];
-                        if (seq_manager->get_next_waypoint(target_position[0], target_position[1])) {
-                            float current_position[2];
-                            mutex_enter_blocking(&g_state_mutex);
-                            current_position[0] = g_robot_state.current_position_R;
-                            current_position[1] = g_robot_state.current_position_P;
-                            mutex_exit(&g_state_mutex);
+            auto try_start_next_trajectory = [&]() {
+                if (seq_manager->is_sequence_active()) {
+                    float target_position[2];
+                    if (seq_manager->get_next_waypoint(target_position[0], target_position[1])) {
+                        float current_position[2];
+                        mutex_enter_blocking(&g_state_mutex);
+                        current_position[0] = g_robot_state.current_position_R;
+                        current_position[1] = g_robot_state.current_position_P;
+                        mutex_exit(&g_state_mutex);
 
-                            if (calculate_trajectory_core0(current_position, target_position)) {
-                                if (multicore_fifo_push_timeout_us(TRAJECTORY_DATA_SIGNAL, 0)) {
-                                    traj_state = TRAJECTORY_EXECUTING;
-                                    g_debug_manager->debug("Moving to waypoint: R=%.3f rad, P=%.1f mm",
-                                                           target_position[0], target_position[1] * gear_radius_P * 1000.0);
-                                }
-                            } else {
-                                g_debug_manager->error("Failed to calculate trajectory to next waypoint");
+                        if (calculate_trajectory_core0(current_position, target_position)) {
+                            if (multicore_fifo_push_timeout_us(TRAJECTORY_DATA_SIGNAL, 0)) {
+                                traj_state = TRAJECTORY_EXECUTING;
+                                g_debug_manager->debug("Moving to waypoint: R=%.3f rad, P=%.1f mm",
+                                                       target_position[0], target_position[1] * gear_radius_P * 1000.0);
+                                return;
                             }
                         } else {
-                            g_debug_manager->info("All waypoints completed, sequence finished");
-                            traj_state = TRAJECTORY_IDLE;
+                            g_debug_manager->error("Failed to calculate trajectory to next waypoint");
                         }
+                    } else {
+                        g_debug_manager->info("All waypoints completed, sequence finished");
+                        traj_state = TRAJECTORY_IDLE;
                     }
-                    break;
                 }
+            };
 
+            switch (traj_state) {
+                case TRAJECTORY_IDLE:
+                    try_start_next_trajectory();
+                    break;
                 case TRAJECTORY_EXECUTING:
                     // 軌道実行中は何もしない（完了信号待ち）
                     break;
-
                 case TRAJECTORY_HANDLING:
-                    // ハンド動作中
                     hand_tick(&hand_state, &has_work, &hand_timer);
                     if (hand_state == HAND_IDLE) {
-                        // ハンド動作完了 → 次の軌道へ
-                        if (seq_manager->is_sequence_active()) {
-                            float target_position[2];
-                            if (seq_manager->get_next_waypoint(target_position[0], target_position[1])) {
-                                float current_position[2];
-                                mutex_enter_blocking(&g_state_mutex);
-                                current_position[0] = g_robot_state.current_position_R;
-                                current_position[1] = g_robot_state.current_position_P;
-                                mutex_exit(&g_state_mutex);
-
-                                if (calculate_trajectory_core0(current_position, target_position)) {
-                                    if (multicore_fifo_push_timeout_us(TRAJECTORY_DATA_SIGNAL, 0)) {
-                                        traj_state = TRAJECTORY_EXECUTING;
-                                        g_debug_manager->debug("Moving to waypoint: R=%.3f rad, P=%.1f mm",
-                                                               target_position[0], target_position[1] * gear_radius_P * 1000.0);
-                                    }
-                                } else {
-                                    g_debug_manager->error("Failed to calculate trajectory to next waypoint");
-                                }
-                            } else {
-                                g_debug_manager->info("All waypoints completed, sequence finished");
-                                traj_state = TRAJECTORY_IDLE;
-                            }
-                        } else {
-                            traj_state = TRAJECTORY_IDLE;
-                        }
+                        try_start_next_trajectory();
                     }
                     break;
             }
