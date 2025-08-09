@@ -885,7 +885,7 @@ bool initialize_system() {
     sleep_ms(2000);             // 少し待機して安定化
 
     // デバッグマネージャの初期化
-    g_debug_manager = new DebugManager(DebugLevel::DEBUG, 0.1f);
+    g_debug_manager = new DebugManager(DebugLevel::ERROR, 0.1f);
 
     // 全SPIデバイスの初期化
     while (!init_all_spi_devices()) {
@@ -1132,6 +1132,8 @@ int main(void) {
                         g_debug_manager->info("All waypoints completed, sequence finished");
                         traj_state = TRAJECTORY_IDLE;
                     }
+                } else {
+                    traj_state = TRAJECTORY_IDLE;  // シーケンスがアクティブでない場合はアイドル状態に戻す
                 }
             };
 
