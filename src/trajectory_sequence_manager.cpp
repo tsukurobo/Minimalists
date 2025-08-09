@@ -40,7 +40,7 @@ void TrajectorySequenceManager::setup_sequence(const trajectory_waypoint_t* wayp
     }
 }
 
-bool TrajectorySequenceManager::get_next_waypoint(float& target_R, float& target_P) {
+bool TrajectorySequenceManager::get_next_waypoint(float target_position[2], float intermediate_position[2]) {
     if (!sequence_active || current_waypoint_index >= waypoint_count) {
         return false;
     }
@@ -49,8 +49,10 @@ bool TrajectorySequenceManager::get_next_waypoint(float& target_R, float& target
     sequence_complete = false;
 
     int index = current_waypoint_index;
-    target_R = waypoints[index].position_R;
-    target_P = waypoints[index].position_P;
+    target_position[0] = waypoints[index].position_R;
+    target_position[1] = waypoints[index].position_P;
+    intermediate_position[0] = waypoints[index].intermediate_position_R;
+    intermediate_position[1] = waypoints[index].intermediate_position_P;
 
     return true;
 }

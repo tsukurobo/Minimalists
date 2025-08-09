@@ -1,10 +1,14 @@
 # Generated Cmake Pico project file
 
 cmake_minimum_required(VERSION 3.13)
-
 set(CMAKE_C_STANDARD 11)
-set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+
+set(BUILD_EXAMPLES OFF CACHE BOOL "Disable Ruckig examples")
+set(BUILD_CLOUD_CLIENT OFF CACHE BOOL "Disable Ruckig cloud client")
+set(BUILD_TESTS OFF CACHE BOOL "Disable Ruckig tests")
+set(BUILD_BENCHMARK OFF CACHE BOOL "Disable Ruckig benchmark")
 
 # Initialise pico_sdk from installed location
 # (note this can come from environment, CMake cache etc)
@@ -40,8 +44,6 @@ add_executable(minimalists
         src/mcp25625.cpp
         src/amt223v.cpp
         src/pid_controller.cpp
-        src/trajectory.cpp
-        src/dynamics.cpp
         src/robomaster_motor.cpp
         src/control_timing.cpp
         src/debug_manager.cpp
@@ -54,11 +56,15 @@ add_executable(minimalists
 
 # Add pico_multicore which is required for multicore functionality
 target_link_libraries(minimalists
+        PRIVATE
         pico_stdlib
         pico_multicore
         hardware_spi
         hardware_pwm
+        ruckig
 )
+
+add_subdirectory(external/ruckig) 
 
 target_include_directories(minimalists
 		PRIVATE
@@ -73,3 +79,11 @@ pico_enable_stdio_uart(minimalists 0)
 pico_add_extra_outputs(minimalists)
 
 # add url via pico_set_program_url
+
+# # コンパイル時に未使用変数・未使用関数の警告を有効化
+# target_compile_options(minimalists PRIVATE
+#     -Wall
+#     -Wextra
+#     -Wunused-variable
+#     -Wunused-function
+# )

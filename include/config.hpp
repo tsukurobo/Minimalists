@@ -7,13 +7,11 @@
 
 #include <iostream>
 
-#include "dynamics.hpp"
 #include "dynamixel.hpp"
 #include "hand.hpp"
 #include "pico/multicore.h"
 #include "pico/mutex.h"
 #include "pico/stdlib.h"
-#include "trajectory.hpp"
 
 // PIN設定
 constexpr int PUMP_PIN = 4;
