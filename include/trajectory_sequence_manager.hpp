@@ -64,11 +64,10 @@ class TrajectorySequenceManager {
 
     /**
      * @brief 次のウェイポイントの取得
-     * @param target_R R軸目標位置 [rad] (出力)
-     * @param target_P P軸目標位置 [rad] (出力)
+     * @param target_position 目標位置 [rad] (出力)
      * @return 次のウェイポイントが存在する場合true
      */
-    bool get_next_waypoint(float& target_R, float& target_P);
+    bool get_next_waypoint(float target_position[2]);
 
     /**
      * @brief 次のウェイポイントに進む

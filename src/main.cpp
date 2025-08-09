@@ -1079,7 +1079,7 @@ int main(void) {
                     float target_position[2];
                     // float intermediate_position[2] = {2.5f, -0.4f / gear_radius_P};
                     float intermediate_position[2] = {NAN, NAN};
-                    if (seq_manager->get_next_waypoint(target_position[0], target_position[1])) {
+                    if (seq_manager->get_next_waypoint(target_position)) {
                         float current_position[2];
                         mutex_enter_blocking(&g_state_mutex);
                         current_position[0] = g_robot_state.current_position_R;
