@@ -338,7 +338,7 @@ bool init_pid_controllers() {
 bool calculate_trajectory_core0(
     const float current_position[2],
     const float target_position[2],
-    const float* intermediate_position = nullptr) {
+    const float intermediate_position[2]) {
     ruckig::Ruckig<2> otg(CONTROL_PERIOD_S);  // 2軸のRuckigオブジェクトを作成
     ruckig::InputParameter<2> input;
     ruckig::OutputParameter<2> output_intermediate;
@@ -1071,6 +1071,7 @@ int main(void) {
             auto try_start_next_trajectory = [&]() {
                 if (seq_manager->is_sequence_active()) {
                     float target_position[2];
+                    float intermediate_position[2] = {2.5f, -0.4f / gear_radius_P};
                     if (seq_manager->get_next_waypoint(target_position[0], target_position[1])) {
                         float current_position[2];
                         mutex_enter_blocking(&g_state_mutex);
@@ -1078,7 +1079,7 @@ int main(void) {
                         current_position[1] = g_robot_state.current_position_P;
                         mutex_exit(&g_state_mutex);
 
-                        if (calculate_trajectory_core0(current_position, target_position)) {
+                        if (calculate_trajectory_core0(current_position, target_position, intermediate_position)) {
                             if (multicore_fifo_push_timeout_us(TRAJECTORY_DATA_SIGNAL, 0)) {
                                 traj_state = TRAJECTORY_EXECUTING;
                                 g_debug_manager->debug("Moving to waypoint: R=%.3f rad, P=%.1f mm",
