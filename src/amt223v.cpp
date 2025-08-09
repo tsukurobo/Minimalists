@@ -322,8 +322,8 @@ void AMT223V::calculate_angular_velocity(float current_angle_rad, uint64_t curre
 
 // ===== AMT223V_Manager クラス実装 =====
 
-AMT223V_Manager::AMT223V_Manager(spi_inst_t* spi_instance, uint32_t baud, int miso, int sck, int mosi)
-    : spi_port(spi_instance), baudrate(baud), pin_miso(miso), pin_sck(sck), pin_mosi(mosi), num_encoders(0) {
+AMT223V_Manager::AMT223V_Manager(spi_inst_t* spi_instance, int miso, int sck, int mosi)
+    : spi_port(spi_instance), pin_miso(miso), pin_sck(sck), pin_mosi(mosi), num_encoders(0) {
     // エンコーダポインタを初期化
     for (auto& encoder : encoders) {
         encoder = nullptr;
@@ -346,26 +346,6 @@ int AMT223V_Manager::add_encoder(int cs_pin, float velocity_cutoff_freq, bool mu
            num_encoders - 1, cs_pin, multiturn_support ? "yes" : "no");
     printf("Current encoder count: %d/%d\n", num_encoders, MAX_ENCODERS);
     return num_encoders - 1;
-}
-
-bool AMT223V_Manager::init_spi() {
-    // SPI初期化
-    spi_init(spi_port, baudrate);
-    gpio_set_function(pin_miso, GPIO_FUNC_SPI);
-    gpio_set_function(pin_sck, GPIO_FUNC_SPI);
-    gpio_set_function(pin_mosi, GPIO_FUNC_SPI);
-
-    // CSピンの初期化
-    for (int i = 0; i < num_encoders; i++) {
-        gpio_init(cs_pins[i]);
-        gpio_set_dir(cs_pins[i], GPIO_OUT);
-        gpio_put(cs_pins[i], 1);  // 初期状態はHIGH（非選択）
-        printf("Encoder SPI CS%d pin %d initialized\n", i, cs_pins[i]);
-    }
-
-    printf("Encoder SPI initialized: %d/%d encoders on SPI%d at %d Hz\n",
-           num_encoders, MAX_ENCODERS, spi_port == spi0 ? 0 : 1, baudrate);
-    return true;
 }
 
 bool AMT223V_Manager::init_all_encoders() {

@@ -59,18 +59,6 @@ constexpr uint32_t SYNC_SIGNAL = 1;                 // 同期信号の値
 constexpr uint32_t TRAJECTORY_DATA_SIGNAL = 2;      // 軌道データ送信信号
 constexpr uint32_t TRAJECTORY_COMPLETE_SIGNAL = 3;  // 軌道完了信号
 
-// CAN IC用SPI設定
-static const spi_config_t can_spi_config = {
-    .spi_port = spi1,       // SPI1を使用
-    .baudrate = 4'000'000,  // 1MHz
-    .pin_miso = 8,
-    .pin_cs = {5},     // CSピン1つ
-    .num_cs_pins = 1,  // CSピン数
-    .pin_sck = 10,
-    .pin_mosi = 11,
-    .pin_rst = 20,
-};
-
 // ======== 機械設定 ========
 // モータの出力軸から機構の出力軸までのギア比
 constexpr float gear_ratio_R = 3.0;     // M3508出力軸からベース根本(3.0)

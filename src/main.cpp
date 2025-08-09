@@ -1,15 +1,23 @@
 
 #include "config.hpp"
 
+// CAN IC用SPI設定
+static const spi_config_t spi1_config = {
+    .spi_port = spi1,       // SPI1を使用
+    .baudrate = 1'875'000,  // エンコーダ規定値 2MHz 整数分数でベスト:1.875MHz
+    .pin_miso = 8,
+    .pin_cs = {5, 7, 6},  // CSピン3つ（CAN、回転エンコーダ、直動エンコーダ）
+    .num_cs_pins = 3,     // CSピン数
+    .pin_sck = 10,
+    .pin_mosi = 11,
+    .pin_rst = -1  // リセットピンは使用しない,
+};
+
 // MCP25625オブジェクトを作成（CAN SPI設定を使用）
-mcp25625_t can(can_spi_config.spi_port, can_spi_config.pin_cs[0], can_spi_config.pin_rst);
+mcp25625_t can(spi1_config.spi_port, spi1_config.pin_cs[0], spi1_config.pin_rst);
 
 // AMT223-V エンコーダマネージャを作成
-AMT223V_Manager encoder_manager(spi1,       // SPI0を使用
-                                1'875'000,  // 規定値 2MHz 整数分数でベスト:1.875MHz
-                                8,          // MISO pin
-                                10,         // SCK pin
-                                11);        // MOSI pin
+AMT223V_Manager encoder_manager(spi1_config.spi_port, spi1_config.pin_miso, spi1_config.pin_sck, spi1_config.pin_mosi);
 
 // RoboMasterモータオブジェクト
 robomaster_motor_t motor1(&can, 1, gear_ratio_R);  // motor_id=1
@@ -101,7 +109,7 @@ bool init_spi(const spi_config_t* config) {
 // 複数のSPIデバイスを初期化する関数
 bool init_all_spi_devices() {
     // CAN IC用SPI初期化
-    if (!init_spi(&can_spi_config)) {
+    if (!init_spi(&spi1_config)) {
         g_debug_manager->error("Failed to initialize CAN SPI!\n");
         return false;
     }
@@ -119,20 +127,14 @@ bool init_encoders() {
     if (encoder_manager.get_current_encoder_count() == 0) {
         g_debug_manager->info("Adding encoders to manager...\n");
         // エンコーダを追加
-        encoder1_index = encoder_manager.add_encoder(7, R_VELOCITY_CUTOFF_FREQ, false);  // CS pin 7 (R軸: 単回転)
-        encoder2_index = encoder_manager.add_encoder(6, P_VELOCITY_CUTOFF_FREQ, true);   // CS pin 6 (P軸: マルチターン対応)
+        encoder1_index = encoder_manager.add_encoder(spi1_config.pin_cs[1], R_VELOCITY_CUTOFF_FREQ, false);  // CS pin 7 (R軸: 単回転)
+        encoder2_index = encoder_manager.add_encoder(spi1_config.pin_cs[2], P_VELOCITY_CUTOFF_FREQ, true);   // CS pin 6 (P軸: マルチターン対応)
 
         if (encoder1_index < 0 || encoder2_index < 0) {
             g_debug_manager->error("Failed to add encoders!\n");
             return false;
         }
         g_debug_manager->info("Encoders added successfully: R=%d, P=%d\n", encoder1_index, encoder2_index);
-    }
-
-    // SPI初期化
-    if (!encoder_manager.init_spi()) {
-        g_debug_manager->error("Failed to initialize encoder SPI!\n");
-        return false;
     }
 
     // 全エンコーダ初期化（安定化時間を含む）
