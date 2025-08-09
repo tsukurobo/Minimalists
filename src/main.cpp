@@ -425,8 +425,8 @@ void init_hand() {
     write_torqueEnable(&UART0, DXL_ID1, false);
     write_torqueEnable(&UART0, DXL_ID2, false);
     sleep_ms(100);
-    write_dxl_current_limit(&UART0, DXL_ID1, 100);  // ID=1, 電流制限=100mA
-    write_dxl_current_limit(&UART0, DXL_ID2, 100);  // ID=2, 電流制限=100mA
+    write_dxl_current_limit(&UART0, DXL_ID1, 1000);  // ID=1, 電流制限=100mA
+    write_dxl_current_limit(&UART0, DXL_ID2, 1000);  // ID=2, 電流制限=100mA
     sleep_ms(100);
     write_operatingMode(&UART0, DXL_ID1, false);  // false : 位置制御, true : 拡張位置制御(マルチターン)
     write_operatingMode(&UART0, DXL_ID2, false);
