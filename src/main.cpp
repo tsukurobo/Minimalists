@@ -837,7 +837,7 @@ void core1_entry(void) {
             // FIFOに同期信号を送信（ノンブロッキング）
             if (!multicore_fifo_push_timeout_us(SYNC_SIGNAL, 0)) {
                 // FIFO満杯の場合は何もしない（次回再試行）
-                g_debug_manager->error("Core1: Failed to push sync signal to Core0 FIFO");
+                printf("Core1: Failed to push sync signal to Core0 FIFO");
             }
         }
 
@@ -855,7 +855,7 @@ bool initialize_system() {
     sleep_ms(2000);             // 少し待機して安定化
 
     // デバッグマネージャの初期化
-    g_debug_manager = new DebugManager(DebugLevel::DEBUG, 0.1f);
+    g_debug_manager = new DebugManager(DebugLevel::ERROR, 0.1f);
 
     // 全SPIデバイスの初期化
     while (!init_all_spi_devices()) {
@@ -960,6 +960,9 @@ int main(void) {
     trajectory_state_t traj_state = TRAJECTORY_IDLE;
     // 軌道シーケンス管理
     constexpr int WORK_NUM = 40;  // ワーク数
+    constexpr float INTERMEDIATE_POSITION_R = 4.102f;
+    constexpr float INTERMEDIATE_POSITION_P = -0.1322f / gear_radius_P;
+
     trajectory_waypoint_t work_points[WORK_NUM] = {
         // 一番奥側ロボットから見て左から右へ
         // 1行目
@@ -968,11 +971,11 @@ int main(void) {
         trajectory_waypoint_t(3.711f, -0.3034f / gear_radius_P, 115.58f),
         trajectory_waypoint_t(3.858f, -0.2662f / gear_radius_P, 104.94f),
         trajectory_waypoint_t(4.121f, -0.2349f / gear_radius_P, 92.29f),
-        trajectory_waypoint_t(4.295f, -0.2348f / gear_radius_P, 79.80f),
-        trajectory_waypoint_t(4.544f, -0.2640f / gear_radius_P, 67.32f),
-        trajectory_waypoint_t(4.687f, -0.3081f / gear_radius_P, 57.92f),
-        trajectory_waypoint_t(4.859f, -0.3910f / gear_radius_P, 46.41f),
-        trajectory_waypoint_t(4.960f, -0.4566f / gear_radius_P, 43.42f),
+        trajectory_waypoint_t(4.295f, -0.2348f / gear_radius_P, 79.80f, INTERMEDIATE_POSITION_R, INTERMEDIATE_POSITION_P),
+        trajectory_waypoint_t(4.544f, -0.2640f / gear_radius_P, 67.32f, INTERMEDIATE_POSITION_R, INTERMEDIATE_POSITION_P),
+        trajectory_waypoint_t(4.687f, -0.3081f / gear_radius_P, 57.92f, INTERMEDIATE_POSITION_R, INTERMEDIATE_POSITION_P),
+        trajectory_waypoint_t(4.859f, -0.3910f / gear_radius_P, 46.41f, INTERMEDIATE_POSITION_R, INTERMEDIATE_POSITION_P),
+        trajectory_waypoint_t(4.960f, -0.4566f / gear_radius_P, 43.42f, INTERMEDIATE_POSITION_R, INTERMEDIATE_POSITION_P),
         // 2行目
         trajectory_waypoint_t(3.315f, -0.3916f / gear_radius_P, 137.98f),
         trajectory_waypoint_t(3.419f, -0.3179f / gear_radius_P, 130.43f),
@@ -980,10 +983,10 @@ int main(void) {
         trajectory_waypoint_t(3.797f, -0.1739f / gear_radius_P, 107.93f),
         trajectory_waypoint_t(4.102f, -0.1322f / gear_radius_P, 91.67f),
         trajectory_waypoint_t(4.327f, -0.1343f / gear_radius_P, 79.10f),
-        trajectory_waypoint_t(4.625f, -0.1682f / gear_radius_P, 61.52f),
-        trajectory_waypoint_t(4.785f, -0.2205f / gear_radius_P, 52.73f),
-        trajectory_waypoint_t(4.972f, -0.3138f / gear_radius_P, 39.64f),
-        trajectory_waypoint_t(5.069f, -0.3886f / gear_radius_P, 35.24f),
+        trajectory_waypoint_t(4.625f, -0.1682f / gear_radius_P, 61.52f, INTERMEDIATE_POSITION_R, INTERMEDIATE_POSITION_P),
+        trajectory_waypoint_t(4.785f, -0.2205f / gear_radius_P, 52.73f, INTERMEDIATE_POSITION_R, INTERMEDIATE_POSITION_P),
+        trajectory_waypoint_t(4.972f, -0.3138f / gear_radius_P, 39.64f, INTERMEDIATE_POSITION_R, INTERMEDIATE_POSITION_P),
+        trajectory_waypoint_t(5.069f, -0.3886f / gear_radius_P, 35.24f, INTERMEDIATE_POSITION_R, INTERMEDIATE_POSITION_P),
         // 3行目
         trajectory_waypoint_t(3.203f, -0.3313f / gear_radius_P, 142.82f),
         trajectory_waypoint_t(3.303f, -0.2523f / gear_radius_P, 137.55f),
@@ -1013,11 +1016,11 @@ int main(void) {
         trajectory_waypoint_t(2.380f, -0.5645f / gear_radius_P, 90.0f),
         trajectory_waypoint_t(2.380f, -0.5645f / gear_radius_P, 90.0f),
         trajectory_waypoint_t(2.380f, -0.5645f / gear_radius_P, 90.0f),
-        trajectory_waypoint_t(2.380f, -0.5645f / gear_radius_P, 90.0f),
-        trajectory_waypoint_t(2.380f, -0.5645f / gear_radius_P, 90.0f),
-        trajectory_waypoint_t(2.380f, -0.5645f / gear_radius_P, 90.0f),
-        trajectory_waypoint_t(2.380f, -0.5645f / gear_radius_P, 90.0f),
-        trajectory_waypoint_t(2.380f, -0.5645f / gear_radius_P, 90.0f),
+        trajectory_waypoint_t(2.380f, -0.5645f / gear_radius_P, 90.0f, INTERMEDIATE_POSITION_R, INTERMEDIATE_POSITION_P),
+        trajectory_waypoint_t(2.380f, -0.5645f / gear_radius_P, 90.0f, INTERMEDIATE_POSITION_R, INTERMEDIATE_POSITION_P),
+        trajectory_waypoint_t(2.380f, -0.5645f / gear_radius_P, 90.0f, INTERMEDIATE_POSITION_R, INTERMEDIATE_POSITION_P),
+        trajectory_waypoint_t(2.380f, -0.5645f / gear_radius_P, 90.0f, INTERMEDIATE_POSITION_R, INTERMEDIATE_POSITION_P),
+        trajectory_waypoint_t(2.380f, -0.5645f / gear_radius_P, 90.0f, INTERMEDIATE_POSITION_R, INTERMEDIATE_POSITION_P),
 
         trajectory_waypoint_t(2.380f, -0.5645f / gear_radius_P, 90.0f),
         trajectory_waypoint_t(2.380f, -0.5645f / gear_radius_P, 90.0f),
@@ -1025,10 +1028,10 @@ int main(void) {
         trajectory_waypoint_t(2.380f, -0.5645f / gear_radius_P, 90.0f),
         trajectory_waypoint_t(2.380f, -0.5645f / gear_radius_P, 90.0f),
         trajectory_waypoint_t(2.380f, -0.5645f / gear_radius_P, 90.0f),
-        trajectory_waypoint_t(2.380f, -0.5645f / gear_radius_P, 90.0f),
-        trajectory_waypoint_t(2.380f, -0.5645f / gear_radius_P, 90.0f),
-        trajectory_waypoint_t(2.380f, -0.5645f / gear_radius_P, 90.0f),
-        trajectory_waypoint_t(2.380f, -0.5645f / gear_radius_P, 90.0f),
+        trajectory_waypoint_t(2.380f, -0.5645f / gear_radius_P, 90.0f, INTERMEDIATE_POSITION_R, INTERMEDIATE_POSITION_P),
+        trajectory_waypoint_t(2.380f, -0.5645f / gear_radius_P, 90.0f, INTERMEDIATE_POSITION_R, INTERMEDIATE_POSITION_P),
+        trajectory_waypoint_t(2.380f, -0.5645f / gear_radius_P, 90.0f, INTERMEDIATE_POSITION_R, INTERMEDIATE_POSITION_P),
+        trajectory_waypoint_t(2.380f, -0.5645f / gear_radius_P, 90.0f, INTERMEDIATE_POSITION_R, INTERMEDIATE_POSITION_P),
 
         trajectory_waypoint_t(2.380f, -0.5645f / gear_radius_P, 90.0f),
         trajectory_waypoint_t(2.380f, -0.5645f / gear_radius_P, 90.0f),
@@ -1077,9 +1080,9 @@ int main(void) {
             auto try_start_next_trajectory = [&]() {
                 if (seq_manager->is_sequence_active()) {
                     float target_position[2];
-                    // float intermediate_position[2] = {2.5f, -0.4f / gear_radius_P};
-                    float intermediate_position[2] = {NAN, NAN};
-                    if (seq_manager->get_next_waypoint(target_position)) {
+                    float intermediate_position[2];
+                    if (seq_manager->get_next_waypoint(target_position, intermediate_position)) {
+                        std::cout << "intermediate_position: [" << intermediate_position[0] << ", " << intermediate_position[1] << "]" << std::endl;
                         float current_position[2];
                         mutex_enter_blocking(&g_state_mutex);
                         current_position[0] = g_robot_state.current_position_R;
@@ -1135,10 +1138,8 @@ int main(void) {
             float current_main_time = 0.0;
             mutex_enter_blocking(&g_state_mutex);
             current_main_time = g_robot_state.current_time;
-            mutex_exit(&g_state_mutex);
 
             // 状態を取得してデバッグ出力（排他制御あり）
-            mutex_enter_blocking(&g_state_mutex);
             // デバッグ用に現在状態も取得
             float current_pos_R = g_robot_state.current_position_R;
             float current_pos_P = g_robot_state.current_position_P;
@@ -1151,6 +1152,19 @@ int main(void) {
             float target_cur_R = g_robot_state.target_current_R;
             float target_cur_P = g_robot_state.target_current_P;
 
+            int timing_violations = g_robot_state.timing_violation_count;
+            led_mode_t led_status = g_robot_state.led_status;
+            int can_errors = g_robot_state.can_error_count;
+
+            // エンコーダ詳細情報を共有変数から取得
+            int16_t p_turn_count = g_robot_state.encoder_p_turn_count;
+            float p_single_angle = g_robot_state.encoder_p_single_angle_deg;
+            float r_angle_deg = g_robot_state.encoder_r_angle_deg;
+            bool encoder_r_valid = g_robot_state.encoder_r_valid;
+            bool encoder_p_valid = g_robot_state.encoder_p_valid;
+            mutex_exit(&g_state_mutex);
+
+            mutex_enter_blocking(&g_trajectory_mutex);
             // 台形プロファイル制御情報
             float traj_target_pos_R, traj_target_pos_P;
             float traj_target_vel_R, traj_target_vel_P;
@@ -1163,18 +1177,7 @@ int main(void) {
             // 最終目標位置（Core0→Core1）
             float final_target_pos_R = g_trajectory_data.final_target_R;
             float final_target_pos_P = g_trajectory_data.final_target_P;
-
-            int timing_violations = g_robot_state.timing_violation_count;
-            led_mode_t led_status = g_robot_state.led_status;
-            int can_errors = g_robot_state.can_error_count;
-
-            // エンコーダ詳細情報を共有変数から取得
-            int16_t p_turn_count = g_robot_state.encoder_p_turn_count;
-            float p_single_angle = g_robot_state.encoder_p_single_angle_deg;
-            float r_angle_deg = g_robot_state.encoder_r_angle_deg;
-            bool encoder_r_valid = g_robot_state.encoder_r_valid;
-            bool encoder_p_valid = g_robot_state.encoder_p_valid;
-            mutex_exit(&g_state_mutex);
+            mutex_exit(&g_trajectory_mutex);
 
             // 軌道状態変化の検出
             g_debug_manager->check_trajectory_state_changes(traj_active_R, traj_active_P,
