@@ -148,40 +148,6 @@ bool init_encoders() {
     return true;
 }
 
-// PIDコントローラの初期化関数
-bool init_pid_controllers() {
-    g_debug_manager->info("Initializing PID controllers...\n");
-    g_debug_manager->info("Control period: %.1f ms (%.0f Hz)\n", CONTROL_PERIOD_MS, 1000.0 / CONTROL_PERIOD_MS);
-
-    // 方向補正設定の表示
-    g_debug_manager->info("Direction correction settings:\n");
-    g_debug_manager->info("  Encoder R direction: %+.1f\n", ENCODER_R_DIRECTION);
-    g_debug_manager->info("  Encoder P direction: %+.1f\n", ENCODER_P_DIRECTION);
-
-    g_debug_manager->info("PID controllers initialized successfully!\n");
-
-    // 制限値設定の表示
-    g_debug_manager->info("\n=== Control Limits Configuration ===\n");
-    g_debug_manager->info("R-Axis Limits:\n");
-    g_debug_manager->info("  Position PID Output: ±%.1f rad/s, Integral: ±%.1f rad/s\n",
-                          ControlLimits::R_Axis::MAX_VELOCITY, ControlLimits::R_Axis::INTEGRAL_VELOCITY);
-    g_debug_manager->info("  Velocity I-P Output: ±%.1f Nm, Integral: ±%.1f Nm\n",
-                          ControlLimits::R_Axis::MAX_TORQUE, ControlLimits::R_Axis::INTEGRAL_TORQUE);
-
-    g_debug_manager->info("P-Axis Limits:\n");
-    g_debug_manager->info("  Position PID Output: ±%.1f rad/s, Integral: ±%.1f rad/s\n",
-                          ControlLimits::P_Axis::MAX_VELOCITY, ControlLimits::P_Axis::INTEGRAL_VELOCITY);
-    g_debug_manager->info("  Velocity I-P Output: ±%.1f Nm, Integral: ±%.1f Nm\n",
-                          ControlLimits::P_Axis::MAX_TORQUE, ControlLimits::P_Axis::INTEGRAL_TORQUE);
-
-    g_debug_manager->info("FeedForward Gains:\n");
-    g_debug_manager->info("  R-Velocity FF: %.1f, P-Velocity FF: %.1f\n",
-                          R_VELOCITY_GAIN,
-                          P_VELOCITY_GAIN);
-
-    return true;
-}
-
 // Core0用軌道計算関数
 bool calculate_trajectory_core0(
     const float current_position[2],
@@ -744,12 +710,6 @@ bool initialize_system() {
     // エンコーダの初期化
     while (!init_encoders()) {
         g_debug_manager->error("Encoder initialization failed, retrying...");
-        sleep_ms(1000);
-    }
-
-    // PIDコントローラの初期化
-    while (!init_pid_controllers()) {
-        g_debug_manager->error("PID controller initialization failed, retrying...");
         sleep_ms(1000);
     }
 
