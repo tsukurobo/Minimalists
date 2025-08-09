@@ -665,7 +665,6 @@ void core1_entry(void) {
     while (true) {
         // 制御周期開始処理
         control_timing_start(&control_timing, CONTROL_PERIOD_MS);
-        std::cout << "Core1 loop start: " << loop_counter++ << std::endl;
 
         // FIFOから軌道開始信号をチェック（ノンブロッキング）
         uint32_t trajectory_signal;
@@ -680,7 +679,6 @@ void core1_entry(void) {
                 mutex_exit(&g_trajectory_mutex);
             }
         }
-        std::cout << "Core1 : Signal check end " << loop_counter << std::endl;
 
         // 経過時間を秒単位に変換
         float current_time_s = absolute_time_diff_us(control_start_time, control_timing.loop_start_time) / 1000000.0f;
@@ -758,9 +756,7 @@ void core1_entry(void) {
         // 軌道データから目標値を取得
         mutex_enter_blocking(&g_trajectory_mutex);
         bool trajectory_completed = false;
-        std::cout << "Core1 : Trajectory mutex entered " << loop_counter << std::endl;
         if (g_trajectory_data.active) {
-            std::cout << "Core1 : Trajectory active " << loop_counter << std::endl;
             if (g_trajectory_data.current_index < g_trajectory_data.point_count) {
                 int idx = g_trajectory_data.current_index;
                 trajectory_target_pos_R = g_trajectory_data.points[idx].position_R;
@@ -769,9 +765,6 @@ void core1_entry(void) {
                 trajectory_target_pos_P = g_trajectory_data.points[idx].position_P;
                 trajectory_target_vel_P = g_trajectory_data.points[idx].velocity_P;
                 trajectory_target_accel_P = g_trajectory_data.points[idx].acceleration_P;
-
-                std::cout << "Core1 : Trajectory point " << idx << " R: " << trajectory_target_pos_R
-                          << ", P: " << trajectory_target_pos_P << std::endl;
 
                 // インデックスを進める
                 g_trajectory_data.current_index++;
@@ -811,8 +804,6 @@ void core1_entry(void) {
             trajectory_target_pos_P = motor_position_P;
             trajectory_target_vel_P = 0.0;
             trajectory_target_accel_P = 0.0;
-
-            std::cout << "Core1: Trajectory inactive, holding position" << std::endl;
         }
         mutex_exit(&g_trajectory_mutex);
 
@@ -859,8 +850,6 @@ void core1_entry(void) {
         g_robot_state.led_status = control_timing.led_mode;
         mutex_exit(&g_state_mutex);
 
-        std::cout << "Core1 : Control calculations done " << loop_counter << std::endl;
-
         // --- CAN送信処理 ---
         if (!send_all_motor_currents(&can, target_current)) {
             // CAN送信失敗時のみエラーカウンタを更新
@@ -870,7 +859,6 @@ void core1_entry(void) {
             mutex_exit(&g_state_mutex);
         }
 
-        std::cout << "Core1 : Control loop end " << loop_counter << std::endl;
         // ループカウンタを更新し、指定回数に達したらCore0に同期信号を送信
         loop_counter++;
         if (loop_counter >= SYNC_EVERY_N_LOOPS) {
@@ -882,8 +870,6 @@ void core1_entry(void) {
                 printf("Core1: Failed to push sync signal to Core0 FIFO");
             }
         }
-
-        std::cout << "Core1 : Control loop end processing " << loop_counter << std::endl;
 
         // 制御周期終了処理
         control_timing_end(&control_timing, CONTROL_PERIOD_MS);
@@ -1113,14 +1099,11 @@ int main(void) {
     absolute_time_t hand_timer = get_absolute_time();
 
     while (1) {
-        std::cout << "Core0 Loop Count: " << core0_loop_count << std::endl;
         // FIFOから同期信号を待機（ブロッキング）
         uint32_t signal = multicore_fifo_pop_blocking();
-        std::cout << "Core0 received signal: " << signal << std::endl;
 
         // 同期信号を受信したら処理を実行
         if (signal == SYNC_SIGNAL) {
-            std::cout << "Core0 received SYNC_SIGNAL, traj_state: " << traj_state << std::endl;
             core0_loop_count++;
 
             // 軌道状態機械による処理
@@ -1129,7 +1112,6 @@ int main(void) {
                     float target_position[2];
                     float intermediate_position[2];
                     if (seq_manager->get_next_waypoint(target_position, intermediate_position)) {
-                        std::cout << "intermediate_position: [" << intermediate_position[0] << ", " << intermediate_position[1] << "]" << std::endl;
                         float current_position[2];
                         mutex_enter_blocking(&g_state_mutex);
                         current_position[0] = g_robot_state.current_position_R;
@@ -1179,17 +1161,12 @@ int main(void) {
             }
         }
 
-        std::cout << "Core0 Debug start" << std::endl;
-
         // 通常の状態監視とデバッグ出力（同期信号受信時のみ）
         if (signal == SYNC_SIGNAL) {
-            std::cout << "Core0: Sync signal received, performing debug output" << std::endl;
             // 現在時刻を再取得
             float current_main_time = 0.0;
             mutex_enter_blocking(&g_state_mutex);
             current_main_time = g_robot_state.current_time;
-
-            std::cout << "Core0: Current main time: " << current_main_time << std::endl;
 
             // 状態を取得してデバッグ出力（排他制御あり）
             // デバッグ用に現在状態も取得
@@ -1230,8 +1207,6 @@ int main(void) {
             float final_target_pos_R = g_trajectory_data.final_target_R;
             float final_target_pos_P = g_trajectory_data.final_target_P;
             mutex_exit(&g_trajectory_mutex);
-
-            std::cout << "Core0: Current positions - R: " << current_pos_R << " rad, P: " << current_pos_P * gear_radius_P * 1000.0 << " mm" << std::endl;
 
             // 軌道状態変化の検出
             g_debug_manager->check_trajectory_state_changes(traj_active_R, traj_active_P,
