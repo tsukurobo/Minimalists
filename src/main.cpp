@@ -355,12 +355,26 @@ bool calculate_trajectory_core0(
     input.max_velocity = {
         0.15 * TrajectoryLimits::R_MAX_VELOCITY,
         0.7 * TrajectoryLimits::P_MAX_VELOCITY};
-    input.max_acceleration = {
-        0.95 * TrajectoryLimits::R_MAX_ACCELERATION,
-        0.9 * TrajectoryLimits::P_MAX_ACCELERATION};
-    input.max_jerk = {input.max_acceleration[0] * 10, input.max_acceleration[1] * 10};
     input.min_velocity = {-input.max_velocity[0], -input.max_velocity[1]};
-    input.min_acceleration = {-input.max_acceleration[0], -input.max_acceleration[1]};
+    // 動き出しの加速は速く、止まるときの減速は遅く
+    constexpr double ACCEL_R = 0.95 * TrajectoryLimits::R_MAX_ACCELERATION;
+    constexpr double DECEL_R = 0.8 * TrajectoryLimits::R_MAX_ACCELERATION;
+    constexpr double ACCEL_P = 0.9 * TrajectoryLimits::P_MAX_ACCELERATION;
+    constexpr double DECEL_P = 0.8 * TrajectoryLimits::P_MAX_ACCELERATION;
+    // 進行方向判定
+    bool is_forward_R = current_position[0] < target_position[0];
+    bool is_forward_P = current_position[1] < target_position[1];
+    bool has_intermediate_R = !std::isnan(intermediate_position[0]);
+    bool has_intermediate_P = !std::isnan(intermediate_position[1]);
+    // R軸加速度
+    double accel_R = is_forward_R ? ACCEL_R : DECEL_R;
+    double decel_R = is_forward_R ? DECEL_R : ACCEL_R;
+    // P軸加速度
+    double accel_P = is_forward_P ? ACCEL_P : DECEL_P;
+    double decel_P = is_forward_P ? DECEL_P : ACCEL_P;
+    input.max_acceleration = {accel_R, accel_P};
+    input.min_acceleration = {-decel_R, -decel_P};
+    input.max_jerk = {input.max_acceleration[0] * 10, input.max_acceleration[1] * 10};
     // 中継点の制限
     input_intermediate.max_velocity = input.max_velocity;
     input_intermediate.max_acceleration = input.max_acceleration;
