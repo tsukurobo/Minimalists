@@ -434,7 +434,7 @@ void init_hand() {
     write_torqueEnable(&UART0, DXL_ID1, true);
     write_torqueEnable(&UART0, DXL_ID2, true);
     sleep_ms(500);
-    control_position(&UART0, DXL_ID1, START_HAND_ANGLE);
+    control_position(&UART0, DXL_ID1, 132.10f);
     sleep_ms(500);
     control_position_multiturn(&UART0, DXL_ID2, START_UP_ANGLE);
     sleep_ms(1000);
@@ -444,7 +444,7 @@ void init_hand() {
 }
 
 // 　ハンドの動作実行
-void hand_tick(hand_state_t* hand_state, bool* has_work, absolute_time_t* state_start_time) {
+void hand_tick(hand_state_t* hand_state, bool* has_work, absolute_time_t* state_start_time, float hand_angle) {
     uint32_t elapsed_ms = absolute_time_diff_us(*state_start_time, get_absolute_time()) / 1000;
     switch (*hand_state) {
         case HAND_IDLE:
@@ -482,7 +482,7 @@ void hand_tick(hand_state_t* hand_state, bool* has_work, absolute_time_t* state_
         case HAND_RAISING:
             if (elapsed_ms >= 200) {
                 *has_work = true;
-                control_position(&UART0, DXL_ID1, RELEASE_ANGLE);
+                control_position(&UART0, DXL_ID1, hand_angle);
                 g_debug_manager->debug("Hand raised, work done.\n");
                 *hand_state = HAND_WAITING;  // HAND_IDLE前に1秒待機
                 *state_start_time = get_absolute_time();
@@ -493,7 +493,7 @@ void hand_tick(hand_state_t* hand_state, bool* has_work, absolute_time_t* state_
             if (elapsed_ms >= 150) {
                 *has_work = false;
                 gpio_put(SOLENOID_PIN, 0);
-                control_position(&UART0, DXL_ID1, GRAB_ANGLE);
+                control_position(&UART0, DXL_ID1, hand_angle);
                 g_debug_manager->debug("Hand released\n");
                 *hand_state = HAND_WAITING;  // HAND_IDLE前に1秒待機
                 *state_start_time = get_absolute_time();
@@ -797,7 +797,7 @@ bool initialize_system() {
     sleep_ms(2000);             // 少し待機して安定化
 
     // デバッグマネージャの初期化
-    g_debug_manager = new DebugManager(DebugLevel::ERROR, 0.1f);
+    g_debug_manager = new DebugManager(DebugLevel::INFO, 0.1f);
 
     // 全SPIデバイスの初期化
     while (!init_all_spi_devices()) {
@@ -905,94 +905,94 @@ int main(void) {
     trajectory_waypoint_t work_points[WORK_NUM] = {
         // 一番奥側ロボットから見て左から右へ
         // 1行目
-        trajectory_waypoint_t(3.27f, -0.4703f / gear_radius_P, 0.0f),
-        trajectory_waypoint_t(3.368f, -0.4036f / gear_radius_P, 0.0f),
-        trajectory_waypoint_t(3.536f, -0.3141f / gear_radius_P, 0.0f),
-        trajectory_waypoint_t(3.684f, -0.277f / gear_radius_P, 0.0f),
-        trajectory_waypoint_t(3.932f, -0.2471f / gear_radius_P, 0.0f),
-        trajectory_waypoint_t(4.112f, -0.2436f / gear_radius_P, 0.0f),
-        trajectory_waypoint_t(4.365f, -0.2766f / gear_radius_P, 0.0f),
-        trajectory_waypoint_t(4.519f, -0.3181f / gear_radius_P, 0.0f),
-        trajectory_waypoint_t(4.715f, -0.3986f / gear_radius_P, 0.0f),
-        trajectory_waypoint_t(4.817f, -0.4658f / gear_radius_P, 0.0f),
+        trajectory_waypoint_t(3.407f, -0.4584f / gear_radius_P, 132.10f),
+        trajectory_waypoint_t(3.507f, -0.3872f / gear_radius_P, 126.91f),
+        trajectory_waypoint_t(3.711f, -0.3034f / gear_radius_P, 115.58f),
+        trajectory_waypoint_t(3.858f, -0.2662f / gear_radius_P, 104.94f),
+        trajectory_waypoint_t(4.121f, -0.2349f / gear_radius_P, 92.29f),
+        trajectory_waypoint_t(4.295f, -0.2348f / gear_radius_P, 79.80f),
+        trajectory_waypoint_t(4.544f, -0.2640f / gear_radius_P, 67.32f),
+        trajectory_waypoint_t(4.687f, -0.3081f / gear_radius_P, 57.92f),
+        trajectory_waypoint_t(4.859f, -0.3910f / gear_radius_P, 46.41f),
+        trajectory_waypoint_t(4.960f, -0.4566f / gear_radius_P, 43.42f),
         // 2行目
-        trajectory_waypoint_t(3.164f, -0.3986f / gear_radius_P, 0.0f),
-        trajectory_waypoint_t(3.260f, -0.323f / gear_radius_P, 0.0f),
-        trajectory_waypoint_t(3.442f, -0.2321f / gear_radius_P, 0.0f),
-        trajectory_waypoint_t(3.598f, -0.1860f / gear_radius_P, 0.0f),
-        trajectory_waypoint_t(3.897f, -0.1451f / gear_radius_P, 0.0f),
-        trajectory_waypoint_t(4.113f, -0.1426f / gear_radius_P, 0.0f),
-        trajectory_waypoint_t(4.420f, -0.1784f / gear_radius_P, 0.0f),
-        trajectory_waypoint_t(4.602f, -0.2261f / gear_radius_P, 0.0f),
-        trajectory_waypoint_t(4.806f, -0.3196f / gear_radius_P, 0.0f),
-        trajectory_waypoint_t(4.913f, -0.3954f / gear_radius_P, 0.0f),
+        trajectory_waypoint_t(3.315f, -0.3916f / gear_radius_P, 137.98f),
+        trajectory_waypoint_t(3.419f, -0.3179f / gear_radius_P, 130.43f),
+        trajectory_waypoint_t(3.628f, -0.2194f / gear_radius_P, 117.86f),
+        trajectory_waypoint_t(3.797f, -0.1739f / gear_radius_P, 107.93f),
+        trajectory_waypoint_t(4.102f, -0.1322f / gear_radius_P, 91.67f),
+        trajectory_waypoint_t(4.327f, -0.1343f / gear_radius_P, 79.10f),
+        trajectory_waypoint_t(4.625f, -0.1682f / gear_radius_P, 61.52f),
+        trajectory_waypoint_t(4.785f, -0.2205f / gear_radius_P, 52.73f),
+        trajectory_waypoint_t(4.972f, -0.3138f / gear_radius_P, 39.64f),
+        trajectory_waypoint_t(5.069f, -0.3886f / gear_radius_P, 35.24f),
         // 3行目
-        trajectory_waypoint_t(3.046f, -0.3424f / gear_radius_P, 0.0f),
-        trajectory_waypoint_t(3.130f, -0.2619f / gear_radius_P, 0.0f),
-        trajectory_waypoint_t(3.320f, -0.1520f / gear_radius_P, 0.0f),
-        trajectory_waypoint_t(3.486f, -0.0924f / gear_radius_P, 0.0f),
-        trajectory_waypoint_t(3.846f, -0.0441f / gear_radius_P, 0.0f),
-        trajectory_waypoint_t(4.112f, -0.0438f / gear_radius_P, 0.0f),
-        trajectory_waypoint_t(4.501f, -0.0880f / gear_radius_P, 0.0f),
-        trajectory_waypoint_t(4.701f, -0.1516f / gear_radius_P, 0.0f),
-        trajectory_waypoint_t(4.915f, -0.2591f / gear_radius_P, 0.0f),
-        trajectory_waypoint_t(5.021f, -0.3384f / gear_radius_P, 0.0f),
+        trajectory_waypoint_t(3.203f, -0.3313f / gear_radius_P, 142.82f),
+        trajectory_waypoint_t(3.303f, -0.2523f / gear_radius_P, 137.55f),
+        trajectory_waypoint_t(3.527f, -0.1428f / gear_radius_P, 124.19f),
+        trajectory_waypoint_t(3.713f, -0.0834f / gear_radius_P, 113.29f),
+        trajectory_waypoint_t(4.105f, -0.0379f / gear_radius_P, 90.0f),
+        trajectory_waypoint_t(4.378f, -0.0357f / gear_radius_P, 75.59f),
+        trajectory_waypoint_t(4.735f, -0.0829f / gear_radius_P, 55.28f),
+        trajectory_waypoint_t(4.908f, -0.1413f / gear_radius_P, 45.70f),
+        trajectory_waypoint_t(5.096f, -0.2512f / gear_radius_P, 33.75f),
+        trajectory_waypoint_t(5.181f, -0.3315f / gear_radius_P, 28.74f),
         // 4行目（ロボットに一番近い行）
-        trajectory_waypoint_t(2.899f, -0.2917f / gear_radius_P, 0.0f),
-        trajectory_waypoint_t(2.979f, -0.2038f / gear_radius_P, 0.0f),
-        trajectory_waypoint_t(3.140f, -0.0807f / gear_radius_P, 0.0f),
-        trajectory_waypoint_t(3.319f, -0.0107f / gear_radius_P, 0.0f),
-        trajectory_waypoint_t(3.766f, -0.0365f / gear_radius_P, 0.0f),  // 本当はP軸の値が＋
-        trajectory_waypoint_t(4.132f, -0.0365f / gear_radius_P, 0.0f),  // 本当はP軸の値が＋
-        trajectory_waypoint_t(4.620f, -0.0086f / gear_radius_P, 0.0f),
-        trajectory_waypoint_t(4.849f, -0.0749f / gear_radius_P, 0.0f),
-        trajectory_waypoint_t(5.067f, -0.1997f / gear_radius_P, 0.0f),
-        trajectory_waypoint_t(5.151f, -0.2896f / gear_radius_P, 0.0f),
+        trajectory_waypoint_t(3.075f, -0.2835f / gear_radius_P, 149.77f),
+        trajectory_waypoint_t(3.165f, -0.1925f / gear_radius_P, 146.07f),
+        trajectory_waypoint_t(3.377f, -0.0687f / gear_radius_P, 132.36f),
+        trajectory_waypoint_t(3.590f, -0.0029f / gear_radius_P, 120.94f),
+        trajectory_waypoint_t(3.766f, -0.0365f / gear_radius_P, 90.0f),  // ダミーデータ
+        trajectory_waypoint_t(4.132f, -0.0365f / gear_radius_P, 75.0f),  // ダミーデータ
+        trajectory_waypoint_t(4.904f, -0.0024f / gear_radius_P, 45.26f),
+        trajectory_waypoint_t(5.090f, -0.0716f / gear_radius_P, 33.84f),
+        trajectory_waypoint_t(5.252f, -0.1933f / gear_radius_P, 25.75f),
+        trajectory_waypoint_t(5.327f, -0.2841f / gear_radius_P, 18.81f),
     };
     trajectory_waypoint_t shooting_points[WORK_NUM] = {
-        trajectory_waypoint_t(2.380f, -0.5645f / gear_radius_P, 0.0f),
-        trajectory_waypoint_t(2.380f, -0.5645f / gear_radius_P, 0.0f),
-        trajectory_waypoint_t(2.380f, -0.5645f / gear_radius_P, 0.0f),
-        trajectory_waypoint_t(2.380f, -0.5645f / gear_radius_P, 0.0f),
-        trajectory_waypoint_t(2.380f, -0.5645f / gear_radius_P, 0.0f),
-        trajectory_waypoint_t(2.380f, -0.5645f / gear_radius_P, 0.0f),
-        trajectory_waypoint_t(2.380f, -0.5645f / gear_radius_P, 0.0f),
-        trajectory_waypoint_t(2.380f, -0.5645f / gear_radius_P, 0.0f),
-        trajectory_waypoint_t(2.380f, -0.5645f / gear_radius_P, 0.0f),
-        trajectory_waypoint_t(2.380f, -0.5645f / gear_radius_P, 0.0f),
+        trajectory_waypoint_t(2.380f, -0.5645f / gear_radius_P, 90.0f),
+        trajectory_waypoint_t(2.380f, -0.5645f / gear_radius_P, 90.0f),
+        trajectory_waypoint_t(2.380f, -0.5645f / gear_radius_P, 90.0f),
+        trajectory_waypoint_t(2.380f, -0.5645f / gear_radius_P, 90.0f),
+        trajectory_waypoint_t(2.380f, -0.5645f / gear_radius_P, 90.0f),
+        trajectory_waypoint_t(2.380f, -0.5645f / gear_radius_P, 90.0f),
+        trajectory_waypoint_t(2.380f, -0.5645f / gear_radius_P, 90.0f),
+        trajectory_waypoint_t(2.380f, -0.5645f / gear_radius_P, 90.0f),
+        trajectory_waypoint_t(2.380f, -0.5645f / gear_radius_P, 90.0f),
+        trajectory_waypoint_t(2.380f, -0.5645f / gear_radius_P, 90.0f),
 
-        trajectory_waypoint_t(2.380f, -0.5645f / gear_radius_P, 0.0f),
-        trajectory_waypoint_t(2.380f, -0.5645f / gear_radius_P, 0.0f),
-        trajectory_waypoint_t(2.380f, -0.5645f / gear_radius_P, 0.0f),
-        trajectory_waypoint_t(2.380f, -0.5645f / gear_radius_P, 0.0f),
-        trajectory_waypoint_t(2.380f, -0.5645f / gear_radius_P, 0.0f),
-        trajectory_waypoint_t(2.380f, -0.5645f / gear_radius_P, 0.0f),
-        trajectory_waypoint_t(2.380f, -0.5645f / gear_radius_P, 0.0f),
-        trajectory_waypoint_t(2.380f, -0.5645f / gear_radius_P, 0.0f),
-        trajectory_waypoint_t(2.380f, -0.5645f / gear_radius_P, 0.0f),
-        trajectory_waypoint_t(2.380f, -0.5645f / gear_radius_P, 0.0f),
+        trajectory_waypoint_t(2.380f, -0.5645f / gear_radius_P, 90.0f),
+        trajectory_waypoint_t(2.380f, -0.5645f / gear_radius_P, 90.0f),
+        trajectory_waypoint_t(2.380f, -0.5645f / gear_radius_P, 90.0f),
+        trajectory_waypoint_t(2.380f, -0.5645f / gear_radius_P, 90.0f),
+        trajectory_waypoint_t(2.380f, -0.5645f / gear_radius_P, 90.0f),
+        trajectory_waypoint_t(2.380f, -0.5645f / gear_radius_P, 90.0f),
+        trajectory_waypoint_t(2.380f, -0.5645f / gear_radius_P, 90.0f),
+        trajectory_waypoint_t(2.380f, -0.5645f / gear_radius_P, 90.0f),
+        trajectory_waypoint_t(2.380f, -0.5645f / gear_radius_P, 90.0f),
+        trajectory_waypoint_t(2.380f, -0.5645f / gear_radius_P, 90.0f),
 
-        trajectory_waypoint_t(2.380f, -0.5645f / gear_radius_P, 0.0f),
-        trajectory_waypoint_t(2.380f, -0.5645f / gear_radius_P, 0.0f),
-        trajectory_waypoint_t(2.380f, -0.5645f / gear_radius_P, 0.0f),
-        trajectory_waypoint_t(2.380f, -0.5645f / gear_radius_P, 0.0f),
-        trajectory_waypoint_t(2.380f, -0.5645f / gear_radius_P, 0.0f),
-        trajectory_waypoint_t(2.380f, -0.5645f / gear_radius_P, 0.0f),
-        trajectory_waypoint_t(2.380f, -0.5645f / gear_radius_P, 0.0f),
-        trajectory_waypoint_t(2.380f, -0.5645f / gear_radius_P, 0.0f),
-        trajectory_waypoint_t(2.380f, -0.5645f / gear_radius_P, 0.0f),
-        trajectory_waypoint_t(2.380f, -0.5645f / gear_radius_P, 0.0f),
+        trajectory_waypoint_t(2.380f, -0.5645f / gear_radius_P, 90.0f),
+        trajectory_waypoint_t(2.380f, -0.5645f / gear_radius_P, 90.0f),
+        trajectory_waypoint_t(2.380f, -0.5645f / gear_radius_P, 90.0f),
+        trajectory_waypoint_t(2.380f, -0.5645f / gear_radius_P, 90.0f),
+        trajectory_waypoint_t(2.380f, -0.5645f / gear_radius_P, 90.0f),
+        trajectory_waypoint_t(2.380f, -0.5645f / gear_radius_P, 90.0f),
+        trajectory_waypoint_t(2.380f, -0.5645f / gear_radius_P, 90.0f),
+        trajectory_waypoint_t(2.380f, -0.5645f / gear_radius_P, 90.0f),
+        trajectory_waypoint_t(2.380f, -0.5645f / gear_radius_P, 90.0f),
+        trajectory_waypoint_t(2.380f, -0.5645f / gear_radius_P, 90.0f),
 
-        trajectory_waypoint_t(2.380f, -0.5645f / gear_radius_P, 0.0f),
-        trajectory_waypoint_t(2.380f, -0.5645f / gear_radius_P, 0.0f),
-        trajectory_waypoint_t(2.380f, -0.5645f / gear_radius_P, 0.0f),
-        trajectory_waypoint_t(2.380f, -0.5645f / gear_radius_P, 0.0f),
-        trajectory_waypoint_t(2.380f, -0.5645f / gear_radius_P, 0.0f),
-        trajectory_waypoint_t(2.380f, -0.5645f / gear_radius_P, 0.0f),
-        trajectory_waypoint_t(2.380f, -0.5645f / gear_radius_P, 0.0f),
-        trajectory_waypoint_t(2.380f, -0.5645f / gear_radius_P, 0.0f),
-        trajectory_waypoint_t(2.380f, -0.5645f / gear_radius_P, 0.0f),
-        trajectory_waypoint_t(2.380f, -0.5645f / gear_radius_P, 0.0f),
+        trajectory_waypoint_t(2.380f, -0.5645f / gear_radius_P, 90.0f),
+        trajectory_waypoint_t(2.380f, -0.5645f / gear_radius_P, 90.0f),
+        trajectory_waypoint_t(2.380f, -0.5645f / gear_radius_P, 90.0f),
+        trajectory_waypoint_t(2.380f, -0.5645f / gear_radius_P, 90.0f),
+        trajectory_waypoint_t(2.380f, -0.5645f / gear_radius_P, 90.0f),
+        trajectory_waypoint_t(2.380f, -0.5645f / gear_radius_P, 90.0f),
+        trajectory_waypoint_t(2.380f, -0.5645f / gear_radius_P, 90.0f),
+        trajectory_waypoint_t(2.380f, -0.5645f / gear_radius_P, 90.0f),
+        trajectory_waypoint_t(2.380f, -0.5645f / gear_radius_P, 90.0f),
+        trajectory_waypoint_t(2.380f, -0.5645f / gear_radius_P, 90.0f),
     };
     TrajectorySequenceManager* seq_manager = new TrajectorySequenceManager(g_debug_manager);
     trajectory_waypoint_t all_waypoints[2 * WORK_NUM];
@@ -1051,7 +1051,8 @@ int main(void) {
 
                 case TRAJECTORY_HANDLING:
                     // ハンド動作中
-                    hand_tick(&hand_state, &has_work, &hand_timer);
+                    int seq_index = seq_manager->get_current_waypoint_index();
+                    hand_tick(&hand_state, &has_work, &hand_timer, all_waypoints[seq_index].end_effector_angle);
                     if (hand_state == HAND_IDLE) {
                         // ハンド動作完了 → 次の軌道へ
                         if (seq_manager->is_sequence_active()) {
