@@ -162,16 +162,21 @@ namespace DynamixelConfig {
 constexpr int PUMP_PIN = 4;
 constexpr int SOLENOID_PIN = 3;
 
-// dynamixelの初期化角度　
-constexpr float START_HAND_ANGLE = 90.0f;
-constexpr int32_t START_UP_ANGLE = 0xFFFFE6B0;  // 上段
+constexpr uint16_t LIFT_CURRENT_LIMIT = 1000;  // 電流制限 [mA]
+constexpr uint16_t HAND_CURRENT_LIMIT = 1000;  // 電流制限 [mA]
 
-// 手先のdynamixcelの角度定数 0~360°
-constexpr float GRAB_ANGLE = 88.51f;
-constexpr float RELEASE_ANGLE = GRAB_ANGLE + 90.0f;  // 仮
-// 昇降用dynamixcelの角度定数　
-constexpr int32_t UP_ANGLE = 0xFFFFE6B0;  // 下段 -4100 上段 -6480
-constexpr int32_t DOWN_ANGLE = 0x0D70;    // 3440
+// 昇降機構用角度
+namespace LiftAngle {
+constexpr int32_t SHOOT_UP = 0xFFFFE6B0;  // シューティングエリア上段 -6480
+constexpr int32_t SHOOT_DOWN = -4100;     // シューティングエリア下段
+constexpr int32_t PRE_CATCH = 3000;       // ワークをつかむ前の高さ
+constexpr int32_t CATCH = 0x0D70;         // ワークをつかむときの高さ 3440
+}  // namespace LiftAngle
+
+// 手先角度
+namespace HandAngle {
+constexpr float START = 90.0f;
+}  // namespace HandAngle
 
 // dynamixelのID
 constexpr short DXL_ID1 = 0x01;  // 手先
