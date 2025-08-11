@@ -426,14 +426,14 @@ void get_safe_trajectory_targets(float current_pos_R, float current_pos_P,
         // 軌道データ終了後
         *traj_pos_R = g_trajectory_data.final_target_R;
         *traj_pos_P = g_trajectory_data.final_target_P;
-        *traj_vel_R = 0.0;
-        *traj_vel_P = 0.0;
+        *traj_vel_R = 0.0f;
+        *traj_vel_P = 0.0f;
     } else {
         // 軌道停止時
         *traj_pos_R = current_pos_R;
         *traj_pos_P = current_pos_P;
-        *traj_vel_R = 0.0;
-        *traj_vel_P = 0.0;
+        *traj_vel_R = 0.0f;
+        *traj_vel_P = 0.0f;
     }
 }
 
@@ -498,16 +498,16 @@ void core1_entry(void) {
         float current_time_s = absolute_time_diff_us(control_start_time, control_timing.loop_start_time) / 1000000.0f;
 
         // --- エンコーダ読み取り処理 ---
-        float motor_position_R = 0.0, motor_position_P = 0.0;
-        float motor_velocity_R = 0.0, motor_velocity_P = 0.0;
+        float motor_position_R = 0.0f, motor_position_P = 0.0f;
+        float motor_velocity_R = 0.0f, motor_velocity_P = 0.0f;
         bool enc1_ok = encoder_manager.read_encoder(0);  // エンコーダ0 (R軸)
         bool enc2_ok = encoder_manager.read_encoder(1);  // エンコーダ1 (P軸)
 
         // エンコーダデータの取得
-        float encoder_r_angle_deg = 0.0;
+        float encoder_r_angle_deg = 0.0f;
         int16_t encoder_p_turn_count = 0;
-        float encoder_p_single_angle_deg = 0.0;
-        float encoder_p_continuous_angle_rad = 0.0;
+        float encoder_p_single_angle_deg = 0.0f;
+        float encoder_p_continuous_angle_rad = 0.0f;
 
         if (enc1_ok) {
             motor_position_R = encoder_manager.get_encoder_angle_rad(0) * Mech::ENCODER_R_DIRECTION;
@@ -527,7 +527,7 @@ void core1_entry(void) {
         }
 
         // // --- モータフィードバック受信 ---
-        // float motor_velocity_R = 0.0, motor_velocity_P = 0.0;
+        // float motor_velocity_R = 0.0, motor_velocity_P = 0.0f;
         // if (motor1.receive_feedback()) {
         //     // motor_position_R = motor1.get_continuous_angle() * MOTOR_R_DIRECTION; //  位置は外付けエンコーダの方を使う
         //     motor_velocity_R = motor1.get_angular_velocity();
@@ -562,10 +562,10 @@ void core1_entry(void) {
         // --- 軌道データベースの制御計算 ---
         float trajectory_target_pos_R = motor_position_R;  // デフォルトは現在位置
         float trajectory_target_pos_P = motor_position_P;
-        float trajectory_target_vel_R = 0.0;
-        float trajectory_target_vel_P = 0.0;
-        float trajectory_target_accel_R = 0.0;
-        float trajectory_target_accel_P = 0.0;
+        float trajectory_target_vel_R = 0.0f;
+        float trajectory_target_vel_P = 0.0f;
+        float trajectory_target_accel_R = 0.0f;
+        float trajectory_target_accel_P = 0.0f;
 
         // 軌道データから目標値を取得
         mutex_enter_blocking(&g_trajectory_mutex);
@@ -588,10 +588,10 @@ void core1_entry(void) {
                 // 最終目標位置を設定し、位置到達判定モードに移行
                 trajectory_target_pos_R = g_trajectory_data.final_target_R;
                 trajectory_target_pos_P = g_trajectory_data.final_target_P;
-                trajectory_target_vel_R = 0.0;
-                trajectory_target_vel_P = 0.0;
-                trajectory_target_accel_R = 0.0;
-                trajectory_target_accel_P = 0.0;
+                trajectory_target_vel_R = 0.0f;
+                trajectory_target_vel_P = 0.0f;
+                trajectory_target_accel_R = 0.0f;
+                trajectory_target_accel_P = 0.0f;
 
                 // 位置到達判定
                 float position_error_R = std::abs(g_trajectory_data.final_target_R - motor_position_R);
@@ -613,11 +613,11 @@ void core1_entry(void) {
         } else if (!g_trajectory_data.active) {
             // 軌道停止時は現在位置を保持
             trajectory_target_pos_R = motor_position_R;
-            trajectory_target_vel_R = 0.0;
-            trajectory_target_accel_R = 0.0;
+            trajectory_target_vel_R = 0.0f;
+            trajectory_target_accel_R = 0.0f;
             trajectory_target_pos_P = motor_position_P;
-            trajectory_target_vel_P = 0.0;
-            trajectory_target_accel_P = 0.0;
+            trajectory_target_vel_P = 0.0f;
+            trajectory_target_accel_P = 0.0f;
         }
         mutex_exit(&g_trajectory_mutex);
 
@@ -651,8 +651,8 @@ void core1_entry(void) {
         // // トルクから電流への変換
         target_current[0] = target_torque_R / Mech::R_TORQUE_CONSTANT;  // Motor1 (R軸)
         target_current[1] = target_torque_P / Mech::P_TORQUE_CONSTANT;  // Motor2 (P軸)
-        // target_current[0] = 0.0;                                  // Motor1 (R軸)
-        // target_current[1] = 0.0;                                  // Motor2 (P軸)
+        // target_current[0] = 0.0f;                                  // Motor1 (R軸)
+        // target_current[1] = 0.0f;                                  // Motor2 (P軸)
 
         // --- 制御結果を共有データに保存 ---
         mutex_enter_blocking(&g_state_mutex);
@@ -735,34 +735,34 @@ bool initialize_system() {
     g_trajectory_data.current_index = 0;
     g_trajectory_data.active = false;
     g_trajectory_data.complete = false;
-    g_trajectory_data.final_target_R = 0.0;
-    g_trajectory_data.final_target_P = 0.0;
+    g_trajectory_data.final_target_R = 0.0f;
+    g_trajectory_data.final_target_P = 0.0f;
     g_trajectory_data.position_reached = false;
 
     // 制御初期値
-    g_robot_state.current_position_R = 0.0;
-    g_robot_state.current_position_P = 0.0;
-    g_robot_state.current_velocity_R = 0.0;
-    g_robot_state.current_velocity_P = 0.0;
-    g_robot_state.target_velocity_R = 0.0;
-    g_robot_state.target_velocity_P = 0.0;
-    g_robot_state.target_torque_R = 0.0;
-    g_robot_state.target_torque_P = 0.0;
+    g_robot_state.current_position_R = 0.0f;
+    g_robot_state.current_position_P = 0.0f;
+    g_robot_state.current_velocity_R = 0.0f;
+    g_robot_state.current_velocity_P = 0.0f;
+    g_robot_state.target_velocity_R = 0.0f;
+    g_robot_state.target_velocity_P = 0.0f;
+    g_robot_state.target_torque_R = 0.0f;
+    g_robot_state.target_torque_P = 0.0f;
 
     // エンコーダ詳細情報の初期化
     g_robot_state.encoder_p_turn_count = 0;
-    g_robot_state.encoder_p_single_angle_deg = 0.0;
-    g_robot_state.encoder_p_continuous_angle_rad = 0.0;
-    g_robot_state.encoder_r_angle_deg = 0.0;
+    g_robot_state.encoder_p_single_angle_deg = 0.0f;
+    g_robot_state.encoder_p_continuous_angle_rad = 0.0f;
+    g_robot_state.encoder_r_angle_deg = 0.0f;
     g_robot_state.encoder_r_valid = false;
     g_robot_state.encoder_p_valid = false;
 
     // 現在時間の初期化
-    g_robot_state.current_time = 0.0;
+    g_robot_state.current_time = 0.0f;
 
     // デバッグ情報の初期化
-    g_robot_state.target_current_R = 0.0;
-    g_robot_state.target_current_P = 0.0;
+    g_robot_state.target_current_R = 0.0f;
+    g_robot_state.target_current_P = 0.0f;
     g_robot_state.timing_violation_count = 0;
     g_robot_state.led_status = LED_OFF;
     g_robot_state.can_error_count = 0;
@@ -783,7 +783,7 @@ int main(void) {
     // Core1の初期化完了を待つ
     sleep_ms(1000);
     g_debug_manager->info("MCP25625 Initialized successfully!");
-    g_debug_manager->info("Starting control loop at %.1f ms (%.0f Hz)", Mc::CONTROL_PERIOD_MS, 1000.0 / Mc::CONTROL_PERIOD_MS);
+    g_debug_manager->info("Starting control loop at %.1f ms (%.0f Hz)", Mc::CONTROL_PERIOD_MS, 1000.0f / Mc::CONTROL_PERIOD_MS);
     g_debug_manager->info("Core sync enabled: Core0 processes every %d Core1 loops (%.1f ms)", Mc::SYNC_EVERY_N_LOOPS, Mc::CONTROL_PERIOD_MS * Mc::SYNC_EVERY_N_LOOPS);
 
     // Core0メインループのカウンタ
@@ -974,7 +974,7 @@ int main(void) {
         // 通常の状態監視とデバッグ出力（同期信号受信時のみ）
         if (signal == Mc::SYNC_SIGNAL) {
             // 現在時刻を再取得
-            float current_main_time = 0.0;
+            float current_main_time = 0.0f;
             mutex_enter_blocking(&g_state_mutex);
             current_main_time = g_robot_state.current_time;
 
@@ -1033,7 +1033,7 @@ int main(void) {
                 g_debug_manager->debug("Core0 sync count: %d (every %d Core1 loops)", core0_loop_count, Mc::SYNC_EVERY_N_LOOPS);
 
                 // 軌道完了状況の詳細情報を取得
-                float trajectory_final_target_R = 0.0, trajectory_final_target_P = 0.0;
+                float trajectory_final_target_R = 0.0f, trajectory_final_target_P = 0.0f;
                 bool trajectory_position_reached = false;
                 int trajectory_current_index = 0, trajectory_point_count = 0;
 

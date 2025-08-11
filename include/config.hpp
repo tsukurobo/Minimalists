@@ -22,6 +22,8 @@
 #include "robomaster_motor.hpp"
 #include "trajectory_sequence_manager.hpp"
 
+constexpr float PI_F = 3.14159265358979323846f;
+
 // 軌道データ点の構造体（制御用の詳細軌道）
 typedef struct {
     float position_R;      // R軸目標位置 [rad]
@@ -50,8 +52,8 @@ namespace MicrocontrollerConfig {
 constexpr int SHUTDOWN_PIN = 27;  // 明示的にLOWにしないとPicoが動かない
 
 // 制御周期定数
-constexpr float CONTROL_PERIOD_MS = 0.5;                        // 制御周期 [ms]
-constexpr float CONTROL_PERIOD_S = CONTROL_PERIOD_MS / 1000.0;  // 制御周期 [s]
+constexpr float CONTROL_PERIOD_MS = 0.5f;                        // 制御周期 [ms]
+constexpr float CONTROL_PERIOD_S = CONTROL_PERIOD_MS / 1000.0f;  // 制御周期 [s]
 
 // Core間同期設定
 constexpr int SYNC_EVERY_N_LOOPS = 200;             // 200ループごとにCore0に同期信号を送信
@@ -81,8 +83,8 @@ constexpr float R_MAX_TORQUE = /*3.0f*/ 1.0f * gear_ratio_R;                // R
 constexpr float P_MAX_TORQUE = 1.0f * gear_ratio_P;                         // P軸最大トルク制限 [Nm] (M2006最大連続トルク 1.0Nm)
 constexpr float R_MAX_ACCELERATION = R_MAX_TORQUE / R_EQ_INERTIA;           // R軸最大角加速度 [rad/s^2]
 constexpr float P_MAX_ACCELERATION = P_MAX_TORQUE / P_EQ_INERTIA;           // P軸最大角加速度 [rad/s^2]
-constexpr float R_MAX_VELOCITY = 469.0 / 60.0 * 2.0 * M_PI / gear_ratio_R;  // R軸最大速度制限 [rad/s] Maximum speed at 3N•m: 469rpm
-constexpr float P_MAX_VELOCITY = 416.0 / 60.0 * 2.0 * M_PI / gear_ratio_P;  // P軸最大速度制限 [rad/s] Maximum speed at 1N•m: 416 rpm
+constexpr float R_MAX_VELOCITY = 469.0 / 60.0 * 2.0 * PI_F / gear_ratio_R;  // R軸最大速度制限 [rad/s] Maximum speed at 3N•m: 469rpm
+constexpr float P_MAX_VELOCITY = 416.0 / 60.0 * 2.0 * PI_F / gear_ratio_P;  // P軸最大速度制限 [rad/s] Maximum speed at 1N•m: 416 rpm
 
 // モータとエンコーダの符号補正設定
 constexpr float ENCODER_R_DIRECTION = 1.0f;  // R軸エンコーダの増加方向補正 (+1.0 or -1.0) 正入力で右回り、右回りでエンコーダ値が増加

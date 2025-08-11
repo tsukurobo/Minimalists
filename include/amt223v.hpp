@@ -50,7 +50,7 @@ class AMT223V {
     static const uint16_t TURN_MASK = 0x3FFF;    // 14ビット回転数マスク
 
    public:
-    static constexpr float COUNTS_PER_REV = 16384.0;  // 2^14 = 16384 counts per revolution
+    static constexpr float COUNTS_PER_REV = 16384.0f;  // 2^14 = 16384 counts per revolution
     /**
      * @brief コンストラクタ
      * @param spi_instance SPI インスタンス

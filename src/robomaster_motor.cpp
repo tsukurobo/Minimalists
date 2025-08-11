@@ -9,7 +9,7 @@ bool send_all_motor_currents(mcp25625_t* can, float currents[4]) {
     // 4モータ分をパック
     for (int i = 0; i < 4; ++i) {
         // 変換式はrobomaster_motor_t::current_to_rawと同じ
-        int16_t raw = (int16_t)(currents[i] / (20.0 / 16384.0));
+        int16_t raw = (int16_t)(currents[i] / (20.0f / 16384.0f));
         tx_frame.data[i * 2] = (uint8_t)(raw >> 8);
         tx_frame.data[i * 2 + 1] = (uint8_t)(raw);
     }
@@ -84,7 +84,7 @@ float robomaster_motor_t::update_encoder_angle(int16_t encoder_raw) {
 
 float robomaster_motor_t::rpm_to_angular_velocity(int16_t rpm) {
     // RPMをラジアン/秒に変換（ギア比を考慮）
-    angular_velocity_ = rpm * 2.0 * 3.14159265359 / 60.0 / gear_ratio_;
+    angular_velocity_ = rpm * 2.0f * 3.14159265359f / 60.0f / gear_ratio_;
     return angular_velocity_;
 }
 
@@ -100,6 +100,6 @@ int16_t robomaster_motor_t::current_to_raw(float current_amp) {
 
 void robomaster_motor_t::reset_encoder() {
     encoder_turns_ = 0;
-    continuous_angle_ = 0.0;
+    continuous_angle_ = 0.0f;
     // 注意: prev_encoder_raw_はリセットしない（現在の生値を保持）
 }
