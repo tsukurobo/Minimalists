@@ -165,7 +165,7 @@ bool calculate_trajectory_core0(
         has_intermediate = true;
     }
 
-    ruckig::Ruckig<2> otg(Mc::CONTROL_PERIOD_S);  // 2軸のRuckigオブジェクトを作成
+    ruckig::Ruckig<2> otg(Traj::TRAJECTORY_CONTROL_PERIOD);  // 2軸のRuckigオブジェクトを作成
     ruckig::InputParameter<2> input;
     ruckig::OutputParameter<2> output_intermediate;
     ruckig::InputParameter<2> input_intermediate;
@@ -580,8 +580,12 @@ void core1_entry(void) {
                 trajectory_target_vel_P = g_trajectory_data.points[idx].velocity_P;
                 trajectory_target_accel_P = g_trajectory_data.points[idx].acceleration_P;
 
-                // インデックスを進める
-                g_trajectory_data.current_index++;
+                // Core1が10回回るごとに軌道インデックスを1だけ進める
+                static float last_trajectory_update_time = current_time_s;  // 最後の軌道更新時刻
+                if (current_time_s - last_trajectory_update_time >= Traj::TRAJECTORY_CONTROL_PERIOD) {
+                    g_trajectory_data.current_index++;
+                    last_trajectory_update_time = current_time_s;
+                }
 
                 // 軌道の時系列が完了した場合、位置ベースの完了判定に移行
             } else if (g_trajectory_data.current_index >= g_trajectory_data.point_count) {
@@ -667,7 +671,6 @@ void core1_entry(void) {
         // --- CAN送信処理 ---
         if (!send_all_motor_currents(&can, target_current)) {
             // CAN送信失敗時のみエラーカウンタを更新
-            g_debug_manager->error("Core1: CAN send failed, incrementing error count");
             mutex_enter_blocking(&g_state_mutex);
             g_robot_state.can_error_count++;
             mutex_exit(&g_state_mutex);
@@ -681,7 +684,7 @@ void core1_entry(void) {
             // FIFOに同期信号を送信（ノンブロッキング）
             if (!multicore_fifo_push_timeout_us(Mc::SYNC_SIGNAL, 0)) {
                 // FIFO満杯の場合は何もしない（次回再試行）
-                printf("Core1: Failed to push sync signal to Core0 FIFO");
+                printf("Core1: Failed to push sync signal to Core0 FIFO\n");
             }
         }
 
