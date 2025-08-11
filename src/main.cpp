@@ -16,7 +16,7 @@ const spi_config_t SPI1_CONFIG = {
     .num_cs_pins = 3,     // CSピン数
     .pin_sck = 10,
     .pin_mosi = 11,
-    .pin_rst = -1  // リセットピンは使用しない,
+    .pin_rst = -1  // リセットピンは使用しない
 };
 
 // MCP25625オブジェクトを作成（CAN SPI設定を使用）
