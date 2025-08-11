@@ -43,7 +43,6 @@ add_executable(minimalists
         src/main.cpp
         src/mcp25625.cpp
         src/amt223v.cpp
-        src/pid_controller.cpp
         src/robomaster_motor.cpp
         src/control_timing.cpp
         src/debug_manager.cpp

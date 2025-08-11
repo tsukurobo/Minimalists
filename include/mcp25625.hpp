@@ -87,10 +87,10 @@ class mcp25625_t {
     /**
      * @brief MCP25625の初期化
      * @param speed CAN通信速度
-     * @param clock_mhz クロック周波数（MHz）（2025/07/06現在は16MHzしか対応していません）
+     * @note クロック周波数は16MHzしか対応していません（2025/08/11現在）
      * @return true:成功, false:失敗
      */
-    bool init(CAN_SPEED speed, uint32_t clock_mhz = 16);
+    bool init(CAN_SPEED speed);
 
     /**
      * @brief CANメッセージの送信
@@ -134,7 +134,7 @@ class mcp25625_t {
     bool _set_mode(uint8_t mode);
 
     // ビットタイミング設定
-    bool _set_bit_timing(CAN_SPEED speed, uint32_t clock_mhz);
+    bool _set_bit_timing(CAN_SPEED speed);
 
     spi_inst_t* _spi;  ///< SPIインスタンス
     uint8_t _cs_pin;   ///< チップセレクトピン

@@ -19,7 +19,22 @@ const uint8_t AMT223V::CMD_READ_MULTITURN[4] = {0x00, 0xA0, 0x00, 0x00};
 const uint8_t AMT223V::CMD_SET_ZERO[2] = {0x00, 0x70};
 
 AMT223V::AMT223V(spi_inst_t* spi_instance, float velocity_cutoff_freq, int chip_select_pin, bool multiturn_support)
-    : spi_port(spi_instance), velocity_filter(velocity_cutoff_freq), cs_pin(chip_select_pin), raw_angle(0), angle_rad(0.0), angle_deg(0.0), is_multiturn(multiturn_support), turn_count(0), initial_turn_count(0), continuous_angle_rad(0.0), continuous_angle_deg(0.0), previous_angle_rad(0.0), angular_velocity_rad(0.0), angular_velocity_deg(0.0), previous_time_us(0), velocity_initialized(false) {
+    : spi_port(spi_instance),
+      cs_pin(chip_select_pin),
+      raw_angle(0),
+      angle_rad(0.0f),
+      angle_deg(0.0f),
+      is_multiturn(multiturn_support),
+      turn_count(0),
+      initial_turn_count(0),
+      continuous_angle_rad(0.0f),
+      continuous_angle_deg(0.0f),
+      previous_angle_rad(0.0f),
+      angular_velocity_rad(0.0f),
+      angular_velocity_deg(0.0f),
+      previous_time_us(0),
+      velocity_initialized(false),
+      velocity_filter(velocity_cutoff_freq) {
 }
 
 bool AMT223V::init() {

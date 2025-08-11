@@ -178,8 +178,6 @@ bool calculate_trajectory_core0(
     // 進行方向判定
     bool is_forward_R = current_position[0] < target_position[0];
     bool is_forward_P = current_position[1] < target_position[1];
-    bool has_intermediate_R = !std::isnan(intermediate_position[0]);
-    bool has_intermediate_P = !std::isnan(intermediate_position[1]);
     // R軸加速度
     double accel_R = is_forward_R ? ACCEL_R : DECEL_R;
     double decel_R = is_forward_R ? DECEL_R : ACCEL_R;

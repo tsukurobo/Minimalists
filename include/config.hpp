@@ -19,7 +19,6 @@
 #include "pico/multicore.h"
 #include "pico/mutex.h"
 #include "pico/stdlib.h"
-#include "pid_controller.hpp"
 #include "robomaster_motor.hpp"
 #include "trajectory_sequence_manager.hpp"
 

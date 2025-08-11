@@ -41,7 +41,7 @@ void uart_clear_rx_buffer_safe(const uart_config_t* config) {
     const int max_clear = 64;
 
     while (uart_is_readable(config->uart_number) && count < max_clear) {
-        int c = uart_getc(config->uart_number);
+        // int c = uart_getc(config->uart_number);
         count++;
         // printf("int value: %d\n", c);
         tight_loop_contents();
@@ -76,7 +76,7 @@ void send_packet(const uart_config_t* config, const uint8_t* data, size_t length
 
 int receive_packet(const uart_config_t* config, uint8_t* rx_buf, size_t expected_len) {
     // 先頭を探す（0xFF 0xFF 0xFD 0x00）
-    uint8_t header[4];
+    uint8_t header[4] = {0};
     int sync_found = 0;
 
     absolute_time_t timeout = make_timeout_time_ms(10);

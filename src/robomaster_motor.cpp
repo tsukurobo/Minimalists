@@ -18,13 +18,13 @@ bool send_all_motor_currents(mcp25625_t* can, float currents[4]) {
 }
 
 robomaster_motor_t::robomaster_motor_t(mcp25625_t* can, int16_t motor_id, float gear_ratio)
-    : can_(can),
-      motor_id_(motor_id),
-      gear_ratio_(gear_ratio),
-      prev_encoder_raw_(0),
+    : prev_encoder_raw_(0),
       encoder_turns_(0),
-      continuous_angle_(0.0),
-      angular_velocity_(0.0) {}
+      continuous_angle_(0.0f),
+      angular_velocity_(0.0f),
+      gear_ratio_(gear_ratio),
+      motor_id_(motor_id),
+      can_(can) {}
 
 bool robomaster_motor_t::send_current(float current_amp) {
     can_frame_t tx_frame;
@@ -44,11 +44,11 @@ bool robomaster_motor_t::send_current(float current_amp) {
 bool robomaster_motor_t::receive_feedback() {
     can_frame_t rx_frame;
     if (!can_->read_can_message(&rx_frame)) return false;
-    if (rx_frame.can_id != (0x200 + motor_id_)) return false;
+    if (rx_frame.can_id != static_cast<uint32_t>(0x200 + motor_id_)) return false;
 
     int16_t angle_raw = (rx_frame.data[0] << 8) | rx_frame.data[1];
     int16_t rpm = (rx_frame.data[2] << 8) | rx_frame.data[3];
-    int16_t current_raw = (rx_frame.data[4] << 8) | rx_frame.data[5];
+    // int16_t current_raw = (rx_frame.data[4] << 8) | rx_frame.data[5];
     // int8_t temperature = rx_frame.data[6]; // 必要なら保存
 
     update_encoder_angle(angle_raw);
