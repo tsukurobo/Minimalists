@@ -1,8 +1,14 @@
 
 #include "config.hpp"
 
+namespace Mc = MicrocontrollerConfig;
+namespace Mech = MechanismConfig;
+namespace Traj = TrajectoryConfig;
+namespace Ctrl = ControlConfig;
+namespace Dxl = DynamixelConfig;
+
 // CAN IC用SPI設定
-static const spi_config_t spi1_config = {
+const spi_config_t SPI1_CONFIG = {
     .spi_port = spi1,       // SPI1を使用
     .baudrate = 1'875'000,  // エンコーダ規定値 2MHz 整数分数でベスト:1.875MHz
     .pin_miso = 8,
@@ -14,14 +20,14 @@ static const spi_config_t spi1_config = {
 };
 
 // MCP25625オブジェクトを作成（CAN SPI設定を使用）
-mcp25625_t can(spi1_config.spi_port, spi1_config.pin_cs[0], spi1_config.pin_rst);
+mcp25625_t can(SPI1_CONFIG.spi_port, SPI1_CONFIG.pin_cs[0], SPI1_CONFIG.pin_rst);
 
 // AMT223-V エンコーダマネージャを作成
-AMT223V_Manager encoder_manager(spi1_config.spi_port, spi1_config.pin_miso, spi1_config.pin_sck, spi1_config.pin_mosi);
+AMT223V_Manager encoder_manager(SPI1_CONFIG.spi_port, SPI1_CONFIG.pin_miso, SPI1_CONFIG.pin_sck, SPI1_CONFIG.pin_mosi);
 
 // RoboMasterモータオブジェクト
-robomaster_motor_t motor1(&can, 1, gear_ratio_R);  // motor_id=1
-robomaster_motor_t motor2(&can, 2, gear_ratio_P);  // motor_id=2
+robomaster_motor_t motor1(&can, 1, Mech::gear_ratio_R);  // motor_id=1
+robomaster_motor_t motor2(&can, 2, Mech::gear_ratio_P);  // motor_id=2
 
 float clampTorque(float torque, float max_torque) {
     if (torque > max_torque) {
@@ -109,7 +115,7 @@ bool init_spi(const spi_config_t* config) {
 // 複数のSPIデバイスを初期化する関数
 bool init_all_spi_devices() {
     // CAN IC用SPI初期化
-    if (!init_spi(&spi1_config)) {
+    if (!init_spi(&SPI1_CONFIG)) {
         g_debug_manager->error("Failed to initialize CAN SPI!\n");
         return false;
     }
@@ -127,8 +133,8 @@ bool init_encoders() {
     if (encoder_manager.get_current_encoder_count() == 0) {
         g_debug_manager->info("Adding encoders to manager...\n");
         // エンコーダを追加
-        encoder1_index = encoder_manager.add_encoder(spi1_config.pin_cs[1], R_VELOCITY_CUTOFF_FREQ, false);  // CS pin 7 (R軸: 単回転)
-        encoder2_index = encoder_manager.add_encoder(spi1_config.pin_cs[2], P_VELOCITY_CUTOFF_FREQ, true);   // CS pin 6 (P軸: マルチターン対応)
+        encoder1_index = encoder_manager.add_encoder(SPI1_CONFIG.pin_cs[1], Ctrl::R_VELOCITY_CUTOFF_FREQ, false);  // CS pin 7 (R軸: 単回転)
+        encoder2_index = encoder_manager.add_encoder(SPI1_CONFIG.pin_cs[2], Ctrl::P_VELOCITY_CUTOFF_FREQ, true);   // CS pin 6 (P軸: マルチターン対応)
 
         if (encoder1_index < 0 || encoder2_index < 0) {
             g_debug_manager->error("Failed to add encoders!\n");
@@ -159,7 +165,7 @@ bool calculate_trajectory_core0(
         has_intermediate = true;
     }
 
-    ruckig::Ruckig<2> otg(CONTROL_PERIOD_S);  // 2軸のRuckigオブジェクトを作成
+    ruckig::Ruckig<2> otg(Mc::CONTROL_PERIOD_S);  // 2軸のRuckigオブジェクトを作成
     ruckig::InputParameter<2> input;
     ruckig::OutputParameter<2> output_intermediate;
     ruckig::InputParameter<2> input_intermediate;
@@ -167,26 +173,22 @@ bool calculate_trajectory_core0(
 
     // 制限
     input.max_velocity = {
-        0.15 * TrajectoryLimits::R_MAX_VELOCITY,
-        0.7 * TrajectoryLimits::P_MAX_VELOCITY};
+        Traj::RuckigConfig::R_MAX_VELOCITY,
+        Traj::RuckigConfig::P_MAX_VELOCITY};
     input.min_velocity = {-input.max_velocity[0], -input.max_velocity[1]};
-    // 動き出しの加速は速く、止まるときの減速は遅く
-    constexpr double ACCEL_R = 0.95 * TrajectoryLimits::R_MAX_ACCELERATION;
-    constexpr double DECEL_R = 0.8 * TrajectoryLimits::R_MAX_ACCELERATION;
-    constexpr double ACCEL_P = 0.9 * TrajectoryLimits::P_MAX_ACCELERATION;
-    constexpr double DECEL_P = 0.8 * TrajectoryLimits::P_MAX_ACCELERATION;
+
     // 進行方向判定
     bool is_forward_R = current_position[0] < target_position[0];
     bool is_forward_P = current_position[1] < target_position[1];
     // R軸加速度
-    double accel_R = is_forward_R ? ACCEL_R : DECEL_R;
-    double decel_R = is_forward_R ? DECEL_R : ACCEL_R;
+    double accel_R = is_forward_R ? Traj::RuckigConfig::R_ACCEL : Traj::RuckigConfig::R_DECEL;
+    double decel_R = is_forward_R ? Traj::RuckigConfig::R_DECEL : Traj::RuckigConfig::R_ACCEL;
     // P軸加速度
-    double accel_P = is_forward_P ? ACCEL_P : DECEL_P;
-    double decel_P = is_forward_P ? DECEL_P : ACCEL_P;
+    double accel_P = is_forward_P ? Traj::RuckigConfig::P_ACCEL : Traj::RuckigConfig::P_DECEL;
+    double decel_P = is_forward_P ? Traj::RuckigConfig::P_DECEL : Traj::RuckigConfig::P_ACCEL;
     input.max_acceleration = {accel_R, accel_P};
     input.min_acceleration = {-decel_R, -decel_P};
-    input.max_jerk = {input.max_acceleration[0] * 10, input.max_acceleration[1] * 10};
+    input.max_jerk = {Traj::RuckigConfig::R_JERK, Traj::RuckigConfig::P_JERK};
     // 中継点の制限
     input_intermediate.max_velocity = input.max_velocity;
     input_intermediate.max_acceleration = input.max_acceleration;
@@ -221,12 +223,12 @@ bool calculate_trajectory_core0(
         input.target_acceleration = {0.0, 0.0};
     }
 
-    trajectory_point_t trajectory_points[MAX_TRAJECTORY_POINTS];
+    trajectory_point_t trajectory_points[Traj::MAX_TRAJECTORY_POINTS];
     uint16_t point_count = 0;
     bool overflow = false;
     if (has_intermediate) {
         while (otg.update(input, output_intermediate) == ruckig::Result::Working) {
-            if (point_count >= MAX_TRAJECTORY_POINTS) {
+            if (point_count >= Traj::MAX_TRAJECTORY_POINTS) {
                 overflow = true;
                 break;
             }
@@ -241,7 +243,7 @@ bool calculate_trajectory_core0(
             output_intermediate.pass_to_input(input);
         }
         while (!overflow && otg.update(input_intermediate, output) == ruckig::Result::Working) {
-            if (point_count >= MAX_TRAJECTORY_POINTS) {
+            if (point_count >= Traj::MAX_TRAJECTORY_POINTS) {
                 overflow = true;
                 break;
             }
@@ -257,7 +259,7 @@ bool calculate_trajectory_core0(
         }
     } else {
         while (otg.update(input, output) == ruckig::Result::Working) {
-            if (point_count >= MAX_TRAJECTORY_POINTS) {
+            if (point_count >= Traj::MAX_TRAJECTORY_POINTS) {
                 overflow = true;
                 break;
             }
@@ -286,11 +288,11 @@ bool calculate_trajectory_core0(
         memcpy(g_trajectory_data.points, trajectory_points, sizeof(trajectory_point_t) * point_count);
         mutex_exit(&g_trajectory_mutex);
     } else {
-        g_debug_manager->error("Trajectory overflow: %d points exceeded maximum of %d\n", point_count, MAX_TRAJECTORY_POINTS);
+        g_debug_manager->error("Trajectory overflow: %d points exceeded maximum of %d\n", point_count, Traj::MAX_TRAJECTORY_POINTS);
         return false;
     }
 
-    g_debug_manager->debug("Trajectory calculated: %d points, max_time=%.2fs", point_count, point_count * CONTROL_PERIOD_S);
+    g_debug_manager->debug("Trajectory calculated: %d points, max_time=%.2fs", point_count, point_count * Mc::CONTROL_PERIOD_S);
     g_debug_manager->debug("  R: %.3f → %.3f rad, P: %.3f → %.3f rad",
                            current_position[0], target_position[0], current_position[1], target_position[1]);
 
@@ -299,10 +301,10 @@ bool calculate_trajectory_core0(
 
 void init_hand() {
     // ポンプの設定
-    gpio_init(PUMP_PIN);
-    gpio_set_dir(PUMP_PIN, GPIO_OUT);
-    gpio_init(SOLENOID_PIN);
-    gpio_set_dir(SOLENOID_PIN, GPIO_OUT);
+    gpio_init(Dxl::PUMP_PIN);
+    gpio_set_dir(Dxl::PUMP_PIN, GPIO_OUT);
+    gpio_init(Dxl::SOLENOID_PIN);
+    gpio_set_dir(Dxl::SOLENOID_PIN, GPIO_OUT);
 
     sleep_ms(1000);  // GPIO初期化後の安定化待ち
 
@@ -311,33 +313,33 @@ void init_hand() {
     init_crc();
     configure_uart(&UART0, BAUD_RATE);
     sleep_ms(100);
-    write_statusReturnLevel(&UART0, DXL_ID1, 0x00);
-    write_statusReturnLevel(&UART0, DXL_ID2, 0x00);
+    write_statusReturnLevel(&UART0, Dxl::DXL_ID1, 0x00);
+    write_statusReturnLevel(&UART0, Dxl::DXL_ID2, 0x00);
     sleep_ms(100);
-    write_dxl_led(&UART0, DXL_ID1, true);
-    write_dxl_led(&UART0, DXL_ID2, true);
+    write_dxl_led(&UART0, Dxl::DXL_ID1, true);
+    write_dxl_led(&UART0, Dxl::DXL_ID2, true);
     sleep_ms(1000);
-    write_dxl_led(&UART0, DXL_ID1, false);
-    write_dxl_led(&UART0, DXL_ID2, false);
+    write_dxl_led(&UART0, Dxl::DXL_ID1, false);
+    write_dxl_led(&UART0, Dxl::DXL_ID2, false);
     sleep_ms(100);
-    write_torqueEnable(&UART0, DXL_ID1, false);
-    write_torqueEnable(&UART0, DXL_ID2, false);
+    write_torqueEnable(&UART0, Dxl::DXL_ID1, false);
+    write_torqueEnable(&UART0, Dxl::DXL_ID2, false);
     sleep_ms(100);
-    write_dxl_current_limit(&UART0, DXL_ID1, 1000);  // ID=1, 電流制限=100mA
-    write_dxl_current_limit(&UART0, DXL_ID2, 1000);  // ID=2, 電流制限=100mA
+    write_dxl_current_limit(&UART0, Dxl::DXL_ID1, 1000);  // ID=1, 電流制限=100mA
+    write_dxl_current_limit(&UART0, Dxl::DXL_ID2, 1000);  // ID=2, 電流制限=100mA
     sleep_ms(100);
-    write_operatingMode(&UART0, DXL_ID1, false);  // false : 位置制御, true : 拡張位置制御(マルチターン)
-    write_operatingMode(&UART0, DXL_ID2, false);
+    write_operatingMode(&UART0, Dxl::DXL_ID1, false);  // false : 位置制御, true : 拡張位置制御(マルチターン)
+    write_operatingMode(&UART0, Dxl::DXL_ID2, false);
     sleep_ms(1000);
-    write_torqueEnable(&UART0, DXL_ID1, true);
-    write_torqueEnable(&UART0, DXL_ID2, true);
+    write_torqueEnable(&UART0, Dxl::DXL_ID1, true);
+    write_torqueEnable(&UART0, Dxl::DXL_ID2, true);
     sleep_ms(500);
-    control_position(&UART0, DXL_ID1, 132.10f);
+    control_position(&UART0, Dxl::DXL_ID1, 132.10f);
     sleep_ms(500);
-    control_position_multiturn(&UART0, DXL_ID2, START_UP_ANGLE);
+    control_position_multiturn(&UART0, Dxl::DXL_ID2, Dxl::START_UP_ANGLE);
     sleep_ms(1000);
-    gpio_put(SOLENOID_PIN, 0);  // ソレノイドを吸着状態にする
-    gpio_put(PUMP_PIN, 1);
+    gpio_put(Dxl::SOLENOID_PIN, 0);  // ソレノイドを吸着状態にする
+    gpio_put(Dxl::PUMP_PIN, 1);
     g_debug_manager->info("hand initialized\n");
 }
 
@@ -350,13 +352,13 @@ void hand_tick(hand_state_t* hand_state, bool* has_work, absolute_time_t* state_
             if (!*has_work) {
                 *hand_state = HAND_LOWERING;
                 *state_start_time = get_absolute_time();
-                gpio_put(PUMP_PIN, 1);
+                gpio_put(Dxl::PUMP_PIN, 1);
                 g_debug_manager->debug("Hand lowering...");
-                control_position_multiturn(&UART0, DXL_ID2, DOWN_ANGLE);
+                control_position_multiturn(&UART0, Dxl::DXL_ID2, Dxl::DOWN_ANGLE);
             } else {
                 *hand_state = HAND_RELEASE;
                 *state_start_time = get_absolute_time();
-                gpio_put(SOLENOID_PIN, 1);
+                gpio_put(Dxl::SOLENOID_PIN, 1);
             }
             break;
 
@@ -372,7 +374,7 @@ void hand_tick(hand_state_t* hand_state, bool* has_work, absolute_time_t* state_
             if (elapsed_ms >= 100) {
                 *hand_state = HAND_RAISING;
                 *state_start_time = get_absolute_time();
-                control_position_multiturn(&UART0, DXL_ID2, UP_ANGLE);
+                control_position_multiturn(&UART0, Dxl::DXL_ID2, Dxl::UP_ANGLE);
                 g_debug_manager->debug("Hand raising...\n");
             }
             break;
@@ -380,7 +382,7 @@ void hand_tick(hand_state_t* hand_state, bool* has_work, absolute_time_t* state_
         case HAND_RAISING:
             if (elapsed_ms >= 200) {
                 *has_work = true;
-                control_position(&UART0, DXL_ID1, hand_angle);
+                control_position(&UART0, Dxl::DXL_ID1, hand_angle);
                 g_debug_manager->debug("Hand raised, work done.\n");
                 *hand_state = HAND_WAITING;  // HAND_IDLE前に1秒待機
                 *state_start_time = get_absolute_time();
@@ -390,8 +392,8 @@ void hand_tick(hand_state_t* hand_state, bool* has_work, absolute_time_t* state_
         case HAND_RELEASE:
             if (elapsed_ms >= 150) {
                 *has_work = false;
-                gpio_put(SOLENOID_PIN, 0);
-                control_position(&UART0, DXL_ID1, hand_angle);
+                gpio_put(Dxl::SOLENOID_PIN, 0);
+                control_position(&UART0, Dxl::DXL_ID1, hand_angle);
                 g_debug_manager->debug("Hand released\n");
                 *hand_state = HAND_WAITING;  // HAND_IDLE前に1秒待機
                 *state_start_time = get_absolute_time();
@@ -461,7 +463,7 @@ void core1_entry(void) {
     float error_position_R = 0.0f;                                                          // R軸の位置誤差
     float error_velocity_R = 0.0f;                                                          // R軸の速度誤差
     float acceleration_feedforward_R = 0.0f;                                                // R軸の加速度フィードフォワード
-    disturbance_observer_t dob_R(R_EQ_INERTIA, R_VELOCITY_CUTOFF_FREQ, R_DOB_CUTOFF_FREQ);  // R軸の外乱オブザーバ
+    disturbance_observer_t dob_R(Mech::R_EQ_INERTIA, Ctrl::R_VELOCITY_CUTOFF_FREQ, Ctrl::R_DOB_CUTOFF_FREQ);  // R軸の外乱オブザーバ
 
     float disturbance_torque_P = 0.0f;                                                      // P軸の外乱トルク
     float control_torque_P = 0.0f;                                                          // P軸の制御トルク
@@ -469,19 +471,19 @@ void core1_entry(void) {
     float error_position_P = 0.0f;                                                          // P軸の位置誤差
     float error_velocity_P = 0.0f;                                                          // P軸の速度誤差
     float acceleration_feedforward_P = 0.0f;                                                // P軸の加速度フィードフォワード
-    disturbance_observer_t dob_P(P_EQ_INERTIA, P_VELOCITY_CUTOFF_FREQ, P_DOB_CUTOFF_FREQ);  // P軸の外乱オブザーバ
+    disturbance_observer_t dob_P(Mech::P_EQ_INERTIA, Ctrl::P_VELOCITY_CUTOFF_FREQ, Ctrl::P_DOB_CUTOFF_FREQ);  // P軸の外乱オブザーバ
 
     // ループカウンタの初期化
     int loop_counter = 0;
 
     while (true) {
         // 制御周期開始処理
-        control_timing_start(&control_timing, CONTROL_PERIOD_MS);
+        control_timing_start(&control_timing, Mc::CONTROL_PERIOD_MS);
 
         // FIFOから軌道開始信号をチェック（ノンブロッキング）
         uint32_t trajectory_signal;
         if (multicore_fifo_pop_timeout_us(0, &trajectory_signal)) {
-            if (trajectory_signal == TRAJECTORY_DATA_SIGNAL) {
+            if (trajectory_signal == Mc::TRAJECTORY_DATA_SIGNAL) {
                 // 軌道データの実行を開始
                 mutex_enter_blocking(&g_trajectory_mutex);
                 g_trajectory_data.active = true;
@@ -508,15 +510,15 @@ void core1_entry(void) {
         float encoder_p_continuous_angle_rad = 0.0;
 
         if (enc1_ok) {
-            motor_position_R = encoder_manager.get_encoder_angle_rad(0) * ENCODER_R_DIRECTION;
-            motor_velocity_R = encoder_manager.get_encoder_angular_velocity_rad(0) * ENCODER_R_DIRECTION;
+            motor_position_R = encoder_manager.get_encoder_angle_rad(0) * Mech::ENCODER_R_DIRECTION;
+            motor_velocity_R = encoder_manager.get_encoder_angular_velocity_rad(0) * Mech::ENCODER_R_DIRECTION;
             encoder_r_angle_deg = encoder_manager.get_encoder_angle_deg(0);
         }
 
         if (enc2_ok) {
             // P軸はマルチターン対応エンコーダのため連続角度を使用
-            motor_position_P = encoder_manager.get_encoder_continuous_angle_rad(1) * ENCODER_P_DIRECTION;
-            motor_velocity_P = encoder_manager.get_encoder_angular_velocity_rad(1) * ENCODER_P_DIRECTION;
+            motor_position_P = encoder_manager.get_encoder_continuous_angle_rad(1) * Mech::ENCODER_P_DIRECTION;
+            motor_velocity_P = encoder_manager.get_encoder_angular_velocity_rad(1) * Mech::ENCODER_P_DIRECTION;
 
             // デバッグ用エンコーダ情報を取得
             encoder_p_turn_count = encoder_manager.get_encoder_turn_count(1);
@@ -598,10 +600,10 @@ void core1_entry(void) {
                 float velocity_magnitude_P = std::abs(motor_velocity_P);
 
                 // 位置誤差と速度が両方とも許容範囲内の場合に完了とする
-                if (position_error_R < TRAJECTORY_COMPLETION_TOLERANCE_R &&
-                    position_error_P < TRAJECTORY_COMPLETION_TOLERANCE_P &&
-                    velocity_magnitude_R < TRAJECTORY_COMPLETION_VELOCITY_THRESHOLD &&
-                    velocity_magnitude_P < TRAJECTORY_COMPLETION_VELOCITY_THRESHOLD) {
+                if (position_error_R < Traj::TRAJECTORY_COMPLETION_TOLERANCE_R &&
+                    position_error_P < Traj::TRAJECTORY_COMPLETION_TOLERANCE_P &&
+                    velocity_magnitude_R < Traj::TRAJECTORY_COMPLETION_VELOCITY_THRESHOLD &&
+                    velocity_magnitude_P < Traj::TRAJECTORY_COMPLETION_VELOCITY_THRESHOLD) {
                     g_trajectory_data.active = false;
                     g_trajectory_data.complete = true;
                     g_trajectory_data.position_reached = true;
@@ -621,7 +623,7 @@ void core1_entry(void) {
 
         // 軌道完了信号の送信（mutex外で実行）
         if (trajectory_completed) {
-            if (!multicore_fifo_push_timeout_us(TRAJECTORY_COMPLETE_SIGNAL, 0)) {
+            if (!multicore_fifo_push_timeout_us(Mc::TRAJECTORY_COMPLETE_SIGNAL, 0)) {
                 // FIFO満杯の場合は次回再試行
                 g_debug_manager->error("Core1: Failed to push trajectory complete signal to Core0 FIFO");
             }
@@ -629,26 +631,26 @@ void core1_entry(void) {
 
         // --- 制御計算 ---
         // R軸の制御計算
-        error_position_R = R_EQ_INERTIA * R_POSITION_GAIN * (trajectory_target_pos_R - motor_position_R);
-        error_velocity_R = R_EQ_INERTIA * R_VELOCITY_GAIN * (trajectory_target_vel_R - motor_velocity_R);
-        acceleration_feedforward_R = R_EQ_INERTIA * trajectory_target_accel_R;
+        error_position_R = Mech::R_EQ_INERTIA * Ctrl::R_POSITION_GAIN * (trajectory_target_pos_R - motor_position_R);
+        error_velocity_R = Mech::R_EQ_INERTIA * Ctrl::R_VELOCITY_GAIN * (trajectory_target_vel_R - motor_velocity_R);
+        acceleration_feedforward_R = Mech::R_EQ_INERTIA * trajectory_target_accel_R;
         control_torque_R = error_position_R + error_velocity_R + disturbance_torque_R + acceleration_feedforward_R;  // 制御トルク計算
-        target_torque_R = clampTorque(control_torque_R, ControlLimits::R_Axis::MAX_TORQUE);                          // 制御トルク制限
+        target_torque_R = clampTorque(control_torque_R, Mech::R_MAX_TORQUE);                                         // 制御トルク制限
         control_torque_R = target_torque_R;                                                                          // 制御トルクを目標トルクに設定
         disturbance_torque_R = dob_R.update(control_torque_R, motor_velocity_R);                                     // 外乱トルクの更新
 
         // P軸の制御計算
-        error_position_P = P_EQ_INERTIA * P_POSITION_GAIN * (trajectory_target_pos_P - motor_position_P);
-        error_velocity_P = P_EQ_INERTIA * P_VELOCITY_GAIN * (trajectory_target_vel_P - motor_velocity_P);
-        acceleration_feedforward_P = P_EQ_INERTIA * trajectory_target_accel_P;
+        error_position_P = Mech::P_EQ_INERTIA * Ctrl::P_POSITION_GAIN * (trajectory_target_pos_P - motor_position_P);
+        error_velocity_P = Mech::P_EQ_INERTIA * Ctrl::P_VELOCITY_GAIN * (trajectory_target_vel_P - motor_velocity_P);
+        acceleration_feedforward_P = Mech::P_EQ_INERTIA * trajectory_target_accel_P;
         control_torque_P = error_position_P + error_velocity_P + disturbance_torque_P + acceleration_feedforward_P;
-        target_torque_P = clampTorque(control_torque_P, ControlLimits::P_Axis::MAX_TORQUE);
+        target_torque_P = clampTorque(control_torque_P, Mech::P_MAX_TORQUE);
         control_torque_P = target_torque_P;
         disturbance_torque_P = dob_P.update(control_torque_P, motor_velocity_P);  // 外乱トルクの更新
 
         // // トルクから電流への変換
-        target_current[0] = target_torque_R / R_TORQUE_CONSTANT;  // Motor1 (R軸)
-        target_current[1] = target_torque_P / P_TORQUE_CONSTANT;  // Motor2 (P軸)
+        target_current[0] = target_torque_R / Mech::R_TORQUE_CONSTANT;  // Motor1 (R軸)
+        target_current[1] = target_torque_P / Mech::P_TORQUE_CONSTANT;  // Motor2 (P軸)
         // target_current[0] = 0.0;                                  // Motor1 (R軸)
         // target_current[1] = 0.0;                                  // Motor2 (P軸)
 
@@ -673,27 +675,27 @@ void core1_entry(void) {
 
         // ループカウンタを更新し、指定回数に達したらCore0に同期信号を送信
         loop_counter++;
-        if (loop_counter >= SYNC_EVERY_N_LOOPS) {
+        if (loop_counter >= Mc::SYNC_EVERY_N_LOOPS) {
             loop_counter = 0;  // カウンタをリセット
 
             // FIFOに同期信号を送信（ノンブロッキング）
-            if (!multicore_fifo_push_timeout_us(SYNC_SIGNAL, 0)) {
+            if (!multicore_fifo_push_timeout_us(Mc::SYNC_SIGNAL, 0)) {
                 // FIFO満杯の場合は何もしない（次回再試行）
                 printf("Core1: Failed to push sync signal to Core0 FIFO");
             }
         }
 
         // 制御周期終了処理
-        control_timing_end(&control_timing, CONTROL_PERIOD_MS);
+        control_timing_end(&control_timing, Mc::CONTROL_PERIOD_MS);
     }
 }
 
 // システム初期化関数
 bool initialize_system() {
     stdio_init_all();  // UARTなど初期化
-    gpio_init(SHUTDOWN_PIN);
-    gpio_set_dir(SHUTDOWN_PIN, GPIO_OUT);
-    gpio_put(SHUTDOWN_PIN, 0);  // HIGHにしておくとPicoが動かないのでLOWに設定
+    gpio_init(Mc::SHUTDOWN_PIN);
+    gpio_set_dir(Mc::SHUTDOWN_PIN, GPIO_OUT);
+    gpio_put(Mc::SHUTDOWN_PIN, 0);  // HIGHにしておくとPicoが動かないのでLOWに設定
     sleep_ms(2000);             // 少し待機して安定化
 
     // デバッグマネージャの初期化
@@ -781,8 +783,8 @@ int main(void) {
     // Core1の初期化完了を待つ
     sleep_ms(1000);
     g_debug_manager->info("MCP25625 Initialized successfully!");
-    g_debug_manager->info("Starting control loop at %.1f ms (%.0f Hz)", CONTROL_PERIOD_MS, 1000.0 / CONTROL_PERIOD_MS);
-    g_debug_manager->info("Core sync enabled: Core0 processes every %d Core1 loops (%.1f ms)", SYNC_EVERY_N_LOOPS, CONTROL_PERIOD_MS * SYNC_EVERY_N_LOOPS);
+    g_debug_manager->info("Starting control loop at %.1f ms (%.0f Hz)", Mc::CONTROL_PERIOD_MS, 1000.0 / Mc::CONTROL_PERIOD_MS);
+    g_debug_manager->info("Core sync enabled: Core0 processes every %d Core1 loops (%.1f ms)", Mc::SYNC_EVERY_N_LOOPS, Mc::CONTROL_PERIOD_MS * Mc::SYNC_EVERY_N_LOOPS);
 
     // Core0メインループのカウンタ
     int core0_loop_count = 0;
@@ -797,99 +799,99 @@ int main(void) {
     // 軌道シーケンス管理
     constexpr int WORK_NUM = 40;  // ワーク数
     constexpr float INTERMEDIATE_POSITION_R = 4.102f;
-    constexpr float INTERMEDIATE_POSITION_P = -0.1322f / gear_radius_P;
+    constexpr float INTERMEDIATE_POSITION_P = -0.1322f / Mech::gear_radius_P;
 
     trajectory_waypoint_t work_points[WORK_NUM] = {
         // 一番奥側ロボットから見て左から右へ
         // 1行目
-        trajectory_waypoint_t(3.407f, -0.4584f / gear_radius_P, 132.10f),
-        trajectory_waypoint_t(3.507f, -0.3872f / gear_radius_P, 126.91f),
-        trajectory_waypoint_t(3.711f, -0.3034f / gear_radius_P, 115.58f),
-        trajectory_waypoint_t(3.858f, -0.2662f / gear_radius_P, 104.94f),
-        trajectory_waypoint_t(4.121f, -0.2349f / gear_radius_P, 92.29f),
-        trajectory_waypoint_t(4.295f, -0.2348f / gear_radius_P, 79.80f, INTERMEDIATE_POSITION_R, INTERMEDIATE_POSITION_P),
-        trajectory_waypoint_t(4.544f, -0.2640f / gear_radius_P, 67.32f, INTERMEDIATE_POSITION_R, INTERMEDIATE_POSITION_P),
-        trajectory_waypoint_t(4.687f, -0.3081f / gear_radius_P, 57.92f, INTERMEDIATE_POSITION_R, INTERMEDIATE_POSITION_P),
-        trajectory_waypoint_t(4.859f, -0.3910f / gear_radius_P, 46.41f, INTERMEDIATE_POSITION_R, INTERMEDIATE_POSITION_P),
-        trajectory_waypoint_t(4.960f, -0.4566f / gear_radius_P, 43.42f, INTERMEDIATE_POSITION_R, INTERMEDIATE_POSITION_P),
+        trajectory_waypoint_t(3.407f, -0.4584f / Mech::gear_radius_P, 132.10f),
+        trajectory_waypoint_t(3.507f, -0.3872f / Mech::gear_radius_P, 126.91f),
+        trajectory_waypoint_t(3.711f, -0.3034f / Mech::gear_radius_P, 115.58f),
+        trajectory_waypoint_t(3.858f, -0.2662f / Mech::gear_radius_P, 104.94f),
+        trajectory_waypoint_t(4.121f, -0.2349f / Mech::gear_radius_P, 92.29f),
+        trajectory_waypoint_t(4.295f, -0.2348f / Mech::gear_radius_P, 79.80f, INTERMEDIATE_POSITION_R, INTERMEDIATE_POSITION_P),
+        trajectory_waypoint_t(4.544f, -0.2640f / Mech::gear_radius_P, 67.32f, INTERMEDIATE_POSITION_R, INTERMEDIATE_POSITION_P),
+        trajectory_waypoint_t(4.687f, -0.3081f / Mech::gear_radius_P, 57.92f, INTERMEDIATE_POSITION_R, INTERMEDIATE_POSITION_P),
+        trajectory_waypoint_t(4.859f, -0.3910f / Mech::gear_radius_P, 46.41f, INTERMEDIATE_POSITION_R, INTERMEDIATE_POSITION_P),
+        trajectory_waypoint_t(4.960f, -0.4566f / Mech::gear_radius_P, 43.42f, INTERMEDIATE_POSITION_R, INTERMEDIATE_POSITION_P),
         // 2行目
-        trajectory_waypoint_t(3.315f, -0.3916f / gear_radius_P, 137.98f),
-        trajectory_waypoint_t(3.419f, -0.3179f / gear_radius_P, 130.43f),
-        trajectory_waypoint_t(3.628f, -0.2194f / gear_radius_P, 117.86f),
-        trajectory_waypoint_t(3.797f, -0.1739f / gear_radius_P, 107.93f),
-        trajectory_waypoint_t(4.102f, -0.1322f / gear_radius_P, 91.67f),
-        trajectory_waypoint_t(4.327f, -0.1343f / gear_radius_P, 79.10f),
-        trajectory_waypoint_t(4.625f, -0.1682f / gear_radius_P, 61.52f, INTERMEDIATE_POSITION_R, INTERMEDIATE_POSITION_P),
-        trajectory_waypoint_t(4.785f, -0.2205f / gear_radius_P, 52.73f, INTERMEDIATE_POSITION_R, INTERMEDIATE_POSITION_P),
-        trajectory_waypoint_t(4.972f, -0.3138f / gear_radius_P, 39.64f, INTERMEDIATE_POSITION_R, INTERMEDIATE_POSITION_P),
-        trajectory_waypoint_t(5.069f, -0.3886f / gear_radius_P, 35.24f, INTERMEDIATE_POSITION_R, INTERMEDIATE_POSITION_P),
+        trajectory_waypoint_t(3.315f, -0.3916f / Mech::gear_radius_P, 137.98f),
+        trajectory_waypoint_t(3.419f, -0.3179f / Mech::gear_radius_P, 130.43f),
+        trajectory_waypoint_t(3.628f, -0.2194f / Mech::gear_radius_P, 117.86f),
+        trajectory_waypoint_t(3.797f, -0.1739f / Mech::gear_radius_P, 107.93f),
+        trajectory_waypoint_t(4.102f, -0.1322f / Mech::gear_radius_P, 91.67f),
+        trajectory_waypoint_t(4.327f, -0.1343f / Mech::gear_radius_P, 79.10f),
+        trajectory_waypoint_t(4.625f, -0.1682f / Mech::gear_radius_P, 61.52f, INTERMEDIATE_POSITION_R, INTERMEDIATE_POSITION_P),
+        trajectory_waypoint_t(4.785f, -0.2205f / Mech::gear_radius_P, 52.73f, INTERMEDIATE_POSITION_R, INTERMEDIATE_POSITION_P),
+        trajectory_waypoint_t(4.972f, -0.3138f / Mech::gear_radius_P, 39.64f, INTERMEDIATE_POSITION_R, INTERMEDIATE_POSITION_P),
+        trajectory_waypoint_t(5.069f, -0.3886f / Mech::gear_radius_P, 35.24f, INTERMEDIATE_POSITION_R, INTERMEDIATE_POSITION_P),
         // 3行目
-        trajectory_waypoint_t(3.203f, -0.3313f / gear_radius_P, 142.82f),
-        trajectory_waypoint_t(3.303f, -0.2523f / gear_radius_P, 137.55f),
-        trajectory_waypoint_t(3.527f, -0.1428f / gear_radius_P, 124.19f),
-        trajectory_waypoint_t(3.713f, -0.0834f / gear_radius_P, 113.29f),
-        trajectory_waypoint_t(4.105f, -0.0379f / gear_radius_P, 90.0f),
-        trajectory_waypoint_t(4.378f, -0.0357f / gear_radius_P, 75.59f),
-        trajectory_waypoint_t(4.735f, -0.0829f / gear_radius_P, 55.28f),
-        trajectory_waypoint_t(4.908f, -0.1413f / gear_radius_P, 45.70f),
-        trajectory_waypoint_t(5.096f, -0.2512f / gear_radius_P, 33.75f),
-        trajectory_waypoint_t(5.181f, -0.3315f / gear_radius_P, 28.74f),
+        trajectory_waypoint_t(3.203f, -0.3313f / Mech::gear_radius_P, 142.82f),
+        trajectory_waypoint_t(3.303f, -0.2523f / Mech::gear_radius_P, 137.55f),
+        trajectory_waypoint_t(3.527f, -0.1428f / Mech::gear_radius_P, 124.19f),
+        trajectory_waypoint_t(3.713f, -0.0834f / Mech::gear_radius_P, 113.29f),
+        trajectory_waypoint_t(4.105f, -0.0379f / Mech::gear_radius_P, 90.0f),
+        trajectory_waypoint_t(4.378f, -0.0357f / Mech::gear_radius_P, 75.59f),
+        trajectory_waypoint_t(4.735f, -0.0829f / Mech::gear_radius_P, 55.28f),
+        trajectory_waypoint_t(4.908f, -0.1413f / Mech::gear_radius_P, 45.70f),
+        trajectory_waypoint_t(5.096f, -0.2512f / Mech::gear_radius_P, 33.75f),
+        trajectory_waypoint_t(5.181f, -0.3315f / Mech::gear_radius_P, 28.74f),
         // 4行目（ロボットに一番近い行）
-        trajectory_waypoint_t(3.075f, -0.2835f / gear_radius_P, 149.77f),
-        trajectory_waypoint_t(3.165f, -0.1925f / gear_radius_P, 146.07f),
-        trajectory_waypoint_t(3.377f, -0.0687f / gear_radius_P, 132.36f),
-        trajectory_waypoint_t(3.590f, -0.0029f / gear_radius_P, 120.94f),
-        trajectory_waypoint_t(3.766f, -0.0365f / gear_radius_P, 90.0f),  // ダミーデータ
-        trajectory_waypoint_t(4.132f, -0.0365f / gear_radius_P, 75.0f),  // ダミーデータ
-        trajectory_waypoint_t(4.904f, -0.0024f / gear_radius_P, 45.26f),
-        trajectory_waypoint_t(5.090f, -0.0716f / gear_radius_P, 33.84f),
-        trajectory_waypoint_t(5.252f, -0.1933f / gear_radius_P, 25.75f),
-        trajectory_waypoint_t(5.327f, -0.2841f / gear_radius_P, 18.81f),
+        trajectory_waypoint_t(3.075f, -0.2835f / Mech::gear_radius_P, 149.77f),
+        trajectory_waypoint_t(3.165f, -0.1925f / Mech::gear_radius_P, 146.07f),
+        trajectory_waypoint_t(3.377f, -0.0687f / Mech::gear_radius_P, 132.36f),
+        trajectory_waypoint_t(3.590f, -0.0029f / Mech::gear_radius_P, 120.94f),
+        trajectory_waypoint_t(3.766f, -0.0365f / Mech::gear_radius_P, 90.0f),  // ダミーデータ
+        trajectory_waypoint_t(4.132f, -0.0365f / Mech::gear_radius_P, 75.0f),  // ダミーデータ
+        trajectory_waypoint_t(4.904f, -0.0024f / Mech::gear_radius_P, 45.26f),
+        trajectory_waypoint_t(5.090f, -0.0716f / Mech::gear_radius_P, 33.84f),
+        trajectory_waypoint_t(5.252f, -0.1933f / Mech::gear_radius_P, 25.75f),
+        trajectory_waypoint_t(5.327f, -0.2841f / Mech::gear_radius_P, 18.81f),
     };
     trajectory_waypoint_t shooting_points[WORK_NUM] = {
-        trajectory_waypoint_t(2.380f, -0.5645f / gear_radius_P, 90.0f),
-        trajectory_waypoint_t(2.380f, -0.5645f / gear_radius_P, 90.0f),
-        trajectory_waypoint_t(2.380f, -0.5645f / gear_radius_P, 90.0f),
-        trajectory_waypoint_t(2.380f, -0.5645f / gear_radius_P, 90.0f),
-        trajectory_waypoint_t(2.380f, -0.5645f / gear_radius_P, 90.0f),
-        trajectory_waypoint_t(2.380f, -0.5645f / gear_radius_P, 90.0f, INTERMEDIATE_POSITION_R, INTERMEDIATE_POSITION_P),
-        trajectory_waypoint_t(2.380f, -0.5645f / gear_radius_P, 90.0f, INTERMEDIATE_POSITION_R, INTERMEDIATE_POSITION_P),
-        trajectory_waypoint_t(2.380f, -0.5645f / gear_radius_P, 90.0f, INTERMEDIATE_POSITION_R, INTERMEDIATE_POSITION_P),
-        trajectory_waypoint_t(2.380f, -0.5645f / gear_radius_P, 90.0f, INTERMEDIATE_POSITION_R, INTERMEDIATE_POSITION_P),
-        trajectory_waypoint_t(2.380f, -0.5645f / gear_radius_P, 90.0f, INTERMEDIATE_POSITION_R, INTERMEDIATE_POSITION_P),
+        trajectory_waypoint_t(2.380f, -0.5645f / Mech::gear_radius_P, 90.0f),
+        trajectory_waypoint_t(2.380f, -0.5645f / Mech::gear_radius_P, 90.0f),
+        trajectory_waypoint_t(2.380f, -0.5645f / Mech::gear_radius_P, 90.0f),
+        trajectory_waypoint_t(2.380f, -0.5645f / Mech::gear_radius_P, 90.0f),
+        trajectory_waypoint_t(2.380f, -0.5645f / Mech::gear_radius_P, 90.0f),
+        trajectory_waypoint_t(2.380f, -0.5645f / Mech::gear_radius_P, 90.0f, INTERMEDIATE_POSITION_R, INTERMEDIATE_POSITION_P),
+        trajectory_waypoint_t(2.380f, -0.5645f / Mech::gear_radius_P, 90.0f, INTERMEDIATE_POSITION_R, INTERMEDIATE_POSITION_P),
+        trajectory_waypoint_t(2.380f, -0.5645f / Mech::gear_radius_P, 90.0f, INTERMEDIATE_POSITION_R, INTERMEDIATE_POSITION_P),
+        trajectory_waypoint_t(2.380f, -0.5645f / Mech::gear_radius_P, 90.0f, INTERMEDIATE_POSITION_R, INTERMEDIATE_POSITION_P),
+        trajectory_waypoint_t(2.380f, -0.5645f / Mech::gear_radius_P, 90.0f, INTERMEDIATE_POSITION_R, INTERMEDIATE_POSITION_P),
 
-        trajectory_waypoint_t(2.380f, -0.5645f / gear_radius_P, 90.0f),
-        trajectory_waypoint_t(2.380f, -0.5645f / gear_radius_P, 90.0f),
-        trajectory_waypoint_t(2.380f, -0.5645f / gear_radius_P, 90.0f),
-        trajectory_waypoint_t(2.380f, -0.5645f / gear_radius_P, 90.0f),
-        trajectory_waypoint_t(2.380f, -0.5645f / gear_radius_P, 90.0f),
-        trajectory_waypoint_t(2.380f, -0.5645f / gear_radius_P, 90.0f),
-        trajectory_waypoint_t(2.380f, -0.5645f / gear_radius_P, 90.0f, INTERMEDIATE_POSITION_R, INTERMEDIATE_POSITION_P),
-        trajectory_waypoint_t(2.380f, -0.5645f / gear_radius_P, 90.0f, INTERMEDIATE_POSITION_R, INTERMEDIATE_POSITION_P),
-        trajectory_waypoint_t(2.380f, -0.5645f / gear_radius_P, 90.0f, INTERMEDIATE_POSITION_R, INTERMEDIATE_POSITION_P),
-        trajectory_waypoint_t(2.380f, -0.5645f / gear_radius_P, 90.0f, INTERMEDIATE_POSITION_R, INTERMEDIATE_POSITION_P),
+        trajectory_waypoint_t(2.380f, -0.5645f / Mech::gear_radius_P, 90.0f),
+        trajectory_waypoint_t(2.380f, -0.5645f / Mech::gear_radius_P, 90.0f),
+        trajectory_waypoint_t(2.380f, -0.5645f / Mech::gear_radius_P, 90.0f),
+        trajectory_waypoint_t(2.380f, -0.5645f / Mech::gear_radius_P, 90.0f),
+        trajectory_waypoint_t(2.380f, -0.5645f / Mech::gear_radius_P, 90.0f),
+        trajectory_waypoint_t(2.380f, -0.5645f / Mech::gear_radius_P, 90.0f),
+        trajectory_waypoint_t(2.380f, -0.5645f / Mech::gear_radius_P, 90.0f, INTERMEDIATE_POSITION_R, INTERMEDIATE_POSITION_P),
+        trajectory_waypoint_t(2.380f, -0.5645f / Mech::gear_radius_P, 90.0f, INTERMEDIATE_POSITION_R, INTERMEDIATE_POSITION_P),
+        trajectory_waypoint_t(2.380f, -0.5645f / Mech::gear_radius_P, 90.0f, INTERMEDIATE_POSITION_R, INTERMEDIATE_POSITION_P),
+        trajectory_waypoint_t(2.380f, -0.5645f / Mech::gear_radius_P, 90.0f, INTERMEDIATE_POSITION_R, INTERMEDIATE_POSITION_P),
 
-        trajectory_waypoint_t(2.380f, -0.5645f / gear_radius_P, 90.0f),
-        trajectory_waypoint_t(2.380f, -0.5645f / gear_radius_P, 90.0f),
-        trajectory_waypoint_t(2.380f, -0.5645f / gear_radius_P, 90.0f),
-        trajectory_waypoint_t(2.380f, -0.5645f / gear_radius_P, 90.0f),
-        trajectory_waypoint_t(2.380f, -0.5645f / gear_radius_P, 90.0f),
-        trajectory_waypoint_t(2.380f, -0.5645f / gear_radius_P, 90.0f),
-        trajectory_waypoint_t(2.380f, -0.5645f / gear_radius_P, 90.0f),
-        trajectory_waypoint_t(2.380f, -0.5645f / gear_radius_P, 90.0f),
-        trajectory_waypoint_t(2.380f, -0.5645f / gear_radius_P, 90.0f),
-        trajectory_waypoint_t(2.380f, -0.5645f / gear_radius_P, 90.0f),
+        trajectory_waypoint_t(2.380f, -0.5645f / Mech::gear_radius_P, 90.0f),
+        trajectory_waypoint_t(2.380f, -0.5645f / Mech::gear_radius_P, 90.0f),
+        trajectory_waypoint_t(2.380f, -0.5645f / Mech::gear_radius_P, 90.0f),
+        trajectory_waypoint_t(2.380f, -0.5645f / Mech::gear_radius_P, 90.0f),
+        trajectory_waypoint_t(2.380f, -0.5645f / Mech::gear_radius_P, 90.0f),
+        trajectory_waypoint_t(2.380f, -0.5645f / Mech::gear_radius_P, 90.0f),
+        trajectory_waypoint_t(2.380f, -0.5645f / Mech::gear_radius_P, 90.0f),
+        trajectory_waypoint_t(2.380f, -0.5645f / Mech::gear_radius_P, 90.0f),
+        trajectory_waypoint_t(2.380f, -0.5645f / Mech::gear_radius_P, 90.0f),
+        trajectory_waypoint_t(2.380f, -0.5645f / Mech::gear_radius_P, 90.0f),
 
-        trajectory_waypoint_t(2.380f, -0.5645f / gear_radius_P, 90.0f),
-        trajectory_waypoint_t(2.380f, -0.5645f / gear_radius_P, 90.0f),
-        trajectory_waypoint_t(2.380f, -0.5645f / gear_radius_P, 90.0f),
-        trajectory_waypoint_t(2.380f, -0.5645f / gear_radius_P, 90.0f),
-        trajectory_waypoint_t(2.380f, -0.5645f / gear_radius_P, 90.0f),
-        trajectory_waypoint_t(2.380f, -0.5645f / gear_radius_P, 90.0f),
-        trajectory_waypoint_t(2.380f, -0.5645f / gear_radius_P, 90.0f),
-        trajectory_waypoint_t(2.380f, -0.5645f / gear_radius_P, 90.0f),
-        trajectory_waypoint_t(2.380f, -0.5645f / gear_radius_P, 90.0f),
-        trajectory_waypoint_t(2.380f, -0.5645f / gear_radius_P, 90.0f),
+        trajectory_waypoint_t(2.380f, -0.5645f / Mech::gear_radius_P, 90.0f),
+        trajectory_waypoint_t(2.380f, -0.5645f / Mech::gear_radius_P, 90.0f),
+        trajectory_waypoint_t(2.380f, -0.5645f / Mech::gear_radius_P, 90.0f),
+        trajectory_waypoint_t(2.380f, -0.5645f / Mech::gear_radius_P, 90.0f),
+        trajectory_waypoint_t(2.380f, -0.5645f / Mech::gear_radius_P, 90.0f),
+        trajectory_waypoint_t(2.380f, -0.5645f / Mech::gear_radius_P, 90.0f),
+        trajectory_waypoint_t(2.380f, -0.5645f / Mech::gear_radius_P, 90.0f),
+        trajectory_waypoint_t(2.380f, -0.5645f / Mech::gear_radius_P, 90.0f),
+        trajectory_waypoint_t(2.380f, -0.5645f / Mech::gear_radius_P, 90.0f),
+        trajectory_waypoint_t(2.380f, -0.5645f / Mech::gear_radius_P, 90.0f),
     };
     TrajectorySequenceManager* seq_manager = new TrajectorySequenceManager(g_debug_manager);
     trajectory_waypoint_t all_waypoints[2 * WORK_NUM];
@@ -909,7 +911,7 @@ int main(void) {
         uint32_t signal = multicore_fifo_pop_blocking();
 
         // 同期信号を受信したら処理を実行
-        if (signal == SYNC_SIGNAL) {
+        if (signal == Mc::SYNC_SIGNAL) {
             core0_loop_count++;
 
             // 軌道状態機械による処理
@@ -925,10 +927,10 @@ int main(void) {
                         mutex_exit(&g_state_mutex);
 
                         if (calculate_trajectory_core0(current_position, target_position, intermediate_position)) {
-                            if (multicore_fifo_push_timeout_us(TRAJECTORY_DATA_SIGNAL, 0)) {
+                            if (multicore_fifo_push_timeout_us(Mc::TRAJECTORY_DATA_SIGNAL, 0)) {
                                 traj_state = TRAJECTORY_EXECUTING;
                                 g_debug_manager->debug("Moving to waypoint: R=%.3f rad, P=%.1f mm",
-                                                       target_position[0], target_position[1] * gear_radius_P * 1000.0);
+                                                       target_position[0], target_position[1] * Mech::gear_radius_P * 1000.0);
                                 return;
                             }
                         } else {
@@ -959,7 +961,7 @@ int main(void) {
                     }
                     break;
             }
-        } else if (signal == TRAJECTORY_COMPLETE_SIGNAL) {
+        } else if (signal == Mc::TRAJECTORY_COMPLETE_SIGNAL) {
             // 軌道完了信号を受信
             if (traj_state == TRAJECTORY_EXECUTING) {
                 g_debug_manager->debug("Trajectory completed, starting hand operation");
@@ -970,7 +972,7 @@ int main(void) {
         }
 
         // 通常の状態監視とデバッグ出力（同期信号受信時のみ）
-        if (signal == SYNC_SIGNAL) {
+        if (signal == Mc::SYNC_SIGNAL) {
             // 現在時刻を再取得
             float current_main_time = 0.0;
             mutex_enter_blocking(&g_state_mutex);
@@ -1020,20 +1022,15 @@ int main(void) {
             g_debug_manager->check_trajectory_state_changes(traj_active_R, traj_active_P,
                                                             current_pos_R, current_pos_P,
                                                             final_target_pos_R, final_target_pos_P,
-                                                            gear_radius_P);
-
-            // 軌道制限値の表示（1回のみ）
-            g_debug_manager->print_trajectory_limits(TrajectoryLimits::R_MAX_VELOCITY, TrajectoryLimits::R_MAX_ACCELERATION,
-                                                     TrajectoryLimits::P_MAX_VELOCITY, TrajectoryLimits::P_MAX_ACCELERATION,
-                                                     gear_radius_P);
+                                                            Mech::gear_radius_P);
 
             // 異常値検出
-            g_debug_manager->check_abnormal_values(traj_target_pos_P, gear_radius_P);
+            g_debug_manager->check_abnormal_values(traj_target_pos_P, Mech::gear_radius_P);
 
             // 定期ステータス出力（同期信号に基づく周期で）
             if (g_debug_manager->should_output_status(current_main_time)) {
                 // Core0同期回数情報
-                g_debug_manager->debug("Core0 sync count: %d (every %d Core1 loops)", core0_loop_count, SYNC_EVERY_N_LOOPS);
+                g_debug_manager->debug("Core0 sync count: %d (every %d Core1 loops)", core0_loop_count, Mc::SYNC_EVERY_N_LOOPS);
 
                 // 軌道完了状況の詳細情報を取得
                 float trajectory_final_target_R = 0.0, trajectory_final_target_P = 0.0;
@@ -1053,7 +1050,7 @@ int main(void) {
                                                            trajectory_final_target_R, trajectory_final_target_P,
                                                            trajectory_position_reached,
                                                            trajectory_current_index, trajectory_point_count,
-                                                           gear_radius_P);  // 軌道デバッグ情報構造体の作成
+                                                           Mech::gear_radius_P);  // 軌道デバッグ情報構造体の作成
                 TrajectoryDebugInfo r_info = {
                     .final_target_pos = final_target_pos_R,
                     .trajectory_target_pos = traj_target_pos_R,
@@ -1074,7 +1071,7 @@ int main(void) {
                     .current_vel = current_vel_P,
                     .final_target_vel = target_vel_P,
                     .trajectory_active = traj_active_P,
-                    .gear_radius = gear_radius_P,
+                    .gear_radius = Mech::gear_radius_P,
                     .unit_name = "rad",
                     .axis_name = "P"};
 
@@ -1101,6 +1098,6 @@ int main(void) {
     }
 
     // gpio_put(SOLENOID_PIN1, 0);  // ソレノイドを非吸着状態にする
-    gpio_put(PUMP_PIN, 0);  // ポンプを停止
+    gpio_put(Dxl::PUMP_PIN, 0);  // ポンプを停止
     return 0;
 }
