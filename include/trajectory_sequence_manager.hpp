@@ -9,17 +9,18 @@
  * 3次元空間での目標位置を表現する構造体
  */
 struct trajectory_waypoint_t {
-    float position_R;          // R軸目標位置 [rad]
-    float position_P;          // P軸目標位置 [rad]
-    float end_effector_angle;  // 手先角度 [rad]（現在未使用、ダミーデータ）
-    float intermediate_R;      // 中間位置 R軸 [rad]
-    float intermediate_P;      // 中間位置 P軸 [rad]
+    float position_R;             // R軸目標位置 [rad]
+    float position_P;             // P軸目標位置 [rad]
+    float end_effector_angle;     // 手先角度 [rad]
+    int32_t end_effector_height;  // 手先高さ [Dynamixelの生センサ値]
+    float intermediate_R;         // 中間位置 R軸 [rad]
+    float intermediate_P;         // 中間位置 P軸 [rad]
 
     /**
      * @brief コンストラクタ
      */
-    trajectory_waypoint_t(float pos_R = 0.0f, float pos_P = 0.0f, float end_angle = 0.0f, float inter_R = NAN, float inter_P = NAN)
-        : position_R(pos_R), position_P(pos_P), end_effector_angle(end_angle), intermediate_R(inter_R), intermediate_P(inter_P) {}
+    trajectory_waypoint_t(float pos_R = 0.0f, float pos_P = 0.0f, float end_angle = 0.0f, int32_t end_height = 0, float inter_R = NAN, float inter_P = NAN)
+        : position_R(pos_R), position_P(pos_P), end_effector_angle(end_angle), end_effector_height(end_height), intermediate_R(inter_R), intermediate_P(inter_P) {}
 };
 
 /**
