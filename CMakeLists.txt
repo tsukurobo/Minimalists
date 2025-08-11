@@ -80,10 +80,12 @@ pico_add_extra_outputs(minimalists)
 
 # add url via pico_set_program_url
 
-# # コンパイル時に未使用変数・未使用関数の警告を有効化
-# target_compile_options(minimalists PRIVATE
-#     -Wall
-#     -Wextra
-#     -Wunused-variable
-#     -Wunused-function
-# )
+# コンパイル時に未使用変数・未使用関数の警告を有効化
+target_compile_options(minimalists PRIVATE
+    -Wall
+    -Wextra
+    -Wunused-variable
+    -Wunused-function
+	-Wno-array-bounds
+	-Wno-stringop-overread
+)
