@@ -94,6 +94,8 @@ constexpr float ENCODER_P_DIRECTION = 1.0f;  // P軸エンコーダの増加方�
 // ======== 軌道生成設定 ========
 // 軌道完了判定の許容誤差
 namespace TrajectoryConfig {
+constexpr float TRAJECTORY_CONTROL_PERIOD = Mc::CONTROL_PERIOD_S * 10;  // 軌道点の周期周期 [s]
+
 constexpr float TRAJECTORY_COMPLETION_TOLERANCE_R = 0.1f;         // R軸完了判定許容誤差 [rad]
 constexpr float TRAJECTORY_COMPLETION_TOLERANCE_P = 0.1f;         // P軸完了判定許容誤差 [rad]
 constexpr float TRAJECTORY_COMPLETION_VELOCITY_THRESHOLD = 0.1f;  // 完了判定時の速度閾値 [rad/s]
@@ -116,7 +118,7 @@ constexpr double P_JERK = 100 * P_ACCEL;
 }  // namespace RuckigConfig
 
 // 軌道データ配列設定
-constexpr u_int16_t MAX_TRAJECTORY_POINTS = 6000;  // 最大軌道点数
+constexpr u_int16_t MAX_TRAJECTORY_POINTS = 600;  // 最大軌道点数
 }  // namespace TrajectoryConfig
 // 軌道データ管理構造体
 typedef struct {
