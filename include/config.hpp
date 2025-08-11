@@ -52,7 +52,7 @@ namespace MicrocontrollerConfig {
 constexpr int SHUTDOWN_PIN = 27;  // 明示的にLOWにしないとPicoが動かない
 
 // 制御周期定数
-constexpr float CONTROL_PERIOD_MS = 0.5f;                        // 制御周期 [ms]
+constexpr float CONTROL_PERIOD_MS = 0.3f;                        // 制御周期 [ms]
 constexpr float CONTROL_PERIOD_S = CONTROL_PERIOD_MS / 1000.0f;  // 制御周期 [s]
 
 // Core間同期設定

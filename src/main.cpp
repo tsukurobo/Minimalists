@@ -667,7 +667,7 @@ void core1_entry(void) {
         // --- CAN送信処理 ---
         if (!send_all_motor_currents(&can, target_current)) {
             // CAN送信失敗時のみエラーカウンタを更新
-            g_debug_manager->error("Core1: CAN send failed, incrementing error count");
+            printf("Core1: CAN send failed, incrementing error count");
             mutex_enter_blocking(&g_state_mutex);
             g_robot_state.can_error_count++;
             mutex_exit(&g_state_mutex);
