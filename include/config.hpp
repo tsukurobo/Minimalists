@@ -170,7 +170,7 @@ constexpr uint16_t HAND_CURRENT_LIMIT = 1000;  // 電流制限 [mA]
 // 昇降機構用角度
 namespace LiftAngle {
 constexpr int32_t SHOOT_UP = 0xFFFFE6B0;  // シューティングエリア上段 -6480
-constexpr int32_t SHOOT_DOWN = -4100;     // シューティングエリア下段
+constexpr int32_t SHOOT_LOW = -4100;      // シューティングエリア下段
 constexpr int32_t PRE_CATCH = 3000;       // ワークをつかむ前の高さ
 constexpr int32_t CATCH = 0x0D70;         // ワークをつかむときの高さ 3440
 }  // namespace LiftAngle
