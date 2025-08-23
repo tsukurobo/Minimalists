@@ -457,20 +457,20 @@ void core1_entry(void) {
     // 制御開始時刻を記録
     absolute_time_t control_start_time = get_absolute_time();
 
-    float disturbance_torque_R = 0.0f;                                                      // R軸の外乱トルク
-    float control_torque_R = 0.0f;                                                          // R軸の制御トルク
-    float target_torque_R = 0.0f;                                                           // R軸の目標トルク
-    float error_position_R = 0.0f;                                                          // R軸の位置誤差
-    float error_velocity_R = 0.0f;                                                          // R軸の速度誤差
-    float acceleration_feedforward_R = 0.0f;                                                // R軸の加速度フィードフォワード
+    float disturbance_torque_R = 0.0f;                                                                        // R軸の外乱トルク
+    float control_torque_R = 0.0f;                                                                            // R軸の制御トルク
+    float target_torque_R = 0.0f;                                                                             // R軸の目標トルク
+    float error_position_R = 0.0f;                                                                            // R軸の位置誤差
+    float error_velocity_R = 0.0f;                                                                            // R軸の速度誤差
+    float acceleration_feedforward_R = 0.0f;                                                                  // R軸の加速度フィードフォワード
     disturbance_observer_t dob_R(Mech::R_EQ_INERTIA, Ctrl::R_VELOCITY_CUTOFF_FREQ, Ctrl::R_DOB_CUTOFF_FREQ);  // R軸の外乱オブザーバ
 
-    float disturbance_torque_P = 0.0f;                                                      // P軸の外乱トルク
-    float control_torque_P = 0.0f;                                                          // P軸の制御トルク
-    float target_torque_P = 0.0f;                                                           // P軸の目標トルク
-    float error_position_P = 0.0f;                                                          // P軸の位置誤差
-    float error_velocity_P = 0.0f;                                                          // P軸の速度誤差
-    float acceleration_feedforward_P = 0.0f;                                                // P軸の加速度フィードフォワード
+    float disturbance_torque_P = 0.0f;                                                                        // P軸の外乱トルク
+    float control_torque_P = 0.0f;                                                                            // P軸の制御トルク
+    float target_torque_P = 0.0f;                                                                             // P軸の目標トルク
+    float error_position_P = 0.0f;                                                                            // P軸の位置誤差
+    float error_velocity_P = 0.0f;                                                                            // P軸の速度誤差
+    float acceleration_feedforward_P = 0.0f;                                                                  // P軸の加速度フィードフォワード
     disturbance_observer_t dob_P(Mech::P_EQ_INERTIA, Ctrl::P_VELOCITY_CUTOFF_FREQ, Ctrl::P_DOB_CUTOFF_FREQ);  // P軸の外乱オブザーバ
 
     // ループカウンタの初期化
@@ -699,10 +699,10 @@ bool initialize_system() {
     gpio_init(Mc::SHUTDOWN_PIN);
     gpio_set_dir(Mc::SHUTDOWN_PIN, GPIO_OUT);
     gpio_put(Mc::SHUTDOWN_PIN, 0);  // HIGHにしておくとPicoが動かないのでLOWに設定
-    sleep_ms(2000);             // 少し待機して安定化
+    sleep_ms(2000);                 // 少し待機して安定化
 
     // デバッグマネージャの初期化
-    g_debug_manager = new DebugManager(DebugLevel::ERROR, 0.1f);
+    g_debug_manager = new DebugManager(DebugLevel::INFO, 0.1f);
 
     // 全SPIデバイスの初期化
     while (!init_all_spi_devices()) {
@@ -800,109 +800,136 @@ int main(void) {
     };
     trajectory_state_t traj_state = TRAJECTORY_IDLE;
     // 軌道シーケンス管理
-    constexpr int WORK_NUM = 40;  // ワーク数
+    constexpr int WAYPOINT_NUM = 80;  // 軌道点数
     constexpr float INTERMEDIATE_POSITION_R = 4.102f;
     constexpr float INTERMEDIATE_POSITION_P = -0.1322f / Mech::gear_radius_P;
 
-    trajectory_waypoint_t work_points[WORK_NUM] = {
+    static trajectory_waypoint_t all_waypoints[WAYPOINT_NUM] = {
         // 一番奥側ロボットから見て左から右へ
         // 1行目
-        trajectory_waypoint_t(3.407f, -0.4584f / Mech::gear_radius_P, 132.10f),
-        trajectory_waypoint_t(3.507f, -0.3872f / Mech::gear_radius_P, 126.91f),
-        trajectory_waypoint_t(3.711f, -0.3034f / Mech::gear_radius_P, 115.58f),
-        trajectory_waypoint_t(3.858f, -0.2662f / Mech::gear_radius_P, 104.94f),
-        trajectory_waypoint_t(4.121f, -0.2349f / Mech::gear_radius_P, 92.29f),
-        trajectory_waypoint_t(4.295f, -0.2348f / Mech::gear_radius_P, 79.80f, INTERMEDIATE_POSITION_R, INTERMEDIATE_POSITION_P),
-        trajectory_waypoint_t(4.544f, -0.2640f / Mech::gear_radius_P, 67.32f, INTERMEDIATE_POSITION_R, INTERMEDIATE_POSITION_P),
-        trajectory_waypoint_t(4.687f, -0.3081f / Mech::gear_radius_P, 57.92f, INTERMEDIATE_POSITION_R, INTERMEDIATE_POSITION_P),
-        trajectory_waypoint_t(4.859f, -0.3910f / Mech::gear_radius_P, 46.41f, INTERMEDIATE_POSITION_R, INTERMEDIATE_POSITION_P),
-        trajectory_waypoint_t(4.960f, -0.4566f / Mech::gear_radius_P, 43.42f, INTERMEDIATE_POSITION_R, INTERMEDIATE_POSITION_P),
+        trajectory_waypoint_t(3.407f, -0.4584f / Mech::gear_radius_P, 132.10f),  // 1-1
+        trajectory_waypoint_t(2.380f, -0.5645f / Mech::gear_radius_P, 90.0f),
+
+        trajectory_waypoint_t(3.507f, -0.3872f / Mech::gear_radius_P, 126.91f),  // 1-2
+        trajectory_waypoint_t(2.380f, -0.5645f / Mech::gear_radius_P, 90.0f),
+
+        trajectory_waypoint_t(3.711f, -0.3034f / Mech::gear_radius_P, 115.58f),  // 1-3
+        trajectory_waypoint_t(2.380f, -0.5645f / Mech::gear_radius_P, 90.0f),
+
+        trajectory_waypoint_t(3.858f, -0.2662f / Mech::gear_radius_P, 104.94f),  // 1-4
+        trajectory_waypoint_t(2.380f, -0.5645f / Mech::gear_radius_P, 90.0f),
+
+        trajectory_waypoint_t(4.121f, -0.2349f / Mech::gear_radius_P, 92.29f),  // 1-5
+        trajectory_waypoint_t(2.380f, -0.5645f / Mech::gear_radius_P, 90.0f),
+
+        trajectory_waypoint_t(4.295f, -0.2348f / Mech::gear_radius_P, 79.80f, INTERMEDIATE_POSITION_R, INTERMEDIATE_POSITION_P),  // 1-6
+        trajectory_waypoint_t(2.380f, -0.5645f / Mech::gear_radius_P, 90.0f, INTERMEDIATE_POSITION_R, INTERMEDIATE_POSITION_P),
+
+        trajectory_waypoint_t(4.544f, -0.2640f / Mech::gear_radius_P, 67.32f, INTERMEDIATE_POSITION_R, INTERMEDIATE_POSITION_P),  // 1-7
+        trajectory_waypoint_t(2.380f, -0.5645f / Mech::gear_radius_P, 90.0f, INTERMEDIATE_POSITION_R, INTERMEDIATE_POSITION_P),
+
+        trajectory_waypoint_t(4.687f, -0.3081f / Mech::gear_radius_P, 57.92f, INTERMEDIATE_POSITION_R, INTERMEDIATE_POSITION_P),  // 1-8
+        trajectory_waypoint_t(2.380f, -0.5645f / Mech::gear_radius_P, 90.0f, INTERMEDIATE_POSITION_R, INTERMEDIATE_POSITION_P),
+
+        trajectory_waypoint_t(4.859f, -0.3910f / Mech::gear_radius_P, 46.41f, INTERMEDIATE_POSITION_R, INTERMEDIATE_POSITION_P),  // 1-9
+        trajectory_waypoint_t(2.380f, -0.5645f / Mech::gear_radius_P, 90.0f, INTERMEDIATE_POSITION_R, INTERMEDIATE_POSITION_P),
+
+        trajectory_waypoint_t(4.960f, -0.4566f / Mech::gear_radius_P, 43.42f, INTERMEDIATE_POSITION_R, INTERMEDIATE_POSITION_P),  // 1-10
+        trajectory_waypoint_t(2.380f, -0.5645f / Mech::gear_radius_P, 90.0f, INTERMEDIATE_POSITION_R, INTERMEDIATE_POSITION_P),
         // 2行目
-        trajectory_waypoint_t(3.315f, -0.3916f / Mech::gear_radius_P, 137.98f),
-        trajectory_waypoint_t(3.419f, -0.3179f / Mech::gear_radius_P, 130.43f),
-        trajectory_waypoint_t(3.628f, -0.2194f / Mech::gear_radius_P, 117.86f),
-        trajectory_waypoint_t(3.797f, -0.1739f / Mech::gear_radius_P, 107.93f),
-        trajectory_waypoint_t(4.102f, -0.1322f / Mech::gear_radius_P, 91.67f),
-        trajectory_waypoint_t(4.327f, -0.1343f / Mech::gear_radius_P, 79.10f),
-        trajectory_waypoint_t(4.625f, -0.1682f / Mech::gear_radius_P, 61.52f, INTERMEDIATE_POSITION_R, INTERMEDIATE_POSITION_P),
-        trajectory_waypoint_t(4.785f, -0.2205f / Mech::gear_radius_P, 52.73f, INTERMEDIATE_POSITION_R, INTERMEDIATE_POSITION_P),
-        trajectory_waypoint_t(4.972f, -0.3138f / Mech::gear_radius_P, 39.64f, INTERMEDIATE_POSITION_R, INTERMEDIATE_POSITION_P),
-        trajectory_waypoint_t(5.069f, -0.3886f / Mech::gear_radius_P, 35.24f, INTERMEDIATE_POSITION_R, INTERMEDIATE_POSITION_P),
+        trajectory_waypoint_t(3.315f, -0.3916f / Mech::gear_radius_P, 137.98f),  // 2-1
+        trajectory_waypoint_t(2.380f, -0.5645f / Mech::gear_radius_P, 90.0f),
+
+        trajectory_waypoint_t(3.419f, -0.3179f / Mech::gear_radius_P, 130.43f),  // 2-2
+        trajectory_waypoint_t(2.380f, -0.5645f / Mech::gear_radius_P, 90.0f),
+
+        trajectory_waypoint_t(3.628f, -0.2194f / Mech::gear_radius_P, 117.86f),  // 2-3
+        trajectory_waypoint_t(2.380f, -0.5645f / Mech::gear_radius_P, 90.0f),
+
+        trajectory_waypoint_t(3.797f, -0.1739f / Mech::gear_radius_P, 107.93f),  // 2-4
+        trajectory_waypoint_t(2.380f, -0.5645f / Mech::gear_radius_P, 90.0f),
+
+        trajectory_waypoint_t(4.102f, -0.1322f / Mech::gear_radius_P, 91.67f),  // 2-5
+        trajectory_waypoint_t(2.380f, -0.5645f / Mech::gear_radius_P, 90.0f),
+
+        trajectory_waypoint_t(4.327f, -0.1343f / Mech::gear_radius_P, 79.10f),  // 2-6
+        trajectory_waypoint_t(2.380f, -0.5645f / Mech::gear_radius_P, 90.0f),
+
+        trajectory_waypoint_t(4.625f, -0.1682f / Mech::gear_radius_P, 61.52f, INTERMEDIATE_POSITION_R, INTERMEDIATE_POSITION_P),  // 2-7
+        trajectory_waypoint_t(2.380f, -0.5645f / Mech::gear_radius_P, 90.0f, INTERMEDIATE_POSITION_R, INTERMEDIATE_POSITION_P),
+
+        trajectory_waypoint_t(4.785f, -0.2205f / Mech::gear_radius_P, 52.73f, INTERMEDIATE_POSITION_R, INTERMEDIATE_POSITION_P),  // 2-8
+        trajectory_waypoint_t(2.380f, -0.5645f / Mech::gear_radius_P, 90.0f, INTERMEDIATE_POSITION_R, INTERMEDIATE_POSITION_P),
+
+        trajectory_waypoint_t(4.972f, -0.3138f / Mech::gear_radius_P, 39.64f, INTERMEDIATE_POSITION_R, INTERMEDIATE_POSITION_P),  // 2-9
+        trajectory_waypoint_t(2.380f, -0.5645f / Mech::gear_radius_P, 90.0f, INTERMEDIATE_POSITION_R, INTERMEDIATE_POSITION_P),
+
+        trajectory_waypoint_t(5.069f, -0.3886f / Mech::gear_radius_P, 35.24f, INTERMEDIATE_POSITION_R, INTERMEDIATE_POSITION_P),  // 2-10
+        trajectory_waypoint_t(2.380f, -0.5645f / Mech::gear_radius_P, 90.0f, INTERMEDIATE_POSITION_R, INTERMEDIATE_POSITION_P),
         // 3行目
-        trajectory_waypoint_t(3.203f, -0.3313f / Mech::gear_radius_P, 142.82f),
-        trajectory_waypoint_t(3.303f, -0.2523f / Mech::gear_radius_P, 137.55f),
-        trajectory_waypoint_t(3.527f, -0.1428f / Mech::gear_radius_P, 124.19f),
-        trajectory_waypoint_t(3.713f, -0.0834f / Mech::gear_radius_P, 113.29f),
-        trajectory_waypoint_t(4.105f, -0.0379f / Mech::gear_radius_P, 90.0f),
-        trajectory_waypoint_t(4.378f, -0.0357f / Mech::gear_radius_P, 75.59f),
-        trajectory_waypoint_t(4.735f, -0.0829f / Mech::gear_radius_P, 55.28f),
-        trajectory_waypoint_t(4.908f, -0.1413f / Mech::gear_radius_P, 45.70f),
-        trajectory_waypoint_t(5.096f, -0.2512f / Mech::gear_radius_P, 33.75f),
-        trajectory_waypoint_t(5.181f, -0.3315f / Mech::gear_radius_P, 28.74f),
+        trajectory_waypoint_t(3.203f, -0.3313f / Mech::gear_radius_P, 142.82f),  // 3-1
+        trajectory_waypoint_t(2.380f, -0.5645f / Mech::gear_radius_P, 90.0f),
+
+        trajectory_waypoint_t(3.303f, -0.2523f / Mech::gear_radius_P, 137.55f),  // 3-2
+        trajectory_waypoint_t(2.380f, -0.5645f / Mech::gear_radius_P, 90.0f),
+
+        trajectory_waypoint_t(3.527f, -0.1428f / Mech::gear_radius_P, 124.19f),  // 3-3
+        trajectory_waypoint_t(2.380f, -0.5645f / Mech::gear_radius_P, 90.0f),
+
+        trajectory_waypoint_t(3.713f, -0.0834f / Mech::gear_radius_P, 113.29f),  // 3-4
+        trajectory_waypoint_t(2.380f, -0.5645f / Mech::gear_radius_P, 90.0f),
+
+        trajectory_waypoint_t(4.105f, -0.0379f / Mech::gear_radius_P, 90.0f),  // 3-5
+        trajectory_waypoint_t(2.380f, -0.5645f / Mech::gear_radius_P, 90.0f),
+
+        trajectory_waypoint_t(4.378f, -0.0357f / Mech::gear_radius_P, 75.59f),  // 3-6
+        trajectory_waypoint_t(2.380f, -0.5645f / Mech::gear_radius_P, 90.0f),
+
+        trajectory_waypoint_t(4.735f, -0.0829f / Mech::gear_radius_P, 55.28f),  // 3-7
+        trajectory_waypoint_t(2.380f, -0.5645f / Mech::gear_radius_P, 90.0f),
+
+        trajectory_waypoint_t(4.908f, -0.1413f / Mech::gear_radius_P, 45.70f),  // 3-8
+        trajectory_waypoint_t(2.380f, -0.5645f / Mech::gear_radius_P, 90.0f),
+
+        trajectory_waypoint_t(5.096f, -0.2512f / Mech::gear_radius_P, 33.75f),  // 3-9
+        trajectory_waypoint_t(2.380f, -0.5645f / Mech::gear_radius_P, 90.0f),
+
+        trajectory_waypoint_t(5.181f, -0.3315f / Mech::gear_radius_P, 28.74f),  // 3-10
+        trajectory_waypoint_t(2.380f, -0.5645f / Mech::gear_radius_P, 90.0f),
+
         // 4行目（ロボットに一番近い行）
-        trajectory_waypoint_t(3.075f, -0.2835f / Mech::gear_radius_P, 149.77f),
-        trajectory_waypoint_t(3.165f, -0.1925f / Mech::gear_radius_P, 146.07f),
-        trajectory_waypoint_t(3.377f, -0.0687f / Mech::gear_radius_P, 132.36f),
-        trajectory_waypoint_t(3.590f, -0.0029f / Mech::gear_radius_P, 120.94f),
-        trajectory_waypoint_t(3.766f, -0.0365f / Mech::gear_radius_P, 90.0f),  // ダミーデータ
-        trajectory_waypoint_t(4.132f, -0.0365f / Mech::gear_radius_P, 75.0f),  // ダミーデータ
-        trajectory_waypoint_t(4.904f, -0.0024f / Mech::gear_radius_P, 45.26f),
-        trajectory_waypoint_t(5.090f, -0.0716f / Mech::gear_radius_P, 33.84f),
-        trajectory_waypoint_t(5.252f, -0.1933f / Mech::gear_radius_P, 25.75f),
-        trajectory_waypoint_t(5.327f, -0.2841f / Mech::gear_radius_P, 18.81f),
-    };
-    trajectory_waypoint_t shooting_points[WORK_NUM] = {
-        trajectory_waypoint_t(2.380f, -0.5645f / Mech::gear_radius_P, 90.0f),
-        trajectory_waypoint_t(2.380f, -0.5645f / Mech::gear_radius_P, 90.0f),
-        trajectory_waypoint_t(2.380f, -0.5645f / Mech::gear_radius_P, 90.0f),
-        trajectory_waypoint_t(2.380f, -0.5645f / Mech::gear_radius_P, 90.0f),
-        trajectory_waypoint_t(2.380f, -0.5645f / Mech::gear_radius_P, 90.0f),
-        trajectory_waypoint_t(2.380f, -0.5645f / Mech::gear_radius_P, 90.0f, INTERMEDIATE_POSITION_R, INTERMEDIATE_POSITION_P),
-        trajectory_waypoint_t(2.380f, -0.5645f / Mech::gear_radius_P, 90.0f, INTERMEDIATE_POSITION_R, INTERMEDIATE_POSITION_P),
-        trajectory_waypoint_t(2.380f, -0.5645f / Mech::gear_radius_P, 90.0f, INTERMEDIATE_POSITION_R, INTERMEDIATE_POSITION_P),
-        trajectory_waypoint_t(2.380f, -0.5645f / Mech::gear_radius_P, 90.0f, INTERMEDIATE_POSITION_R, INTERMEDIATE_POSITION_P),
-        trajectory_waypoint_t(2.380f, -0.5645f / Mech::gear_radius_P, 90.0f, INTERMEDIATE_POSITION_R, INTERMEDIATE_POSITION_P),
-
-        trajectory_waypoint_t(2.380f, -0.5645f / Mech::gear_radius_P, 90.0f),
-        trajectory_waypoint_t(2.380f, -0.5645f / Mech::gear_radius_P, 90.0f),
-        trajectory_waypoint_t(2.380f, -0.5645f / Mech::gear_radius_P, 90.0f),
-        trajectory_waypoint_t(2.380f, -0.5645f / Mech::gear_radius_P, 90.0f),
-        trajectory_waypoint_t(2.380f, -0.5645f / Mech::gear_radius_P, 90.0f),
-        trajectory_waypoint_t(2.380f, -0.5645f / Mech::gear_radius_P, 90.0f),
-        trajectory_waypoint_t(2.380f, -0.5645f / Mech::gear_radius_P, 90.0f, INTERMEDIATE_POSITION_R, INTERMEDIATE_POSITION_P),
-        trajectory_waypoint_t(2.380f, -0.5645f / Mech::gear_radius_P, 90.0f, INTERMEDIATE_POSITION_R, INTERMEDIATE_POSITION_P),
-        trajectory_waypoint_t(2.380f, -0.5645f / Mech::gear_radius_P, 90.0f, INTERMEDIATE_POSITION_R, INTERMEDIATE_POSITION_P),
-        trajectory_waypoint_t(2.380f, -0.5645f / Mech::gear_radius_P, 90.0f, INTERMEDIATE_POSITION_R, INTERMEDIATE_POSITION_P),
-
-        trajectory_waypoint_t(2.380f, -0.5645f / Mech::gear_radius_P, 90.0f),
-        trajectory_waypoint_t(2.380f, -0.5645f / Mech::gear_radius_P, 90.0f),
-        trajectory_waypoint_t(2.380f, -0.5645f / Mech::gear_radius_P, 90.0f),
-        trajectory_waypoint_t(2.380f, -0.5645f / Mech::gear_radius_P, 90.0f),
-        trajectory_waypoint_t(2.380f, -0.5645f / Mech::gear_radius_P, 90.0f),
-        trajectory_waypoint_t(2.380f, -0.5645f / Mech::gear_radius_P, 90.0f),
-        trajectory_waypoint_t(2.380f, -0.5645f / Mech::gear_radius_P, 90.0f),
-        trajectory_waypoint_t(2.380f, -0.5645f / Mech::gear_radius_P, 90.0f),
-        trajectory_waypoint_t(2.380f, -0.5645f / Mech::gear_radius_P, 90.0f),
+        trajectory_waypoint_t(3.075f, -0.2835f / Mech::gear_radius_P, 149.77f),  // 4-1
         trajectory_waypoint_t(2.380f, -0.5645f / Mech::gear_radius_P, 90.0f),
 
+        trajectory_waypoint_t(3.165f, -0.1925f / Mech::gear_radius_P, 146.07f),  // 4-2
         trajectory_waypoint_t(2.380f, -0.5645f / Mech::gear_radius_P, 90.0f),
+
+        trajectory_waypoint_t(3.377f, -0.0687f / Mech::gear_radius_P, 132.36f),  // 4-3
         trajectory_waypoint_t(2.380f, -0.5645f / Mech::gear_radius_P, 90.0f),
+
+        trajectory_waypoint_t(3.590f, -0.0029f / Mech::gear_radius_P, 120.94f),  // 4-4
         trajectory_waypoint_t(2.380f, -0.5645f / Mech::gear_radius_P, 90.0f),
+
+        trajectory_waypoint_t(3.766f, -0.0365f / Mech::gear_radius_P, 90.0f),  // 4-5 // ダミーデータ
         trajectory_waypoint_t(2.380f, -0.5645f / Mech::gear_radius_P, 90.0f),
+
+        trajectory_waypoint_t(4.132f, -0.0365f / Mech::gear_radius_P, 75.0f),  // 4-6 // ダミーデータ
         trajectory_waypoint_t(2.380f, -0.5645f / Mech::gear_radius_P, 90.0f),
+
+        trajectory_waypoint_t(4.904f, -0.0024f / Mech::gear_radius_P, 45.26f),  // 4-7
         trajectory_waypoint_t(2.380f, -0.5645f / Mech::gear_radius_P, 90.0f),
+
+        trajectory_waypoint_t(5.090f, -0.0716f / Mech::gear_radius_P, 33.84f),  // 4-8
         trajectory_waypoint_t(2.380f, -0.5645f / Mech::gear_radius_P, 90.0f),
+
+        trajectory_waypoint_t(5.252f, -0.1933f / Mech::gear_radius_P, 25.75f),  // 4-9
         trajectory_waypoint_t(2.380f, -0.5645f / Mech::gear_radius_P, 90.0f),
-        trajectory_waypoint_t(2.380f, -0.5645f / Mech::gear_radius_P, 90.0f),
+
+        trajectory_waypoint_t(5.327f, -0.2841f / Mech::gear_radius_P, 18.81f),  // 4-10
         trajectory_waypoint_t(2.380f, -0.5645f / Mech::gear_radius_P, 90.0f),
     };
     TrajectorySequenceManager* seq_manager = new TrajectorySequenceManager(g_debug_manager);
-    trajectory_waypoint_t all_waypoints[2 * WORK_NUM];
-    for (int i = 0; i < WORK_NUM; ++i) {
-        all_waypoints[2 * i] = work_points[i];
-        all_waypoints[2 * i + 1] = shooting_points[i];
-    }
-    seq_manager->setup_sequence(all_waypoints, 2 * WORK_NUM);
+    seq_manager->setup_sequence(all_waypoints, WAYPOINT_NUM);
 
     // ハンド状態管理用ローカル変数
     hand_state_t hand_state = HAND_IDLE;
