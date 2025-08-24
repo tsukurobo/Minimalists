@@ -425,8 +425,8 @@ void init_hand() {
     write_torqueEnable(&UART0, DXL_ID1, false);
     write_torqueEnable(&UART0, DXL_ID2, false);
     sleep_ms(100);
-    write_dxl_current_limit(&UART0, DXL_ID1, 100);  // ID=1, 電流制限=100mA
-    write_dxl_current_limit(&UART0, DXL_ID2, 100);  // ID=2, 電流制限=100mA
+    write_dxl_current_limit(&UART0, DXL_ID1, 1000);  // ID=1, 電流制限=100mA
+    write_dxl_current_limit(&UART0, DXL_ID2, 1400);  // ID=2, 電流制限=1000mA
     sleep_ms(100);
     write_operatingMode(&UART0, DXL_ID1, false);  // false : 位置制御, true : 拡張位置制御(マルチターン)
     write_operatingMode(&UART0, DXL_ID2, false);
@@ -447,7 +447,7 @@ void init_hand() {
 void hand_tick(hand_state_t* hand_state, bool* has_work, absolute_time_t* state_start_time) {
     uint32_t elapsed_ms = absolute_time_diff_us(*state_start_time, get_absolute_time()) / 1000;
     switch (*hand_state) {
-        case HAND_IDLE:
+        case HAND_IDLE:  // IDLE
             g_debug_manager->debug("hand requested\n");
             if (!*has_work) {
                 *hand_state = HAND_LOWERING;
@@ -462,7 +462,7 @@ void hand_tick(hand_state_t* hand_state, bool* has_work, absolute_time_t* state_
             }
             break;
 
-        case HAND_LOWERING:
+        case HAND_LOWERING:  // 下降中
             if (elapsed_ms >= 300) {
                 *hand_state = HAND_SUCTION_WAIT;
                 *state_start_time = get_absolute_time();
@@ -470,7 +470,7 @@ void hand_tick(hand_state_t* hand_state, bool* has_work, absolute_time_t* state_
             }
             break;
 
-        case HAND_SUCTION_WAIT:
+        case HAND_SUCTION_WAIT:  // 吸着待機中
             if (elapsed_ms >= 100) {
                 *hand_state = HAND_RAISING;
                 *state_start_time = get_absolute_time();
@@ -479,8 +479,8 @@ void hand_tick(hand_state_t* hand_state, bool* has_work, absolute_time_t* state_
             }
             break;
 
-        case HAND_RAISING:
-            if (elapsed_ms >= 200) {
+        case HAND_RAISING:  // 昇降中
+            if (elapsed_ms >= 400) {
                 *has_work = true;
                 control_position(&UART0, DXL_ID1, RELEASE_ANGLE);
                 g_debug_manager->debug("Hand raised, work done.\n");
@@ -489,7 +489,7 @@ void hand_tick(hand_state_t* hand_state, bool* has_work, absolute_time_t* state_
             }
             break;
 
-        case HAND_RELEASE:
+        case HAND_RELEASE:  // リリース中
             if (elapsed_ms >= 150) {
                 *has_work = false;
                 gpio_put(SOLENOID_PIN, 0);
@@ -750,8 +750,8 @@ void core1_entry(void) {
         // // トルクから電流への変換
         target_current[0] = target_torque_R / R_TORQUE_CONSTANT;  // Motor1 (R軸)
         target_current[1] = target_torque_P / P_TORQUE_CONSTANT;  // Motor2 (P軸)
-        // target_current[0] = 0.0;                                  // Motor1 (R軸)
-        // target_current[1] = 0.0;                                  // Motor2 (P軸)
+        // target_current[0] = 0.0;  // Motor1 (R軸)
+        // target_current[1] = 0.0;  // Motor2 (P軸)
 
         // --- 制御結果を共有データに保存 ---
         mutex_enter_blocking(&g_state_mutex);
@@ -901,61 +901,64 @@ int main(void) {
     };
     trajectory_state_t traj_state = TRAJECTORY_IDLE;
     // 軌道シーケンス管理
-    constexpr int WORK_NUM = 40;  // ワーク数
+    constexpr int WORK_NUM = 40;       // ワーク数
+    constexpr float R_bias = 0.117;    // R軸バイアス
+    constexpr float P_bias = -0.0467;  // P軸バイアス
     trajectory_waypoint_t work_points[WORK_NUM] = {
         // 一番奥側ロボットから見て左から右へ
         // 1行目
-        trajectory_waypoint_t(3.27f, -0.4703f / gear_radius_P, 0.0f),
-        trajectory_waypoint_t(3.368f, -0.4036f / gear_radius_P, 0.0f),
-        trajectory_waypoint_t(3.536f, -0.3141f / gear_radius_P, 0.0f),
-        trajectory_waypoint_t(3.684f, -0.277f / gear_radius_P, 0.0f),
-        trajectory_waypoint_t(3.932f, -0.2471f / gear_radius_P, 0.0f),
-        trajectory_waypoint_t(4.112f, -0.2436f / gear_radius_P, 0.0f),
-        trajectory_waypoint_t(4.365f, -0.2766f / gear_radius_P, 0.0f),
-        trajectory_waypoint_t(4.519f, -0.3181f / gear_radius_P, 0.0f),
-        trajectory_waypoint_t(4.715f, -0.3986f / gear_radius_P, 0.0f),
-        trajectory_waypoint_t(4.817f, -0.4658f / gear_radius_P, 0.0f),
+        trajectory_waypoint_t(3.270f + R_bias, (-0.4703f + P_bias) / gear_radius_P, 132.10f),
+        trajectory_waypoint_t(3.368f + R_bias, (-0.4036f + P_bias) / gear_radius_P, 126.91f),
+        trajectory_waypoint_t(3.536f + R_bias, (-0.3141f + P_bias) / gear_radius_P, 115.58f),
+        trajectory_waypoint_t(3.684f + R_bias, (-0.277f + P_bias) / gear_radius_P, 104.94f),
+        trajectory_waypoint_t(3.932f + R_bias, (-0.2471f + P_bias) / gear_radius_P, 92.29f),
+        trajectory_waypoint_t(4.112f + R_bias, (-0.2436f + P_bias) / gear_radius_P, 79.80f),
+        trajectory_waypoint_t(4.365f + R_bias, (-0.2766f + P_bias) / gear_radius_P, 67.32f),
+        trajectory_waypoint_t(4.519f + R_bias, (-0.3181f + P_bias) / gear_radius_P, 57.92f),
+        trajectory_waypoint_t(4.715f + R_bias, (-0.3986f + P_bias) / gear_radius_P, 46.41f),
+        trajectory_waypoint_t(4.817f + R_bias, (-0.4658f + P_bias) / gear_radius_P, 43.42f),
         // 2行目
-        trajectory_waypoint_t(3.164f, -0.3986f / gear_radius_P, 0.0f),
-        trajectory_waypoint_t(3.260f, -0.323f / gear_radius_P, 0.0f),
-        trajectory_waypoint_t(3.442f, -0.2321f / gear_radius_P, 0.0f),
-        trajectory_waypoint_t(3.598f, -0.1860f / gear_radius_P, 0.0f),
-        trajectory_waypoint_t(3.897f, -0.1451f / gear_radius_P, 0.0f),
-        trajectory_waypoint_t(4.113f, -0.1426f / gear_radius_P, 0.0f),
-        trajectory_waypoint_t(4.420f, -0.1784f / gear_radius_P, 0.0f),
-        trajectory_waypoint_t(4.602f, -0.2261f / gear_radius_P, 0.0f),
-        trajectory_waypoint_t(4.806f, -0.3196f / gear_radius_P, 0.0f),
-        trajectory_waypoint_t(4.913f, -0.3954f / gear_radius_P, 0.0f),
+        trajectory_waypoint_t(3.164f + R_bias, (-0.3986f + P_bias) / gear_radius_P, 137.98f),
+        trajectory_waypoint_t(3.260f + R_bias, (-0.323f + P_bias) / gear_radius_P, 130.43f),
+        trajectory_waypoint_t(3.442f + R_bias, (-0.2321f + P_bias) / gear_radius_P, 117.86f),
+        trajectory_waypoint_t(3.598f + R_bias, (-0.1860f + P_bias) / gear_radius_P, 107.93f),
+        trajectory_waypoint_t(3.897f + R_bias, (-0.1451f + P_bias) / gear_radius_P, 91.67f),
+        trajectory_waypoint_t(4.113f + R_bias, (-0.1426f + P_bias) / gear_radius_P, 79.10f),
+        trajectory_waypoint_t(4.420f + R_bias, (-0.1784f + P_bias) / gear_radius_P, 61.52f),
+        trajectory_waypoint_t(4.602f + R_bias, (-0.2261f + P_bias) / gear_radius_P, 52.73f),
+        trajectory_waypoint_t(4.806f + R_bias, (-0.3196f + P_bias) / gear_radius_P, 39.64f),
+        trajectory_waypoint_t(4.913f + R_bias, (-0.3954f + P_bias) / gear_radius_P, 35.24f),
         // 3行目
-        trajectory_waypoint_t(3.046f, -0.3424f / gear_radius_P, 0.0f),
-        trajectory_waypoint_t(3.130f, -0.2619f / gear_radius_P, 0.0f),
-        trajectory_waypoint_t(3.320f, -0.1520f / gear_radius_P, 0.0f),
-        trajectory_waypoint_t(3.486f, -0.0924f / gear_radius_P, 0.0f),
-        trajectory_waypoint_t(3.846f, -0.0441f / gear_radius_P, 0.0f),
-        trajectory_waypoint_t(4.112f, -0.0438f / gear_radius_P, 0.0f),
-        trajectory_waypoint_t(4.501f, -0.0880f / gear_radius_P, 0.0f),
-        trajectory_waypoint_t(4.701f, -0.1516f / gear_radius_P, 0.0f),
-        trajectory_waypoint_t(4.915f, -0.2591f / gear_radius_P, 0.0f),
-        trajectory_waypoint_t(5.021f, -0.3384f / gear_radius_P, 0.0f),
+        trajectory_waypoint_t(3.046f + R_bias, (-0.3424f + P_bias) / gear_radius_P, 142.82f),
+        trajectory_waypoint_t(3.130f + R_bias, (-0.2619f + P_bias) / gear_radius_P, 137.55f),
+        trajectory_waypoint_t(3.320f + R_bias, (-0.1520f + P_bias) / gear_radius_P, 124.19f),
+        trajectory_waypoint_t(3.486f + R_bias, (-0.0924f + P_bias) / gear_radius_P, 113.29f),
+        trajectory_waypoint_t(3.846f + R_bias, (-0.0441f + P_bias) / gear_radius_P, 90.0f),
+        trajectory_waypoint_t(4.112f + R_bias, (-0.0438f + P_bias) / gear_radius_P, 75.59f),
+        trajectory_waypoint_t(4.501f + R_bias, (-0.0880f + P_bias) / gear_radius_P, 55.28f),
+        trajectory_waypoint_t(4.701f + R_bias, (-0.1516f + P_bias) / gear_radius_P, 45.70f),
+        trajectory_waypoint_t(4.915f + R_bias, (-0.2591f + P_bias) / gear_radius_P, 33.75f),
+        trajectory_waypoint_t(5.021f + R_bias, (-0.3384f + P_bias) / gear_radius_P, 28.74f),
         // 4行目（ロボットに一番近い行）
-        trajectory_waypoint_t(2.899f, -0.2917f / gear_radius_P, 0.0f),
-        trajectory_waypoint_t(2.979f, -0.2038f / gear_radius_P, 0.0f),
-        trajectory_waypoint_t(3.140f, -0.0807f / gear_radius_P, 0.0f),
-        trajectory_waypoint_t(3.319f, -0.0107f / gear_radius_P, 0.0f),
-        trajectory_waypoint_t(3.766f, -0.0365f / gear_radius_P, 0.0f),  // 本当はP軸の値が＋
-        trajectory_waypoint_t(4.132f, -0.0365f / gear_radius_P, 0.0f),  // 本当はP軸の値が＋
-        trajectory_waypoint_t(4.620f, -0.0086f / gear_radius_P, 0.0f),
-        trajectory_waypoint_t(4.849f, -0.0749f / gear_radius_P, 0.0f),
-        trajectory_waypoint_t(5.067f, -0.1997f / gear_radius_P, 0.0f),
-        trajectory_waypoint_t(5.151f, -0.2896f / gear_radius_P, 0.0f),
+        trajectory_waypoint_t(2.899f + R_bias, (-0.2917f + P_bias) / gear_radius_P, 149.77f),
+        trajectory_waypoint_t(2.979f + R_bias, (-0.2038f + P_bias) / gear_radius_P, 146.07f),
+        trajectory_waypoint_t(3.140f + R_bias, (-0.0807f + P_bias) / gear_radius_P, 132.36f),
+        trajectory_waypoint_t(3.319f + R_bias, (-0.0107f + P_bias) / gear_radius_P, 120.94f),
+        trajectory_waypoint_t(3.766f + R_bias, (-0.0365f + P_bias) / gear_radius_P, 90.0f),   // 本当はP軸の値が＋
+        trajectory_waypoint_t(4.132f + R_bias, (-0.0365f + P_bias) / gear_radius_P, 75.59f),  // 本当はP軸の値が＋
+        trajectory_waypoint_t(4.620f + R_bias, (-0.0086f + P_bias) / gear_radius_P, 55.28f),
+        trajectory_waypoint_t(4.849f + R_bias, (-0.0749f + P_bias) / gear_radius_P, 39.64f),
+        trajectory_waypoint_t(5.067f + R_bias, (-0.1997f + P_bias) / gear_radius_P, 28.74f),
+        trajectory_waypoint_t(5.151f + R_bias, (-0.2896f + P_bias) / gear_radius_P, 18.81f),
     };
     trajectory_waypoint_t shooting_points[WORK_NUM] = {
-        trajectory_waypoint_t(2.380f, -0.5645f / gear_radius_P, 0.0f),
-        trajectory_waypoint_t(2.380f, -0.5645f / gear_radius_P, 0.0f),
-        trajectory_waypoint_t(2.380f, -0.5645f / gear_radius_P, 0.0f),
-        trajectory_waypoint_t(2.380f, -0.5645f / gear_radius_P, 0.0f),
-        trajectory_waypoint_t(2.380f, -0.5645f / gear_radius_P, 0.0f),
-        trajectory_waypoint_t(2.380f, -0.5645f / gear_radius_P, 0.0f),
+        trajectory_waypoint_t(2.571f, -0.3288f / gear_radius_P, 71.72f + 180.0f),
+        trajectory_waypoint_t(2.506f, -0.3288f / gear_radius_P, 86.04f + 180.0f),
+        trajectory_waypoint_t(2.441f, -0.3301f / gear_radius_P, 92.46f + 180.0f),
+        trajectory_waypoint_t(2.383f, -0.3373f / gear_radius_P, 96.94f + 180.0f),
+        trajectory_waypoint_t(2.324f, -0.3475f / gear_radius_P, 102.13f + 180.0f),
+
+        trajectory_waypoint_t(2.324f, -0.5645f / gear_radius_P, 0.0f),
         trajectory_waypoint_t(2.380f, -0.5645f / gear_radius_P, 0.0f),
         trajectory_waypoint_t(2.380f, -0.5645f / gear_radius_P, 0.0f),
         trajectory_waypoint_t(2.380f, -0.5645f / gear_radius_P, 0.0f),
@@ -1047,6 +1050,13 @@ int main(void) {
 
                 case TRAJECTORY_EXECUTING:
                     // 軌道実行中は何もしない（完了信号待ち）
+                    // float current_pos_R, current_pos_P;
+                    // mutex_enter_blocking(&g_state_mutex);
+                    // current_pos_R = g_robot_state.current_position_R;
+                    // current_pos_P = g_robot_state.current_position_P;
+                    // mutex_exit(&g_state_mutex);
+                    // printf("Current_position: R=%.3f rad, P=%.4f m, current_time=%.3f s\n",
+                    //        current_pos_R, current_pos_P * gear_radius_P, get_absolute_time() / 1000000.0);
                     break;
 
                 case TRAJECTORY_HANDLING:
