@@ -23,7 +23,7 @@ constexpr int SYNC_EVERY_N_LOOPS = 200;  // 200ループごとにCore0に同期�
 constexpr uint32_t SYNC_SIGNAL = 1;      // 同期信号の値
 
 // 軌道完了判定の許容誤差
-constexpr float TRAJECTORY_COMPLETION_TOLERANCE_R = 0.1;         // R軸完了判定許容誤差 [rad]
+constexpr float TRAJECTORY_COMPLETION_TOLERANCE_R = 0.02;        // R軸完了判定許容誤差 [rad]
 constexpr float TRAJECTORY_COMPLETION_TOLERANCE_P = 0.1;         // P軸完了判定許容誤差 [rad]
 constexpr float TRAJECTORY_COMPLETION_VELOCITY_THRESHOLD = 0.1;  // 完了判定時の速度閾値 [rad/s]
 
@@ -425,8 +425,8 @@ void init_hand() {
     write_torqueEnable(&UART0, DXL_ID1, false);
     write_torqueEnable(&UART0, DXL_ID2, false);
     sleep_ms(100);
-    write_dxl_current_limit(&UART0, DXL_ID1, 1000);  // ID=1, 電流制限=100mA
-    write_dxl_current_limit(&UART0, DXL_ID2, 1400);  // ID=2, 電流制限=1000mA
+    write_dxl_current_limit(&UART0, DXL_ID1, 500);   // ID=1, 電流制限=100mA
+    write_dxl_current_limit(&UART0, DXL_ID2, 1200);  // ID=2, 電流制限=1000mA
     sleep_ms(100);
     write_operatingMode(&UART0, DXL_ID1, false);  // false : 位置制御, true : 拡張位置制御(マルチターン)
     write_operatingMode(&UART0, DXL_ID2, false);
@@ -452,6 +452,7 @@ void hand_tick(hand_state_t* hand_state, bool* has_work, absolute_time_t* state_
             if (!*has_work) {
                 *hand_state = HAND_LOWERING;
                 *state_start_time = get_absolute_time();
+                control_position(&UART0, DXL_ID1, GRAB_ANGLE);
                 gpio_put(PUMP_PIN, 1);
                 g_debug_manager->debug("Hand lowering...");
                 control_position_multiturn(&UART0, DXL_ID2, DOWN_ANGLE);
@@ -493,7 +494,6 @@ void hand_tick(hand_state_t* hand_state, bool* has_work, absolute_time_t* state_
             if (elapsed_ms >= 150) {
                 *has_work = false;
                 gpio_put(SOLENOID_PIN, 0);
-                control_position(&UART0, DXL_ID1, GRAB_ANGLE);
                 g_debug_manager->debug("Hand released\n");
                 *hand_state = HAND_WAITING;  // HAND_IDLE前に1秒待機
                 *state_start_time = get_absolute_time();
@@ -501,7 +501,7 @@ void hand_tick(hand_state_t* hand_state, bool* has_work, absolute_time_t* state_
             break;
 
         case HAND_WAITING:
-            if (elapsed_ms >= 150) {
+            if (elapsed_ms >= 300) {
                 *hand_state = HAND_IDLE;
             }
             break;
@@ -747,7 +747,7 @@ void core1_entry(void) {
         control_torque_P = target_torque_P;
         disturbance_torque_P = dob_P.update(control_torque_P, motor_velocity_P);  // 外乱トルクの更新
 
-        // // トルクから電流への変換
+        // // // トルクから電流への変換
         target_current[0] = target_torque_R / R_TORQUE_CONSTANT;  // Motor1 (R軸)
         target_current[1] = target_torque_P / P_TORQUE_CONSTANT;  // Motor2 (P軸)
         // target_current[0] = 0.0;  // Motor1 (R軸)
@@ -954,7 +954,7 @@ int main(void) {
     trajectory_waypoint_t shooting_points[WORK_NUM] = {
         trajectory_waypoint_t(2.571f, -0.3288f / gear_radius_P, 71.72f + 180.0f),
         trajectory_waypoint_t(2.506f, -0.3288f / gear_radius_P, 86.04f + 180.0f),
-        trajectory_waypoint_t(2.441f, -0.3301f / gear_radius_P, 92.46f + 180.0f),
+        trajectory_waypoint_t(2.461f, -0.3301f / gear_radius_P, 92.46f + 180.0f),
         trajectory_waypoint_t(2.383f, -0.3373f / gear_radius_P, 96.94f + 180.0f),
         trajectory_waypoint_t(2.324f, -0.3475f / gear_radius_P, 102.13f + 180.0f),
 
