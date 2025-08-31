@@ -20,7 +20,6 @@
 #include "pico/mutex.h"
 #include "pico/stdlib.h"
 #include "robomaster_motor.hpp"
-#include "trajectory_sequence_manager.hpp"
 
 constexpr float PI_F = 3.14159265358979323846f;
 
@@ -99,6 +98,18 @@ constexpr float TRAJECTORY_CONTROL_PERIOD = MicrocontrollerConfig::CONTROL_PERIO
 constexpr float TRAJECTORY_COMPLETION_TOLERANCE_R = 0.1f;         // R軸完了判定許容誤差 [rad]
 constexpr float TRAJECTORY_COMPLETION_TOLERANCE_P = 0.1f;         // P軸完了判定許容誤差 [rad]
 constexpr float TRAJECTORY_COMPLETION_VELOCITY_THRESHOLD = 0.1f;  // 完了判定時の速度閾値 [rad/s]
+
+// 中継点座標（R軸 [rad]、P軸 [rad]）
+constexpr float INTERMEDIATE_POS_1[2] = {4.102f, -0.1322f / MechanismConfig::gear_radius_P};
+constexpr float INTERMEDIATE_POS_2[2] = {4.102f, -0.1322f / MechanismConfig::gear_radius_P};  // TODO:ボーナス取るときに必要な中継点を設定
+
+// 中継点の通過パターン
+enum class PassThroughMode : uint8_t {
+    DIRECT,           // 中継点なし
+    INTERMEDIATE_1,   // 中継点1のみ通過
+    INTERMEDIATE_12,  // 中継点1を通過してから中継点2も通過
+    INTERMEDIATE_21   // 中継点2を通過してから中継点1も通過
+};
 
 // Ruckig の設定用定数（Ruckigの引数指定がdoubleなのでdoubleで宣言）
 namespace RuckigConfig {
