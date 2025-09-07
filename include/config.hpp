@@ -12,7 +12,6 @@
 #include "control_timing.hpp"
 #include "debug_manager.hpp"
 #include "disturbance_observer.hpp"
-#include "dynamixel.hpp"
 #include "hand.hpp"
 #include "mcp25625.hpp"
 #include "pico/multicore.h"
@@ -22,6 +21,22 @@
 #include "trajectory_sequence_manager.hpp"
 
 constexpr float PI_F = 3.14159265358979323846f;
+
+// pin
+constexpr uint8_t UART0_TX_PIN = 0;
+constexpr uint8_t UART0_RX_PIN = 1;
+constexpr uint8_t UART0_DE_RE_PIN = 2;
+constexpr uint8_t UART1_TX_PIN = 4;
+constexpr uint8_t UART1_RX_PIN = 5;
+constexpr uint8_t UART1_DE_RE_PIN = 20;
+namespace LED {
+constexpr uint8_t ALIVE_PIN = 18;
+constexpr uint8_t ERROR_PIN = 19;
+}  // namespace LED
+namespace Servo {
+constexpr uint8_t UPPER_PIN = 12;
+constexpr uint8_t LOWER_PIN = 15;
+}  // namespace Servo
 
 // 軌道データ点の構造体（制御用の詳細軌道）
 typedef struct {
@@ -45,10 +60,28 @@ typedef struct {
     int pin_rst;
 } spi_config_t;
 
+namespace SPI1 {
+constexpr uint8_t MISO_PIN = 8;
+constexpr uint8_t SCK_PIN = 10;
+constexpr uint8_t MOSI_PIN = 11;
+namespace MCP25625 {
+constexpr uint8_t CS_PIN = 13;
+constexpr uint8_t INT_PIN = 9;
+constexpr uint8_t TX0RTS_PIN = 14;
+}  // namespace MCP25625
+namespace Encoder {
+constexpr uint8_t R_PIN = 7;
+constexpr uint8_t P_PIN = 6;
+constexpr uint8_t ON_PIN = 16;
+}  // namespace Encoder
+}  // namespace SPI1
+
 // ======== マイコン設定 ========
 namespace MicrocontrollerConfig {
 // システム設定定数
-constexpr int SHUTDOWN_PIN = 27;  // 明示的にLOWにしないとPicoが動かない
+constexpr uint8_t SHUTDOWN_PIN = 27;       // 明示的にLOWにしないとPicoが動かない
+constexpr uint8_t VATT_VOLTAGE_PIN = 28;   // VATT電圧測定用ピン
+constexpr uint8_t PWR_ON_DETECT_PIN = 26;  // PWR_ON信号検出用ピン
 
 // 制御周期定数
 constexpr float CONTROL_PERIOD_MS = 0.3f;                        // 制御周期 [ms]
@@ -160,8 +193,8 @@ constexpr float P_VELOCITY_GAIN = 2.0f * sqrtf_P_POSITION_GAIN;                 
 // ======== Dynamixelの設定 ========
 namespace DynamixelConfig {
 // PIN設定
-constexpr int PUMP_PIN = 4;
-constexpr int SOLENOID_PIN = 3;
+constexpr int PUMP_PIN = 21;
+constexpr int SOLENOID_PIN = 22;
 
 // dynamixelの初期化角度　
 constexpr float START_HAND_ANGLE = 90.0f;
@@ -178,3 +211,10 @@ constexpr int32_t DOWN_ANGLE = 0x0D70;    // 3440
 constexpr short DXL_ID1 = 0x01;  // 手先
 constexpr short DXL_ID2 = 0x02;  // 昇降
 }  // namespace DynamixelConfig
+
+namespace FastArmConfig {
+// ピン設定
+constexpr uint8_t SOLENOID_PIN = 17;
+constexpr uint8_t PUMP_PIN = 3;
+
+}  // namespace FastArmConfig
