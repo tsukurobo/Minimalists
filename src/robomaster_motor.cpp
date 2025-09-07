@@ -9,9 +9,9 @@ bool send_all_motor_currents(mcp25625_t* can, float currents[4]) {
     // 4モータ分をパック
     for (int i = 0; i < 4; ++i) {
         // 変換式はrobomaster_motor_t::current_to_rawと同じ
-        int16_t raw = (int16_t)(currents[i] / (20.0f / 16384.0f));
-        tx_frame.data[i * 2] = (uint8_t)(raw >> 8);
-        tx_frame.data[i * 2 + 1] = (uint8_t)(raw);
+        int16_t raw = static_cast<int16_t>(currents[i] / (20.0f / 16384.0f));
+        tx_frame.data[i * 2] = static_cast<uint8_t>(raw >> 8);
+        tx_frame.data[i * 2 + 1] = static_cast<uint8_t>(raw);
     }
 
     return can->send_can_message(&tx_frame);

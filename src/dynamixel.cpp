@@ -41,7 +41,7 @@ void uart_clear_rx_buffer_safe(const uart_config_t* config) {
     const int max_clear = 64;
 
     while (uart_is_readable(config->uart_number) && count < max_clear) {
-        // int c = uart_getc(config->uart_number);
+        int c = uart_getc(config->uart_number);
         count++;
         // printf("int value: %d\n", c);
         tight_loop_contents();
