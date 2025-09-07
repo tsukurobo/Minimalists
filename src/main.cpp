@@ -159,142 +159,142 @@ bool calculate_trajectory_core0(
     const float current_position[2],
     const float target_position[2],
     const float intermediate_position[2]) {
-    // intermediate_positionがNAN配列の場合は中継点がない
-    bool has_intermediate = false;
-    if (!std::isnan(intermediate_position[0]) && !std::isnan(intermediate_position[1])) {
-        has_intermediate = true;
-    }
+    // // intermediate_positionがNAN配列の場合は中継点がない
+    // bool has_intermediate = false;
+    // if (!std::isnan(intermediate_position[0]) && !std::isnan(intermediate_position[1])) {
+    //     has_intermediate = true;
+    // }
 
-    ruckig::Ruckig<2> otg(Traj::TRAJECTORY_CONTROL_PERIOD);  // 2軸のRuckigオブジェクトを作成
-    ruckig::InputParameter<2> input;
-    ruckig::OutputParameter<2> output_intermediate;
-    ruckig::InputParameter<2> input_intermediate;
-    ruckig::OutputParameter<2> output;
+    // ruckig::Ruckig<2> otg(Traj::TRAJECTORY_CONTROL_PERIOD);  // 2軸のRuckigオブジェクトを作成
+    // ruckig::InputParameter<2> input;
+    // ruckig::OutputParameter<2> output_intermediate;
+    // ruckig::InputParameter<2> input_intermediate;
+    // ruckig::OutputParameter<2> output;
 
-    // 制限
-    input.max_velocity = {
-        Traj::RuckigConfig::R_MAX_VELOCITY,
-        Traj::RuckigConfig::P_MAX_VELOCITY};
-    input.min_velocity = {-input.max_velocity[0], -input.max_velocity[1]};
+    // // 制限
+    // input.max_velocity = {
+    //     Traj::RuckigConfig::R_MAX_VELOCITY,
+    //     Traj::RuckigConfig::P_MAX_VELOCITY};
+    // input.min_velocity = {-input.max_velocity[0], -input.max_velocity[1]};
 
-    // 進行方向判定
-    bool is_forward_R = current_position[0] < target_position[0];
-    bool is_forward_P = current_position[1] < target_position[1];
-    // R軸加速度
-    double accel_R = is_forward_R ? Traj::RuckigConfig::R_ACCEL : Traj::RuckigConfig::R_DECEL;
-    double decel_R = is_forward_R ? Traj::RuckigConfig::R_DECEL : Traj::RuckigConfig::R_ACCEL;
-    // P軸加速度
-    double accel_P = is_forward_P ? Traj::RuckigConfig::P_ACCEL : Traj::RuckigConfig::P_DECEL;
-    double decel_P = is_forward_P ? Traj::RuckigConfig::P_DECEL : Traj::RuckigConfig::P_ACCEL;
-    input.max_acceleration = {accel_R, accel_P};
-    input.min_acceleration = {-decel_R, -decel_P};
-    input.max_jerk = {Traj::RuckigConfig::R_JERK, Traj::RuckigConfig::P_JERK};
-    // 中継点の制限
-    input_intermediate.max_velocity = input.max_velocity;
-    input_intermediate.max_acceleration = input.max_acceleration;
-    input_intermediate.max_jerk = input.max_jerk;
-    input_intermediate.min_velocity = input.min_velocity;
-    input_intermediate.min_acceleration = input.min_acceleration;
+    // // 進行方向判定
+    // bool is_forward_R = current_position[0] < target_position[0];
+    // bool is_forward_P = current_position[1] < target_position[1];
+    // // R軸加速度
+    // double accel_R = is_forward_R ? Traj::RuckigConfig::R_ACCEL : Traj::RuckigConfig::R_DECEL;
+    // double decel_R = is_forward_R ? Traj::RuckigConfig::R_DECEL : Traj::RuckigConfig::R_ACCEL;
+    // // P軸加速度
+    // double accel_P = is_forward_P ? Traj::RuckigConfig::P_ACCEL : Traj::RuckigConfig::P_DECEL;
+    // double decel_P = is_forward_P ? Traj::RuckigConfig::P_DECEL : Traj::RuckigConfig::P_ACCEL;
+    // input.max_acceleration = {accel_R, accel_P};
+    // input.min_acceleration = {-decel_R, -decel_P};
+    // input.max_jerk = {Traj::RuckigConfig::R_JERK, Traj::RuckigConfig::P_JERK};
+    // // 中継点の制限
+    // input_intermediate.max_velocity = input.max_velocity;
+    // input_intermediate.max_acceleration = input.max_acceleration;
+    // input_intermediate.max_jerk = input.max_jerk;
+    // input_intermediate.min_velocity = input.min_velocity;
+    // input_intermediate.min_acceleration = input.min_acceleration;
 
-    // 出発点の設定
-    input.current_position = {current_position[0], current_position[1]};
-    input.current_velocity = {0.0, 0.0};
-    input.current_acceleration = {0.0, 0.0};
+    // // 出発点の設定
+    // input.current_position = {current_position[0], current_position[1]};
+    // input.current_velocity = {0.0, 0.0};
+    // input.current_acceleration = {0.0, 0.0};
 
-    // 目標位置と速度の設定
-    if (has_intermediate) {  // 中継点が指定されている場合
-        input.target_position = {intermediate_position[0], intermediate_position[1]};
-        // 中継点のR軸は目標位置に向かう方向の速度に設定
-        double R_intermediate_vel = (target_position[0] - intermediate_position[0] > 0.0) ? input.max_velocity[0] : input.min_velocity.value()[0];
-        input.target_velocity = {R_intermediate_vel, 0.0};  // R軸は中継点が合っても動く方向は変わらない
-        input.target_acceleration = {0.0, 0.0};
+    // // 目標位置と速度の設定
+    // if (has_intermediate) {  // 中継点が指定されている場合
+    //     input.target_position = {intermediate_position[0], intermediate_position[1]};
+    //     // 中継点のR軸は目標位置に向かう方向の速度に設定
+    //     double R_intermediate_vel = (target_position[0] - intermediate_position[0] > 0.0) ? input.max_velocity[0] : input.min_velocity.value()[0];
+    //     input.target_velocity = {R_intermediate_vel, 0.0};  // R軸は中継点が合っても動く方向は変わらない
+    //     input.target_acceleration = {0.0, 0.0};
 
-        // 中継点から（存在すれば）
-        input_intermediate.current_position = input.target_position;
-        input_intermediate.current_velocity = input.target_velocity;
-        input_intermediate.current_acceleration = input.target_acceleration;
+    //     // 中継点から（存在すれば）
+    //     input_intermediate.current_position = input.target_position;
+    //     input_intermediate.current_velocity = input.target_velocity;
+    //     input_intermediate.current_acceleration = input.target_acceleration;
 
-        input_intermediate.target_position = {target_position[0], target_position[1]};
-        input_intermediate.target_velocity = {0.0, 0.0};
-        input_intermediate.target_acceleration = {0.0, 0.0};
-    } else {  // 中継点がない場合は直接目標位置へ
-        input.target_position = {target_position[0], target_position[1]};
-        input.target_velocity = {0.0, 0.0};
-        input.target_acceleration = {0.0, 0.0};
-    }
+    //     input_intermediate.target_position = {target_position[0], target_position[1]};
+    //     input_intermediate.target_velocity = {0.0, 0.0};
+    //     input_intermediate.target_acceleration = {0.0, 0.0};
+    // } else {  // 中継点がない場合は直接目標位置へ
+    //     input.target_position = {target_position[0], target_position[1]};
+    //     input.target_velocity = {0.0, 0.0};
+    //     input.target_acceleration = {0.0, 0.0};
+    // }
 
-    trajectory_point_t trajectory_points[Traj::MAX_TRAJECTORY_POINTS];
-    uint16_t point_count = 0;
-    bool overflow = false;
-    if (has_intermediate) {
-        while (otg.update(input, output_intermediate) == ruckig::Result::Working) {
-            if (point_count >= Traj::MAX_TRAJECTORY_POINTS) {
-                overflow = true;
-                break;
-            }
-            trajectory_point_t pt;
-            pt.position_R = output_intermediate.new_position[0];
-            pt.velocity_R = output_intermediate.new_velocity[0];
-            pt.acceleration_R = output_intermediate.new_acceleration[0];
-            pt.position_P = output_intermediate.new_position[1];
-            pt.velocity_P = output_intermediate.new_velocity[1];
-            pt.acceleration_P = output_intermediate.new_acceleration[1];
-            trajectory_points[point_count++] = pt;
-            output_intermediate.pass_to_input(input);
-        }
-        while (!overflow && otg.update(input_intermediate, output) == ruckig::Result::Working) {
-            if (point_count >= Traj::MAX_TRAJECTORY_POINTS) {
-                overflow = true;
-                break;
-            }
-            trajectory_point_t pt;
-            pt.position_R = output.new_position[0];
-            pt.velocity_R = output.new_velocity[0];
-            pt.acceleration_R = output.new_acceleration[0];
-            pt.position_P = output.new_position[1];
-            pt.velocity_P = output.new_velocity[1];
-            pt.acceleration_P = output.new_acceleration[1];
-            trajectory_points[point_count++] = pt;
-            output.pass_to_input(input_intermediate);
-        }
-    } else {
-        while (otg.update(input, output) == ruckig::Result::Working) {
-            if (point_count >= Traj::MAX_TRAJECTORY_POINTS) {
-                overflow = true;
-                break;
-            }
-            trajectory_point_t pt;
-            pt.position_R = output.new_position[0];
-            pt.velocity_R = output.new_velocity[0];
-            pt.acceleration_R = output.new_acceleration[0];
-            pt.position_P = output.new_position[1];
-            pt.velocity_P = output.new_velocity[1];
-            pt.acceleration_P = output.new_acceleration[1];
-            trajectory_points[point_count++] = pt;
-            output.pass_to_input(input);
-        }
-    }
+    // trajectory_point_t trajectory_points[Traj::MAX_TRAJECTORY_POINTS];
+    // uint16_t point_count = 0;
+    // bool overflow = false;
+    // if (has_intermediate) {
+    //     while (otg.update(input, output_intermediate) == ruckig::Result::Working) {
+    //         if (point_count >= Traj::MAX_TRAJECTORY_POINTS) {
+    //             overflow = true;
+    //             break;
+    //         }
+    //         trajectory_point_t pt;
+    //         pt.position_R = output_intermediate.new_position[0];
+    //         pt.velocity_R = output_intermediate.new_velocity[0];
+    //         pt.acceleration_R = output_intermediate.new_acceleration[0];
+    //         pt.position_P = output_intermediate.new_position[1];
+    //         pt.velocity_P = output_intermediate.new_velocity[1];
+    //         pt.acceleration_P = output_intermediate.new_acceleration[1];
+    //         trajectory_points[point_count++] = pt;
+    //         output_intermediate.pass_to_input(input);
+    //     }
+    //     while (!overflow && otg.update(input_intermediate, output) == ruckig::Result::Working) {
+    //         if (point_count >= Traj::MAX_TRAJECTORY_POINTS) {
+    //             overflow = true;
+    //             break;
+    //         }
+    //         trajectory_point_t pt;
+    //         pt.position_R = output.new_position[0];
+    //         pt.velocity_R = output.new_velocity[0];
+    //         pt.acceleration_R = output.new_acceleration[0];
+    //         pt.position_P = output.new_position[1];
+    //         pt.velocity_P = output.new_velocity[1];
+    //         pt.acceleration_P = output.new_acceleration[1];
+    //         trajectory_points[point_count++] = pt;
+    //         output.pass_to_input(input_intermediate);
+    //     }
+    // } else {
+    //     while (otg.update(input, output) == ruckig::Result::Working) {
+    //         if (point_count >= Traj::MAX_TRAJECTORY_POINTS) {
+    //             overflow = true;
+    //             break;
+    //         }
+    //         trajectory_point_t pt;
+    //         pt.position_R = output.new_position[0];
+    //         pt.velocity_R = output.new_velocity[0];
+    //         pt.acceleration_R = output.new_acceleration[0];
+    //         pt.position_P = output.new_position[1];
+    //         pt.velocity_P = output.new_velocity[1];
+    //         pt.acceleration_P = output.new_acceleration[1];
+    //         trajectory_points[point_count++] = pt;
+    //         output.pass_to_input(input);
+    //     }
+    // }
 
-    if (!overflow) {
-        // 軌道データを計算して配列に格納
-        mutex_enter_blocking(&g_trajectory_mutex);
-        g_trajectory_data.point_count = point_count;
-        g_trajectory_data.current_index = 0;
-        g_trajectory_data.active = false;
-        g_trajectory_data.complete = false;
-        g_trajectory_data.final_target_R = target_position[0];  // 最終目標位置を保存
-        g_trajectory_data.final_target_P = target_position[1];
-        g_trajectory_data.position_reached = false;
-        memcpy(g_trajectory_data.points, trajectory_points, sizeof(trajectory_point_t) * point_count);
-        mutex_exit(&g_trajectory_mutex);
-    } else {
-        g_debug_manager->error("Trajectory overflow: %d points exceeded maximum of %d\n", point_count, Traj::MAX_TRAJECTORY_POINTS);
-        return false;
-    }
+    // if (!overflow) {
+    //     // 軌道データを計算して配列に格納
+    //     mutex_enter_blocking(&g_trajectory_mutex);
+    //     g_trajectory_data.point_count = point_count;
+    //     g_trajectory_data.current_index = 0;
+    //     g_trajectory_data.active = false;
+    //     g_trajectory_data.complete = false;
+    //     g_trajectory_data.final_target_R = target_position[0];  // 最終目標位置を保存
+    //     g_trajectory_data.final_target_P = target_position[1];
+    //     g_trajectory_data.position_reached = false;
+    //     memcpy(g_trajectory_data.points, trajectory_points, sizeof(trajectory_point_t) * point_count);
+    //     mutex_exit(&g_trajectory_mutex);
+    // } else {
+    //     g_debug_manager->error("Trajectory overflow: %d points exceeded maximum of %d\n", point_count, Traj::MAX_TRAJECTORY_POINTS);
+    //     return false;
+    // }
 
-    g_debug_manager->debug("Trajectory calculated: %d points, max_time=%.2fs", point_count, point_count * Mc::CONTROL_PERIOD_S);
-    g_debug_manager->debug("  R: %.3f → %.3f rad, P: %.3f → %.3f rad",
-                           current_position[0], target_position[0], current_position[1], target_position[1]);
+    // g_debug_manager->debug("Trajectory calculated: %d points, max_time=%.2fs", point_count, point_count * Mc::CONTROL_PERIOD_S);
+    // g_debug_manager->debug("  R: %.3f → %.3f rad, P: %.3f → %.3f rad",
+    //                        current_position[0], target_position[0], current_position[1], target_position[1]);
 
     return true;
 }

@@ -5,11 +5,6 @@ set(CMAKE_C_STANDARD 11)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-set(BUILD_EXAMPLES OFF CACHE BOOL "Disable Ruckig examples")
-set(BUILD_CLOUD_CLIENT OFF CACHE BOOL "Disable Ruckig cloud client")
-set(BUILD_TESTS OFF CACHE BOOL "Disable Ruckig tests")
-set(BUILD_BENCHMARK OFF CACHE BOOL "Disable Ruckig benchmark")
-
 # Initialise pico_sdk from installed location
 # (note this can come from environment, CMake cache etc)
 
@@ -60,10 +55,7 @@ target_link_libraries(minimalists
         pico_multicore
         hardware_spi
         hardware_pwm
-        ruckig
 )
-
-add_subdirectory(external/ruckig) 
 
 target_include_directories(minimalists
 		PRIVATE
