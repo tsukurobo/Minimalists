@@ -21,8 +21,8 @@ bool send_all_motor_currents(mcp25625_t* can, float currents[4]);
 class robomaster_motor_t {
    private:
     static constexpr int16_t ENCODER_MAX = 8192;
-    static constexpr float ENCODER_TO_RAD = 2.0 * 3.14159265359 / ENCODER_MAX;
-    static constexpr float CURRENT_CONVERSION_FACTOR = 20.0 / 16384.0;  // 電流変換係数
+    static constexpr float ENCODER_TO_RAD = 2.0f * 3.14159265359f / ENCODER_MAX;
+    static constexpr float CURRENT_CONVERSION_FACTOR = 20.0f / 16384.0f;  // 電流変換係数
 
     int16_t prev_encoder_raw_;
     int32_t encoder_turns_;

@@ -9,7 +9,7 @@ void pump_init(uint pump_pin) {
 }
 
 void pump_set_speed(uint pump_pin, float duty) {
-    float pwm = duty * 150;
+    float pwm = duty * 150.0f;
     uint slice_num = pwm_gpio_to_slice_num(pump_pin);
     pwm_set_chan_level(slice_num, PWM_CHAN_A, pwm);
 }

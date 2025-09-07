@@ -74,11 +74,11 @@ void get_timing_stats(const control_timing_t* timing, float control_period_ms, t
     absolute_time_t current_time = get_absolute_time();
 
     stats->processing_time_us = absolute_time_diff_us(timing->loop_start_time, current_time);
-    stats->processing_time_ms = stats->processing_time_us / 1000.0;
+    stats->processing_time_ms = stats->processing_time_us / 1000.0f;
     stats->control_period_ms = control_period_ms;
     stats->violation_count = timing->timing_violation_count;
     stats->is_violation = (stats->processing_time_ms > control_period_ms);
-    stats->cpu_usage_percent = (stats->processing_time_ms / control_period_ms) * 100.0;
+    stats->cpu_usage_percent = (stats->processing_time_ms / control_period_ms) * 100.0f;
 }
 
 // 制御周期超過時の動作モードを設定

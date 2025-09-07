@@ -50,7 +50,7 @@ class AMT223V {
     static const uint16_t TURN_MASK = 0x3FFF;    // 14ビット回転数マスク
 
    public:
-    static constexpr float COUNTS_PER_REV = 16384.0;  // 2^14 = 16384 counts per revolution
+    static constexpr float COUNTS_PER_REV = 16384.0f;  // 2^14 = 16384 counts per revolution
     /**
      * @brief コンストラクタ
      * @param spi_instance SPI インスタンス
@@ -181,12 +181,11 @@ class AMT223V {
  */
 class AMT223V_Manager {
    public:
-    // 最大エンコーダ数の定義（変更しやすいように定数として定義）
+    // 最大エンコーダ数の定義
     static const int MAX_ENCODERS = 2;
 
    private:
     spi_inst_t* spi_port;
-    uint32_t baudrate;
     int pin_miso;
     int pin_sck;
     int pin_mosi;
@@ -198,12 +197,11 @@ class AMT223V_Manager {
     /**
      * @brief コンストラクタ
      * @param spi_instance SPI インスタンス
-     * @param baud SPI ボーレート
      * @param miso MISOピン
      * @param sck SCKピン
      * @param mosi MOSIピン
      */
-    AMT223V_Manager(spi_inst_t* spi_instance, uint32_t baud, int miso, int sck, int mosi);
+    AMT223V_Manager(spi_inst_t* spi_instance, int miso, int sck, int mosi);
 
     /**
      * @brief エンコーダを追加
@@ -212,12 +210,6 @@ class AMT223V_Manager {
      * @return エンコーダのインデックス（-1は失敗）
      */
     int add_encoder(int cs_pin, float velocity_cutoff_freq, bool multiturn_support = false);
-
-    /**
-     * @brief SPI設定を初期化
-     * @return 初期化成功時true
-     */
-    bool init_spi();
 
     /**
      * @brief 全エンコーダを初期化

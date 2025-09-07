@@ -18,13 +18,13 @@ extern unsigned short crc_table[256];  // CRC-tabel 除算演算の事前演算�
 
 constexpr uint BAUD_RATE = 1'000'000;
 constexpr uint LED_PIN = 25;
-constexpr float CURRENT_UNIT = 2.69 * 0.001;  //[A]
+constexpr float CURRENT_UNIT = 2.69f * 0.001f;  //[A]
 constexpr uint32_t PERIOD_US = 500;           // 1ms周期
 constexpr float delta_t = static_cast<float>(PERIOD_US) / 1'000'000;
 constexpr float PI = 3.14159265f;
-constexpr float current_limit = 1.0;  //[A]
-constexpr float TORQUE_TO_CURRENT_XM430W350 = 1 / 2.3179;
-constexpr float INV_MAX_POS = 1 / 4095.0;
+constexpr float current_limit = 1.0f;  //[A]
+constexpr float TORQUE_TO_CURRENT_XM430W350 = 1 / 2.3179f;
+constexpr float INV_MAX_POS = 1 / 4095.0f;
 
 typedef struct {
     uart_inst_t* uart_number;  // picoのUART uart0 or uart1

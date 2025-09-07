@@ -7,8 +7,11 @@
 
 #include <stdio.h>
 
-#include <cmath>
 #include <cstring>
+
+namespace {
+constexpr float PI_F = 3.14159265358979323846f;
+}
 
 DebugManager::DebugManager(DebugLevel level, float status_interval)
     : current_level(level), status_output_interval(status_interval), last_status_output_time(0.0f), prev_trajectory_active_R(false), prev_trajectory_active_P(false), limits_displayed(false), time_counter(0.0f) {
@@ -63,7 +66,7 @@ void DebugManager::check_trajectory_state_changes(bool traj_active_R, bool traj_
     if (!prev_trajectory_active_R && traj_active_R) {
         info("R-axis trajectory STARTED: %.3f → %.3f rad (%.1f° → %.1f°)",
              current_pos_R, final_target_pos_R,
-             current_pos_R * 180.0 / M_PI, final_target_pos_R * 180.0 / M_PI);
+             current_pos_R * 180.0f / PI_F, final_target_pos_R * 180.0f / PI_F);
     }
 
     if (!prev_trajectory_active_P && traj_active_P) {
@@ -95,8 +98,8 @@ void DebugManager::print_trajectory_limits(float max_vel_R, float max_accel_R,
                                            float gear_radius_P) {
     if (!limits_displayed) {
         info("=== Trajectory Limits ===");
-        info("R_MAX_VELOCITY: %.3f rad/s (%.1f °/s)", max_vel_R, max_vel_R * 180.0 / M_PI);
-        info("R_MAX_ACCELERATION: %.3f rad/s^2 (%.1f °/s^2)", max_accel_R, max_accel_R * 180.0 / M_PI);
+        info("R_MAX_VELOCITY: %.3f rad/s (%.1f °/s)", max_vel_R, max_vel_R * 180.0f / PI_F);
+        info("R_MAX_ACCELERATION: %.3f rad/s^2 (%.1f °/s^2)", max_accel_R, max_accel_R * 180.0f / PI_F);
         info("P_MAX_VELOCITY: %.3f rad/s (%.1f mm/s)", max_vel_P, max_vel_P * gear_radius_P * 1000.0);
         info("P_MAX_ACCELERATION: %.3f rad/s^2 (%.1f mm/s^2)", max_accel_P, max_accel_P * gear_radius_P * 1000.0);
         limits_displayed = true;
@@ -113,26 +116,26 @@ void DebugManager::print_trajectory_status(const TrajectoryDebugInfo& r_info,
     // R軸情報の表示
     info("Final Target:      R=%.3f [%s] (%.1f°), P=%.3f [%s] (%.1f mm)",
          r_info.final_target_pos, r_info.unit_name,
-         r_info.final_target_pos * 180.0 / M_PI,
+         r_info.final_target_pos * 180.0f / PI_F,
          p_info.final_target_pos, p_info.unit_name,
          p_info.final_target_pos * p_info.gear_radius * 1000.0);
 
     info("Trajectory Target: R=%.3f [%s] (%.1f°), P=%.3f [%s] (%.1f mm)",
          r_info.trajectory_target_pos, r_info.unit_name,
-         r_info.trajectory_target_pos * 180.0 / M_PI,
+         r_info.trajectory_target_pos * 180.0f / PI_F,
          p_info.trajectory_target_pos, p_info.unit_name,
          p_info.trajectory_target_pos * p_info.gear_radius * 1000.0);
 
     info("Current Position:  R=%.3f [%s] (%.1f°), P=%.3f [%s] (%.1f mm)",
          r_info.current_pos, r_info.unit_name,
-         r_info.current_pos * 180.0 / M_PI,
+         r_info.current_pos * 180.0f / PI_F,
          p_info.current_pos, p_info.unit_name,
          p_info.current_pos * p_info.gear_radius * 1000.0);
 
     // 速度情報
-    float traj_vel_mm = p_info.trajectory_target_vel * p_info.gear_radius * 1000.0;
-    float current_vel_mm = p_info.current_vel * p_info.gear_radius * 1000.0;
-    float final_vel_mm = p_info.final_target_vel * p_info.gear_radius * 1000.0;
+    float traj_vel_mm = p_info.trajectory_target_vel * p_info.gear_radius * 1000.0f;
+    float current_vel_mm = p_info.current_vel * p_info.gear_radius * 1000.0f;
+    float final_vel_mm = p_info.final_target_vel * p_info.gear_radius * 1000.0f;
 
     info("Target Velocity:   R=%.2f [rad/s], P=%.2f [rad/s] (%.1f mm/s)",
          r_info.trajectory_target_vel, p_info.trajectory_target_vel, traj_vel_mm);

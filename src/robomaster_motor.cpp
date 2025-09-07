@@ -9,22 +9,22 @@ bool send_all_motor_currents(mcp25625_t* can, float currents[4]) {
     // 4モータ分をパック
     for (int i = 0; i < 4; ++i) {
         // 変換式はrobomaster_motor_t::current_to_rawと同じ
-        int16_t raw = (int16_t)(currents[i] / (20.0 / 16384.0));
-        tx_frame.data[i * 2] = (uint8_t)(raw >> 8);
-        tx_frame.data[i * 2 + 1] = (uint8_t)(raw);
+        int16_t raw = static_cast<int16_t>(currents[i] / (20.0f / 16384.0f));
+        tx_frame.data[i * 2] = static_cast<uint8_t>(raw >> 8);
+        tx_frame.data[i * 2 + 1] = static_cast<uint8_t>(raw);
     }
 
     return can->send_can_message(&tx_frame);
 }
 
 robomaster_motor_t::robomaster_motor_t(mcp25625_t* can, int16_t motor_id, float gear_ratio)
-    : can_(can),
-      motor_id_(motor_id),
-      gear_ratio_(gear_ratio),
-      prev_encoder_raw_(0),
+    : prev_encoder_raw_(0),
       encoder_turns_(0),
-      continuous_angle_(0.0),
-      angular_velocity_(0.0) {}
+      continuous_angle_(0.0f),
+      angular_velocity_(0.0f),
+      gear_ratio_(gear_ratio),
+      motor_id_(motor_id),
+      can_(can) {}
 
 bool robomaster_motor_t::send_current(float current_amp) {
     can_frame_t tx_frame;
@@ -44,11 +44,11 @@ bool robomaster_motor_t::send_current(float current_amp) {
 bool robomaster_motor_t::receive_feedback() {
     can_frame_t rx_frame;
     if (!can_->read_can_message(&rx_frame)) return false;
-    if (rx_frame.can_id != (0x200 + motor_id_)) return false;
+    if (rx_frame.can_id != static_cast<uint32_t>(0x200 + motor_id_)) return false;
 
     int16_t angle_raw = (rx_frame.data[0] << 8) | rx_frame.data[1];
     int16_t rpm = (rx_frame.data[2] << 8) | rx_frame.data[3];
-    int16_t current_raw = (rx_frame.data[4] << 8) | rx_frame.data[5];
+    // int16_t current_raw = (rx_frame.data[4] << 8) | rx_frame.data[5];
     // int8_t temperature = rx_frame.data[6]; // 必要なら保存
 
     update_encoder_angle(angle_raw);
@@ -84,7 +84,7 @@ float robomaster_motor_t::update_encoder_angle(int16_t encoder_raw) {
 
 float robomaster_motor_t::rpm_to_angular_velocity(int16_t rpm) {
     // RPMをラジアン/秒に変換（ギア比を考慮）
-    angular_velocity_ = rpm * 2.0 * 3.14159265359 / 60.0 / gear_ratio_;
+    angular_velocity_ = rpm * 2.0f * 3.14159265359f / 60.0f / gear_ratio_;
     return angular_velocity_;
 }
 
@@ -100,6 +100,6 @@ int16_t robomaster_motor_t::current_to_raw(float current_amp) {
 
 void robomaster_motor_t::reset_encoder() {
     encoder_turns_ = 0;
-    continuous_angle_ = 0.0;
+    continuous_angle_ = 0.0f;
     // 注意: prev_encoder_raw_はリセットしない（現在の生値を保持）
 }

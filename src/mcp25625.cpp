@@ -17,7 +17,7 @@ mcp25625_t::mcp25625_t(spi_inst_t* spi, uint8_t cs_pin, uint8_t rst_pin)
 }
 
 // 初期化: リセット、ビットタイミング設定、通常モードへの移行
-bool mcp25625_t::init(CAN_SPEED speed, uint32_t clock_mhz) {
+bool mcp25625_t::init(CAN_SPEED speed) {
     // _reset();
     sleep_ms(10);
 
@@ -26,7 +26,7 @@ bool mcp25625_t::init(CAN_SPEED speed, uint32_t clock_mhz) {
         return false;
     }
 
-    if (!_set_bit_timing(speed, clock_mhz)) {  // ビットタイミングを設定 [cite: 296]
+    if (!_set_bit_timing(speed)) {  // ビットタイミングを設定 [cite: 296]
         printf("[ERROR] Failed to set bit timing.\n");
         return false;
     }
@@ -151,7 +151,7 @@ bool mcp25625_t::_set_mode(uint8_t mode) {
     return (status & 0xE0) == mode;
 }
 
-bool mcp25625_t::_set_bit_timing(CAN_SPEED speed, uint32_t clock_mhz) {
+bool mcp25625_t::_set_bit_timing(CAN_SPEED speed) {
     // クロックは16MHzと仮定(FOSC = 16MHz)
     // TQ = 2 * (BRP + 1) / FOSC [ns]
     uint8_t cnf1, cnf2, cnf3;
