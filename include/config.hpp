@@ -25,7 +25,7 @@ constexpr float PI_F = 3.14159265358979323846f;
 // pin
 constexpr uint8_t UART0_TX_PIN = 0;
 constexpr uint8_t UART0_RX_PIN = 1;
-constexpr uint8_t UART0_DE_RE_PIN = 2;
+constexpr uint8_t UART0_DE_RE_PIN = 2;  // 最速アーム
 constexpr uint8_t UART1_TX_PIN = 4;
 constexpr uint8_t UART1_RX_PIN = 5;
 constexpr uint8_t UART1_DE_RE_PIN = 20;
@@ -191,7 +191,7 @@ constexpr float P_VELOCITY_GAIN = 2.0f * sqrtf_P_POSITION_GAIN;                 
 }  // namespace ControlConfig
 
 // ======== Dynamixelの設定 ========
-namespace DynamixelConfig {
+namespace HandConfig {
 // PIN設定
 constexpr int PUMP_PIN = 21;
 constexpr int SOLENOID_PIN = 22;
@@ -210,11 +210,24 @@ constexpr int32_t DOWN_ANGLE = 0x0D70;    // 3440
 // dynamixelのID
 constexpr short DXL_ID1 = 0x01;  // 手先
 constexpr short DXL_ID2 = 0x02;  // 昇降
-}  // namespace DynamixelConfig
+}  // namespace HandConfig
+
+// ======= 妨害設定 ========
+namespace DisturbanceConfig {
+constexpr int32_t LEFT_DEPLOY_PRE = 1117;     // 左展開前
+constexpr int32_t LEFT_DEPLOY_1ST = 19872;    // 左展開1段階
+constexpr int32_t LEFT_DEPLOY_2ND = 30246;    // 左展開2段階(最奥)
+constexpr int32_t RIGHT_DEPLOY_PRE = 2085;    // 右展開前
+constexpr int32_t RIGHT_DEPLOY_1ST = -16852;  // 右展開1段階
+constexpr int32_t RIGHT_DEPLOY_2ND = -27046;  // 右展開2段階(最奥)
+
+// dynamixelのID
+constexpr short DXL_ID_LEFT = 0x03;   // 左展開
+constexpr short DXL_ID_RIGHT = 0x04;  // 右展開
+}  // namespace DisturbanceConfig
 
 namespace FastArmConfig {
 // ピン設定
 constexpr uint8_t SOLENOID_PIN = 17;
 constexpr uint8_t PUMP_PIN = 3;
-
 }  // namespace FastArmConfig
