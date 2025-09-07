@@ -1,4 +1,5 @@
 #include "config.hpp"
+#include "dynamixel.hpp"
 #include "trajectory.hpp"
 #include "trajectory_sequence_manager.hpp"
 
@@ -12,12 +13,12 @@ namespace Dxl = DynamixelConfig;
 const spi_config_t SPI1_CONFIG = {
     .spi_port = spi1,       // SPI1を使用
     .baudrate = 1'875'000,  // エンコーダ規定値 2MHz 整数分数でベスト:1.875MHz
-    .pin_miso = 8,
-    .pin_cs = {5, 7, 6},  // CSピン3つ（CAN、回転エンコーダ、直動エンコーダ）
-    .num_cs_pins = 3,     // CSピン数
-    .pin_sck = 10,
-    .pin_mosi = 11,
-    .pin_rst = -1  // リセットピンは使用しない
+    .pin_miso = SPI1::MISO_PIN,
+    .pin_cs = {SPI1::MCP25625::CS_PIN, SPI1::Encoder::R_PIN, SPI1::Encoder::P_PIN},  // CSピン3つ（CAN、回転エンコーダ、直動エンコーダ）
+    .num_cs_pins = 3,                                                                // CSピン数
+    .pin_sck = SPI1::SCK_PIN,
+    .pin_mosi = SPI1::MOSI_PIN,
+    .pin_rst = -1  // MCP25625用リセットピン
 };
 
 // MCP25625オブジェクトを作成（CAN SPI設定を使用）
@@ -181,7 +182,7 @@ bool calculate_trajectory_core0(
     float total_time = std::max(total_time_R, total_time_P);   // R軸とP軸のうち長い方の時間を使用
     int point_count = static_cast<int>(total_time / Traj::TRAJECTORY_CONTROL_PERIOD) + 1;
     if (point_count > Traj::MAX_TRAJECTORY_POINTS) {
-        g_debug_manager->error("Calculated trajectory points exceed maximum limit!\n");
+        g_debug_manager->error("Calculated trajectory points %d exceed maximum limit!\n", point_count);
         return false;
     }
 
@@ -201,7 +202,7 @@ bool calculate_trajectory_core0(
 
         // R軸の状態計算
         if (time <= total_time_R) {
-            trajectory_R_core0.get_s_curve_state(time, &pos_R, &vel_R, &acc_R);
+            trajectory_R_core0.get_s_curve_state(time, pos_R, vel_R, acc_R);
         } else {
             pos_R = target_position[0];
             vel_R = 0.0f;
@@ -210,7 +211,7 @@ bool calculate_trajectory_core0(
 
         // P軸の状態計算
         if (time <= total_time_P) {
-            trajectory_P_core0.get_s_curve_state(time, &pos_P, &vel_P, &acc_P);
+            trajectory_P_core0.get_s_curve_state(time, pos_P, vel_P, acc_P);
         } else {
             pos_P = target_position[1];
             vel_P = 0.0f;
@@ -244,26 +245,26 @@ bool calculate_trajectory_core0(
         trajectory_points[i] = {pos_R, vel_R, acc_R, pos_P, vel_P, acc_P};
     }
 
-    // if (!overflow) {
-    //     // 軌道データを計算して配列に格納
-    //     mutex_enter_blocking(&g_trajectory_mutex);
-    //     g_trajectory_data.point_count = point_count;
-    //     g_trajectory_data.current_index = 0;
-    //     g_trajectory_data.active = false;
-    //     g_trajectory_data.complete = false;
-    //     g_trajectory_data.final_target_R = target_position[0];  // 最終目標位置を保存
-    //     g_trajectory_data.final_target_P = target_position[1];
-    //     g_trajectory_data.position_reached = false;
-    //     memcpy(g_trajectory_data.points, trajectory_points, sizeof(trajectory_point_t) * point_count);
-    //     mutex_exit(&g_trajectory_mutex);
-    // } else {
-    //     g_debug_manager->error("Trajectory overflow: %d points exceeded maximum of %d\n", point_count, Traj::MAX_TRAJECTORY_POINTS);
-    //     return false;
-    // }
+    if (!overflow) {
+        // 軌道データを計算して配列に格納
+        mutex_enter_blocking(&g_trajectory_mutex);
+        g_trajectory_data.point_count = point_count;
+        g_trajectory_data.current_index = 0;
+        g_trajectory_data.active = false;
+        g_trajectory_data.complete = false;
+        g_trajectory_data.final_target_R = target_position[0];  // 最終目標位置を保存
+        g_trajectory_data.final_target_P = target_position[1];
+        g_trajectory_data.position_reached = false;
+        memcpy(g_trajectory_data.points, trajectory_points, sizeof(trajectory_point_t) * point_count);
+        mutex_exit(&g_trajectory_mutex);
+    } else {
+        g_debug_manager->error("Trajectory overflow: %d points exceeded maximum of %d\n", point_count, Traj::MAX_TRAJECTORY_POINTS);
+        return false;
+    }
 
-    // g_debug_manager->debug("Trajectory calculated: %d points, max_time=%.2fs", point_count, point_count * Mc::CONTROL_PERIOD_S);
-    // g_debug_manager->debug("  R: %.3f → %.3f rad, P: %.3f → %.3f rad",
-    //                        current_position[0], target_position[0], current_position[1], target_position[1]);
+    g_debug_manager->debug("Trajectory calculated: %d points, max_time=%.2fs", point_count, point_count * Mc::CONTROL_PERIOD_S);
+    g_debug_manager->debug("  R: %.3f → %.3f rad, P: %.3f → %.3f rad",
+                           current_position[0], target_position[0], current_position[1], target_position[1]);
 
     return true;
 }
@@ -280,32 +281,32 @@ void init_hand() {
     // Dynamixelの設定
     g_debug_manager->info("Initializing Dynamixels (Daisy Chain on UART0)...\n");
     init_crc();
-    configure_uart(&UART0, BAUD_RATE);
+    configure_uart(&UART1, BAUD_RATE);
     sleep_ms(100);
-    write_statusReturnLevel(&UART0, Dxl::DXL_ID1, 0x00);
-    write_statusReturnLevel(&UART0, Dxl::DXL_ID2, 0x00);
+    write_statusReturnLevel(&UART1, Dxl::DXL_ID1, 0x00);
+    write_statusReturnLevel(&UART1, Dxl::DXL_ID2, 0x00);
     sleep_ms(100);
-    write_dxl_led(&UART0, Dxl::DXL_ID1, true);
-    write_dxl_led(&UART0, Dxl::DXL_ID2, true);
+    write_dxl_led(&UART1, Dxl::DXL_ID1, true);
+    write_dxl_led(&UART1, Dxl::DXL_ID2, true);
     sleep_ms(1000);
-    write_dxl_led(&UART0, Dxl::DXL_ID1, false);
-    write_dxl_led(&UART0, Dxl::DXL_ID2, false);
+    write_dxl_led(&UART1, Dxl::DXL_ID1, false);
+    write_dxl_led(&UART1, Dxl::DXL_ID2, false);
     sleep_ms(100);
-    write_torqueEnable(&UART0, Dxl::DXL_ID1, false);
-    write_torqueEnable(&UART0, Dxl::DXL_ID2, false);
+    write_torqueEnable(&UART1, Dxl::DXL_ID1, false);
+    write_torqueEnable(&UART1, Dxl::DXL_ID2, false);
     sleep_ms(100);
-    write_dxl_current_limit(&UART0, Dxl::DXL_ID1, Dxl::HAND_CURRENT_LIMIT);
-    write_dxl_current_limit(&UART0, Dxl::DXL_ID2, Dxl::LIFT_CURRENT_LIMIT);
+    write_dxl_current_limit(&UART1, Dxl::DXL_ID1, Dxl::HAND_CURRENT_LIMIT);
+    write_dxl_current_limit(&UART1, Dxl::DXL_ID2, Dxl::LIFT_CURRENT_LIMIT);
     sleep_ms(100);
-    write_operatingMode(&UART0, Dxl::DXL_ID1, false);  // false : 位置制御, true : 拡張位置制御(マルチターン)
-    write_operatingMode(&UART0, Dxl::DXL_ID2, false);
+    write_operatingMode(&UART1, Dxl::DXL_ID1, false);  // false : 位置制御, true : 拡張位置制御(マルチターン)
+    write_operatingMode(&UART1, Dxl::DXL_ID2, false);
     sleep_ms(1000);
-    write_torqueEnable(&UART0, Dxl::DXL_ID1, true);
-    write_torqueEnable(&UART0, Dxl::DXL_ID2, true);
+    write_torqueEnable(&UART1, Dxl::DXL_ID1, true);
+    write_torqueEnable(&UART1, Dxl::DXL_ID2, true);
     sleep_ms(500);
-    control_position(&UART0, Dxl::DXL_ID1, Dxl::HandAngle::START);
+    control_position(&UART1, Dxl::DXL_ID1, Dxl::HandAngle::START);
     sleep_ms(500);
-    control_position_multiturn(&UART0, Dxl::DXL_ID2, Dxl::LiftAngle::SHOOT_UP);
+    control_position_multiturn(&UART1, Dxl::DXL_ID2, Dxl::LiftAngle::SHOOT_UP);
     sleep_ms(1000);
     gpio_put(Dxl::SOLENOID_PIN, 0);  // ソレノイドを吸着状態にする
     gpio_put(Dxl::PUMP_PIN, 1);
@@ -464,7 +465,7 @@ void core1_entry(void) {
         }
 
         // 経過時間を秒単位に変換
-        float current_time_s = absolute_time_diff_us(control_start_time, control_timing.loop_start_time) / 1000000.0f;
+        float current_time_s = static_cast<float>(absolute_time_diff_us(control_start_time, control_timing.loop_start_time) / 1000000.0f);
 
         // --- エンコーダ読み取り処理 ---
         float motor_position_R = 0.0f, motor_position_P = 0.0f;
@@ -657,6 +658,13 @@ void core1_entry(void) {
             }
         }
 
+        // // LEDを500ms間隔でONにする（Core1が動作していることの確認用）
+        // static absolute_time_t last_led_toggle_time = {0};
+        // if (absolute_time_diff_us(last_led_toggle_time, get_absolute_time()) >= 500000) {
+        //     last_led_toggle_time = get_absolute_time();
+        //     gpio_put(LED::ALIVE_PIN, 1);
+        // }
+
         // 制御周期終了処理
         control_timing_end(&control_timing, Mc::CONTROL_PERIOD_MS);
     }
@@ -668,10 +676,17 @@ bool initialize_system() {
     gpio_init(Mc::SHUTDOWN_PIN);
     gpio_set_dir(Mc::SHUTDOWN_PIN, GPIO_OUT);
     gpio_put(Mc::SHUTDOWN_PIN, 0);  // HIGHにしておくとPicoが動かないのでLOWに設定
-    sleep_ms(2000);                 // 少し待機して安定化
+
+    sleep_ms(2000);  // 少し待機して安定化
+
+    gpio_init(Mc::PWR_ON_DETECT_PIN);
+    gpio_set_dir(Mc::PWR_ON_DETECT_PIN, GPIO_IN);
+    gpio_init(SPI1::Encoder::ON_PIN);
+    gpio_set_dir(SPI1::Encoder::ON_PIN, GPIO_OUT);
+    gpio_put(SPI1::Encoder::ON_PIN, 1);  // ON状態に設定
 
     // デバッグマネージャの初期化
-    g_debug_manager = new DebugManager(DebugLevel::INFO, 0.1f);
+    g_debug_manager = new DebugManager(DebugLevel::DEBUG, 0.1f);
 
     // 全SPIデバイスの初期化
     while (!init_all_spi_devices()) {
@@ -693,6 +708,10 @@ bool initialize_system() {
     // LEDのGPIO初期化
     gpio_init(PICO_DEFAULT_LED_PIN);
     gpio_set_dir(PICO_DEFAULT_LED_PIN, GPIO_OUT);
+    gpio_init(LED::ALIVE_PIN);
+    gpio_set_dir(LED::ALIVE_PIN, GPIO_OUT);
+    gpio_init(LED::ERROR_PIN);
+    gpio_set_dir(LED::ERROR_PIN, GPIO_OUT);
 
     // ミューテックス初期化
     mutex_init(&g_state_mutex);
@@ -1113,6 +1132,13 @@ int main(void) {
                 g_debug_manager->print_system_status(sys_info);
             }
         }
+
+        // // LEDを700ms周期で消灯（Core1が停止していることの確認用）
+        // static absolute_time_t last_led_off_time = {0};
+        // if (absolute_time_diff_us(last_led_off_time, get_absolute_time()) >= 700'000) {
+        //     last_led_off_time = get_absolute_time();
+        //     gpio_put(LED::ALIVE_PIN, 0);
+        // }
     }
 
     // gpio_put(SOLENOID_PIN1, 0);  // ソレノイドを非吸着状態にする
