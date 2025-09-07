@@ -7,7 +7,6 @@
 #include <cmath>
 #include <cstring>
 #include <iostream>
-#include <ruckig/ruckig.hpp>
 
 #include "amt223v.hpp"
 #include "control_timing.hpp"
@@ -125,13 +124,13 @@ constexpr float R_S_CURVE_RATIO = 0.4f;  // R軸S字曲線の割合
 constexpr float P_S_CURVE_RATIO = 0.4f;  // P軸S字曲線の割合
 
 // 軌道データ配列設定
-constexpr u_int16_t MAX_TRAJECTORY_POINTS = 600;  // 最大軌道点数
+constexpr uint16_t MAX_TRAJECTORY_POINTS = 600;  // 最大軌道点数
 }  // namespace TrajectoryConfig
 // 軌道データ管理構造体
 typedef struct {
     trajectory_point_t points[TrajectoryConfig::MAX_TRAJECTORY_POINTS];
-    u_int16_t point_count;
-    u_int16_t current_index;
+    uint16_t point_count;
+    uint16_t current_index;
     bool active;
     bool complete;
     float final_target_R;   // 最終目標位置 R軸 [rad]

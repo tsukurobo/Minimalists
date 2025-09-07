@@ -244,26 +244,26 @@ bool calculate_trajectory_core0(
         trajectory_points[i] = {pos_R, vel_R, acc_R, pos_P, vel_P, acc_P};
     }
 
-    if (!overflow) {
-        // 軌道データを計算して配列に格納
-        mutex_enter_blocking(&g_trajectory_mutex);
-        g_trajectory_data.point_count = point_count;
-        g_trajectory_data.current_index = 0;
-        g_trajectory_data.active = false;
-        g_trajectory_data.complete = false;
-        g_trajectory_data.final_target_R = target_position[0];  // 最終目標位置を保存
-        g_trajectory_data.final_target_P = target_position[1];
-        g_trajectory_data.position_reached = false;
-        memcpy(g_trajectory_data.points, trajectory_points, sizeof(trajectory_point_t) * point_count);
-        mutex_exit(&g_trajectory_mutex);
-    } else {
-        g_debug_manager->error("Trajectory overflow: %d points exceeded maximum of %d\n", point_count, Traj::MAX_TRAJECTORY_POINTS);
-        return false;
-    }
+    // if (!overflow) {
+    //     // 軌道データを計算して配列に格納
+    //     mutex_enter_blocking(&g_trajectory_mutex);
+    //     g_trajectory_data.point_count = point_count;
+    //     g_trajectory_data.current_index = 0;
+    //     g_trajectory_data.active = false;
+    //     g_trajectory_data.complete = false;
+    //     g_trajectory_data.final_target_R = target_position[0];  // 最終目標位置を保存
+    //     g_trajectory_data.final_target_P = target_position[1];
+    //     g_trajectory_data.position_reached = false;
+    //     memcpy(g_trajectory_data.points, trajectory_points, sizeof(trajectory_point_t) * point_count);
+    //     mutex_exit(&g_trajectory_mutex);
+    // } else {
+    //     g_debug_manager->error("Trajectory overflow: %d points exceeded maximum of %d\n", point_count, Traj::MAX_TRAJECTORY_POINTS);
+    //     return false;
+    // }
 
-    g_debug_manager->debug("Trajectory calculated: %d points, max_time=%.2fs", point_count, point_count * Mc::CONTROL_PERIOD_S);
-    g_debug_manager->debug("  R: %.3f → %.3f rad, P: %.3f → %.3f rad",
-                           current_position[0], target_position[0], current_position[1], target_position[1]);
+    // g_debug_manager->debug("Trajectory calculated: %d points, max_time=%.2fs", point_count, point_count * Mc::CONTROL_PERIOD_S);
+    // g_debug_manager->debug("  R: %.3f → %.3f rad, P: %.3f → %.3f rad",
+    //                        current_position[0], target_position[0], current_position[1], target_position[1]);
 
     return true;
 }
