@@ -100,8 +100,8 @@ constexpr float TRAJECTORY_COMPLETION_TOLERANCE_P = 0.1f;         // P軸完了�
 constexpr float TRAJECTORY_COMPLETION_VELOCITY_THRESHOLD = 0.1f;  // 完了判定時の速度閾値 [rad/s]
 
 // 中継点座標（R軸 [rad]、P軸 [rad]）
-constexpr float INTERMEDIATE_POS_1[2] = {4.102f, -0.1322f / MechanismConfig::gear_radius_P};
-constexpr float INTERMEDIATE_POS_2[2] = {4.102f, -0.1322f / MechanismConfig::gear_radius_P};  // TODO:ボーナス取るときに必要な中継点を設定
+constexpr float INTERMEDIATE_POS_1[2] = {2.500f, -0.1322f / MechanismConfig::gear_radius_P};  // TODO:ボーナス取るときに必要な中継点を設定
+constexpr float INTERMEDIATE_POS_2[2] = {4.102f, -0.1322f / MechanismConfig::gear_radius_P};
 
 // 中継点の通過パターン
 enum class PassThroughMode : uint8_t {
@@ -111,25 +111,39 @@ enum class PassThroughMode : uint8_t {
     INTERMEDIATE_21   // 中継点2を通過してから中継点1も通過
 };
 
-// Ruckig の設定用定数（Ruckigの引数指定がdoubleなのでdoubleで宣言）
-namespace RuckigConfig {
 // 軌道生成の最大速度
-constexpr double R_MAX_VELOCITY = 0.15 * MechanismConfig::R_MAX_VELOCITY;
-constexpr double P_MAX_VELOCITY = 0.7 * MechanismConfig::P_MAX_VELOCITY;
+constexpr float R_MAX_VELOCITY = 0.15 * MechanismConfig::R_MAX_VELOCITY;
+constexpr float P_MAX_VELOCITY = 0.7 * MechanismConfig::P_MAX_VELOCITY;
 
 // 動き出しの加速は速く、止まるときの減速は遅く
-constexpr double R_ACCEL = 0.95 * MechanismConfig::R_MAX_ACCELERATION;
-constexpr double R_DECEL = 0.8 * MechanismConfig::R_MAX_ACCELERATION;
-constexpr double P_ACCEL = 0.9 * MechanismConfig::P_MAX_ACCELERATION;
-constexpr double P_DECEL = 0.8 * MechanismConfig::P_MAX_ACCELERATION;
+constexpr float R_ACCEL = 0.95 * MechanismConfig::R_MAX_ACCELERATION;
+constexpr float R_DECEL = 0.8 * MechanismConfig::R_MAX_ACCELERATION;
+constexpr float P_ACCEL = 0.9 * MechanismConfig::P_MAX_ACCELERATION;
+constexpr float P_DECEL = 0.8 * MechanismConfig::P_MAX_ACCELERATION;
 
-// 最大ジャーク
-constexpr double R_JERK = 100 * R_ACCEL;
-constexpr double P_JERK = 100 * P_ACCEL;
-}  // namespace RuckigConfig
+constexpr float R_S_CURVE_RATIO = 0.4f;  // R軸S字曲線の割合
+constexpr float P_S_CURVE_RATIO = 0.4f;  // P軸S字曲線の割合
 
 // 軌道データ配列設定
 constexpr u_int16_t MAX_TRAJECTORY_POINTS = 600;  // 最大軌道点数
+
+// // Ruckig の設定用定数（Ruckigの引数指定がdoubleなのでdoubleで宣言）
+// namespace RuckigConfig {
+// // 軌道生成の最大速度
+// constexpr double R_MAX_VELOCITY = 0.15 * MechanismConfig::R_MAX_VELOCITY;
+// constexpr double P_MAX_VELOCITY = 0.7 * MechanismConfig::P_MAX_VELOCITY;
+
+// // 動き出しの加速は速く、止まるときの減速は遅く
+// constexpr double R_ACCEL = 0.95 * MechanismConfig::R_MAX_ACCELERATION;
+// constexpr double R_DECEL = 0.8 * MechanismConfig::R_MAX_ACCELERATION;
+// constexpr double P_ACCEL = 0.9 * MechanismConfig::P_MAX_ACCELERATION;
+// constexpr double P_DECEL = 0.8 * MechanismConfig::P_MAX_ACCELERATION;
+
+// // 最大ジャーク
+// constexpr double R_JERK = 100 * R_ACCEL;
+// constexpr double P_JERK = 100 * P_ACCEL;
+// }  // namespace RuckigConfig
+
 }  // namespace TrajectoryConfig
 // 軌道データ管理構造体
 typedef struct {
