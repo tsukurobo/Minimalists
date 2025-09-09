@@ -12,7 +12,7 @@
 #include "control_timing.hpp"
 #include "debug_manager.hpp"
 #include "disturbance_observer.hpp"
-#include "dynamixel.hpp"
+// #include "dynamixel.hpp"
 #include "hand.hpp"
 #include "mcp25625.hpp"
 #include "pico/multicore.h"
