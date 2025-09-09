@@ -1,4 +1,5 @@
 #include "config.hpp"
+#include "dynamixel.hpp"
 #include "trajectory.hpp"
 #include "trajectory_sequence_manager.hpp"
 
@@ -12,12 +13,12 @@ namespace Dxl = DynamixelConfig;
 const spi_config_t SPI1_CONFIG = {
     .spi_port = spi1,       // SPI1を使用
     .baudrate = 1'875'000,  // エンコーダ規定値 2MHz 整数分数でベスト:1.875MHz
-    .pin_miso = 8,
-    .pin_cs = {5, 7, 6},  // CSピン3つ（CAN、回転エンコーダ、直動エンコーダ）
-    .num_cs_pins = 3,     // CSピン数
-    .pin_sck = 10,
-    .pin_mosi = 11,
-    .pin_rst = -1  // リセットピンは使用しない
+    .pin_miso = SPI1::MISO_PIN,
+    .pin_cs = {SPI1::MCP25625::CS_PIN, SPI1::Encoder::R_PIN, SPI1::Encoder::P_PIN},  // CSピン3つ（CAN、回転エンコーダ、直動エンコーダ）
+    .num_cs_pins = 3,                                                                // CSピン数
+    .pin_sck = SPI1::SCK_PIN,
+    .pin_mosi = SPI1::MOSI_PIN,
+    .pin_rst = -1  // MCP25625用リセットピン
 };
 
 // MCP25625オブジェクトを作成（CAN SPI設定を使用）
@@ -464,7 +465,7 @@ void core1_entry(void) {
         }
 
         // 経過時間を秒単位に変換
-        float current_time_s = absolute_time_diff_us(control_start_time, control_timing.loop_start_time) / 1000000.0f;
+        float current_time_s = static_cast<float>(absolute_time_diff_us(control_start_time, control_timing.loop_start_time) / 1000000.0f);
 
         // --- エンコーダ読み取り処理 ---
         float motor_position_R = 0.0f, motor_position_P = 0.0f;
@@ -657,6 +658,13 @@ void core1_entry(void) {
             }
         }
 
+        // // LEDを500ms間隔でONにする（Core1が動作していることの確認用）
+        // static absolute_time_t last_led_toggle_time = {0};
+        // if (absolute_time_diff_us(last_led_toggle_time, get_absolute_time()) >= 500000) {
+        //     last_led_toggle_time = get_absolute_time();
+        //     gpio_put(LED::ALIVE_PIN, 1);
+        // }
+
         // 制御周期終了処理
         control_timing_end(&control_timing, Mc::CONTROL_PERIOD_MS);
     }
@@ -668,10 +676,17 @@ bool initialize_system() {
     gpio_init(Mc::SHUTDOWN_PIN);
     gpio_set_dir(Mc::SHUTDOWN_PIN, GPIO_OUT);
     gpio_put(Mc::SHUTDOWN_PIN, 0);  // HIGHにしておくとPicoが動かないのでLOWに設定
-    sleep_ms(2000);                 // 少し待機して安定化
+
+    sleep_ms(2000);  // 少し待機して安定化
+
+    gpio_init(Mc::PWR_ON_DETECT_PIN);
+    gpio_set_dir(Mc::PWR_ON_DETECT_PIN, GPIO_IN);
+    gpio_init(SPI1::Encoder::ON_PIN);
+    gpio_set_dir(SPI1::Encoder::ON_PIN, GPIO_OUT);
+    gpio_put(SPI1::Encoder::ON_PIN, 1);  // ON状態に設定
 
     // デバッグマネージャの初期化
-    g_debug_manager = new DebugManager(DebugLevel::INFO, 0.1f);
+    g_debug_manager = new DebugManager(DebugLevel::ERROR, 0.1f);
 
     // 全SPIデバイスの初期化
     while (!init_all_spi_devices()) {
@@ -693,6 +708,10 @@ bool initialize_system() {
     // LEDのGPIO初期化
     gpio_init(PICO_DEFAULT_LED_PIN);
     gpio_set_dir(PICO_DEFAULT_LED_PIN, GPIO_OUT);
+    gpio_init(LED::ALIVE_PIN);
+    gpio_set_dir(LED::ALIVE_PIN, GPIO_OUT);
+    gpio_init(LED::ERROR_PIN);
+    gpio_set_dir(LED::ERROR_PIN, GPIO_OUT);
 
     // ミューテックス初期化
     mutex_init(&g_state_mutex);
@@ -1113,6 +1132,13 @@ int main(void) {
                 g_debug_manager->print_system_status(sys_info);
             }
         }
+
+        // // LEDを700ms周期で消灯（Core1が停止していることの確認用）
+        // static absolute_time_t last_led_off_time = {0};
+        // if (absolute_time_diff_us(last_led_off_time, get_absolute_time()) >= 700'000) {
+        //     last_led_off_time = get_absolute_time();
+        //     gpio_put(LED::ALIVE_PIN, 0);
+        // }
     }
 
     // gpio_put(SOLENOID_PIN1, 0);  // ソレノイドを非吸着状態にする

@@ -7,7 +7,6 @@
 #include <cmath>
 #include <cstring>
 #include <iostream>
-#include <ruckig/ruckig.hpp>
 
 #include "amt223v.hpp"
 #include "control_timing.hpp"
@@ -22,6 +21,22 @@
 #include "robomaster_motor.hpp"
 
 constexpr float PI_F = 3.14159265358979323846f;
+
+// pin
+constexpr uint8_t UART0_TX_PIN = 0;
+constexpr uint8_t UART0_RX_PIN = 1;
+constexpr uint8_t UART0_DE_RE_PIN = 2;
+constexpr uint8_t UART1_TX_PIN = 4;
+constexpr uint8_t UART1_RX_PIN = 5;
+constexpr uint8_t UART1_DE_RE_PIN = 20;
+namespace LED {
+constexpr uint8_t ALIVE_PIN = 18;
+constexpr uint8_t ERROR_PIN = 19;
+}  // namespace LED
+namespace Servo {
+constexpr uint8_t UPPER_PIN = 12;
+constexpr uint8_t LOWER_PIN = 15;
+}  // namespace Servo
 
 // 軌道データ点の構造体（制御用の詳細軌道）
 typedef struct {
@@ -45,10 +60,28 @@ typedef struct {
     int pin_rst;
 } spi_config_t;
 
+namespace SPI1 {
+constexpr uint8_t MISO_PIN = 8;
+constexpr uint8_t SCK_PIN = 10;
+constexpr uint8_t MOSI_PIN = 11;
+namespace MCP25625 {
+constexpr uint8_t CS_PIN = 13;
+constexpr uint8_t INT_PIN = 9;
+constexpr uint8_t TX0RTS_PIN = 14;
+}  // namespace MCP25625
+namespace Encoder {
+constexpr uint8_t R_PIN = 7;
+constexpr uint8_t P_PIN = 6;
+constexpr uint8_t ON_PIN = 16;
+}  // namespace Encoder
+}  // namespace SPI1
+
 // ======== マイコン設定 ========
 namespace MicrocontrollerConfig {
 // システム設定定数
-constexpr int SHUTDOWN_PIN = 27;  // 明示的にLOWにしないとPicoが動かない
+constexpr uint8_t SHUTDOWN_PIN = 27;       // 明示的にLOWにしないとPicoが動かない
+constexpr uint8_t VATT_VOLTAGE_PIN = 28;   // VATT電圧測定用ピン
+constexpr uint8_t PWR_ON_DETECT_PIN = 26;  // PWR_ON信号検出用ピン
 
 // 制御周期定数
 constexpr float CONTROL_PERIOD_MS = 0.3f;                        // 制御周期 [ms]
@@ -125,31 +158,13 @@ constexpr float R_S_CURVE_RATIO = 0.4f;  // R軸S字曲線の割合
 constexpr float P_S_CURVE_RATIO = 0.4f;  // P軸S字曲線の割合
 
 // 軌道データ配列設定
-constexpr u_int16_t MAX_TRAJECTORY_POINTS = 600;  // 最大軌道点数
-
-// // Ruckig の設定用定数（Ruckigの引数指定がdoubleなのでdoubleで宣言）
-// namespace RuckigConfig {
-// // 軌道生成の最大速度
-// constexpr double R_MAX_VELOCITY = 0.15 * MechanismConfig::R_MAX_VELOCITY;
-// constexpr double P_MAX_VELOCITY = 0.7 * MechanismConfig::P_MAX_VELOCITY;
-
-// // 動き出しの加速は速く、止まるときの減速は遅く
-// constexpr double R_ACCEL = 0.95 * MechanismConfig::R_MAX_ACCELERATION;
-// constexpr double R_DECEL = 0.8 * MechanismConfig::R_MAX_ACCELERATION;
-// constexpr double P_ACCEL = 0.9 * MechanismConfig::P_MAX_ACCELERATION;
-// constexpr double P_DECEL = 0.8 * MechanismConfig::P_MAX_ACCELERATION;
-
-// // 最大ジャーク
-// constexpr double R_JERK = 100 * R_ACCEL;
-// constexpr double P_JERK = 100 * P_ACCEL;
-// }  // namespace RuckigConfig
-
+constexpr uint16_t MAX_TRAJECTORY_POINTS = 600;  // 最大軌道点数
 }  // namespace TrajectoryConfig
 // 軌道データ管理構造体
 typedef struct {
     trajectory_point_t points[TrajectoryConfig::MAX_TRAJECTORY_POINTS];
-    u_int16_t point_count;
-    u_int16_t current_index;
+    uint16_t point_count;
+    uint16_t current_index;
     bool active;
     bool complete;
     float final_target_R;   // 最終目標位置 R軸 [rad]
@@ -186,8 +201,8 @@ constexpr float P_VELOCITY_GAIN = 2.0f * sqrtf_P_POSITION_GAIN;                 
 // ======== Dynamixelの設定 ========
 namespace DynamixelConfig {
 // PIN設定
-constexpr int PUMP_PIN = 4;
-constexpr int SOLENOID_PIN = 3;
+constexpr int PUMP_PIN = 21;
+constexpr int SOLENOID_PIN = 22;
 
 constexpr uint16_t LIFT_CURRENT_LIMIT = 1400;  // 電流制限 [mA]
 constexpr uint16_t HAND_CURRENT_LIMIT = 1000;  // 電流制限 [mA]
@@ -210,3 +225,10 @@ constexpr float START = 90.0f;
 constexpr short DXL_ID1 = 0x01;  // 手先
 constexpr short DXL_ID2 = 0x02;  // 昇降
 }  // namespace DynamixelConfig
+
+namespace FastArmConfig {
+// ピン設定
+constexpr uint8_t SOLENOID_PIN = 17;
+constexpr uint8_t PUMP_PIN = 3;
+
+}  // namespace FastArmConfig
