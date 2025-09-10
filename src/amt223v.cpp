@@ -48,6 +48,8 @@ bool AMT223V::init() {
         return false;
     }
 
+    read_angle();  // おまじない（2回目の読み取りで値が安定するため）
+
     // マルチターンエンコーダの場合は初期回転回数を保存
     if (is_multiturn) {
         initial_turn_count = turn_count;
@@ -318,8 +320,8 @@ void AMT223V::calculate_angular_velocity(float current_angle_rad, uint64_t curre
         }
     }
 
-    velocity_filter.update(current_angle_rad);                   // フィルタを更新
-    angular_velocity_rad = velocity_filter.get_dot_value();      // 疑似微分済み角速度を取得
+    velocity_filter.update(current_angle_rad);                    // フィルタを更新
+    angular_velocity_rad = velocity_filter.get_dot_value();       // 疑似微分済み角速度を取得
     angular_velocity_deg = angular_velocity_rad * 180.0f / PI_F;  // ラジアンから度に変換
 
     // 異常値フィルタリング（物理的に不可能な角速度をチェック）
