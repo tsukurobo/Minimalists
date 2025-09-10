@@ -46,6 +46,7 @@ add_executable(minimalists
         src/hand.cpp
         src/disturbance_observer.cpp
         src/low_pass_filter.cpp
+        src/trajectory.cpp
         )
 
 # Add pico_multicore which is required for multicore functionality
