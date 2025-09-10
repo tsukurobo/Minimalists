@@ -63,13 +63,14 @@ void set_rx_mode(const uart_config_t* config) {
 void send_packet(const uart_config_t* config, const uint8_t* data, size_t length) {
     uart_clear_rx_buffer_safe(config);
     set_tx_mode(config);
-    sleep_us(10);  // DEピン安定化待ち
+    sleep_us(5);  // DEピン安定化待ち
     uart_write_blocking(config->uart_number, data, length);
-    uart_hw_t* uart_hw = (config->uart_number == uart0) ? uart0_hw : uart1_hw;
-    while (uart_hw->fr & UART_UARTFR_BUSY_BITS) {
-        tight_loop_contents();
-    }
-    sleep_us(1);
+    uart_tx_wait_blocking(config->uart_number);
+    // uart_hw_t* uart_hw = (config->uart_number == uart0) ? uart0_hw : uart1_hw;
+    // while (uart_hw->fr & UART_UARTFR_BUSY_BITS) {
+    //     tight_loop_contents();
+    // }
+    sleep_us(20);  // 最後のデータが送信されるまで待つ
     set_rx_mode(config);
     sleep_us(1);
 }
