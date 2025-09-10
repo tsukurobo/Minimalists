@@ -21,6 +21,15 @@ const spi_config_t SPI1_CONFIG = {
     .pin_rst = -1  // MCP25625用リセットピン
 };
 
+enum DisturbanceDeployState {
+    DISTURBANCE_IDLE,
+    DISTURBANCE_STAGE1,  // 第1段階（位置制御）
+    DISTURBANCE_STAGE2,  // 第2段階（電流制御）
+    DISTURBANCE_DONE
+};
+// 外部から2段階目へ移行を指示するフラグ
+volatile bool request_stage2 = false;
+
 // MCP25625オブジェクトを作成（CAN SPI設定を使用）
 mcp25625_t can(SPI1_CONFIG.spi_port, SPI1_CONFIG.pin_cs[0], SPI1_CONFIG.pin_rst);
 
@@ -301,7 +310,7 @@ bool calculate_trajectory_core0(
     return true;
 }
 
-void init_hand() {
+void init_hand_dist() {
     // ポンプの設定
     gpio_init(Hand::PUMP_PIN);
     gpio_set_dir(Hand::PUMP_PIN, GPIO_OUT);
@@ -317,28 +326,46 @@ void init_hand() {
     sleep_ms(100);
     write_statusReturnLevel(&UART0, Hand::DXL_ID1, 0x00);
     write_statusReturnLevel(&UART0, Hand::DXL_ID2, 0x00);
+    write_statusReturnLevel(&UART0, Dist::DXL_ID_LEFT, 0x00);
+    write_statusReturnLevel(&UART0, Dist::DXL_ID_RIGHT, 0x00);
     sleep_ms(100);
     write_dxl_led(&UART0, Hand::DXL_ID1, true);
     write_dxl_led(&UART0, Hand::DXL_ID2, true);
+    write_dxl_led(&UART0, Dist::DXL_ID_LEFT, true);
+    write_dxl_led(&UART0, Dist::DXL_ID_RIGHT, true);
     sleep_ms(1000);
     write_dxl_led(&UART0, Hand::DXL_ID1, false);
     write_dxl_led(&UART0, Hand::DXL_ID2, false);
+    write_dxl_led(&UART0, Dist::DXL_ID_LEFT, false);
+    write_dxl_led(&UART0, Dist::DXL_ID_RIGHT, false);
     sleep_ms(100);
     write_torqueEnable(&UART0, Hand::DXL_ID1, false);
     write_torqueEnable(&UART0, Hand::DXL_ID2, false);
+    write_torqueEnable(&UART0, Dist::DXL_ID_LEFT, false);
+    write_torqueEnable(&UART0, Dist::DXL_ID_RIGHT, false);
     sleep_ms(100);
-    write_dxl_current_limit(&UART0, Hand::DXL_ID1, 1000);  // ID=1, 電流制限=100mA
-    write_dxl_current_limit(&UART0, Hand::DXL_ID2, 1000);  // ID=2, 電流制限=100mA
+    write_dxl_current_limit(&UART0, Hand::DXL_ID1, 1000);       // ID=1, 電流制限=100mA
+    write_dxl_current_limit(&UART0, Hand::DXL_ID2, 1000);       // ID=2, 電流制限=100mA
+    write_dxl_current_limit(&UART0, Dist::DXL_ID_LEFT, 1000);   // ID=2, 電流制限=100mA
+    write_dxl_current_limit(&UART0, Dist::DXL_ID_RIGHT, 1000);  // ID=2, 電流制限=100mA
     sleep_ms(100);
     write_operatingMode(&UART0, Hand::DXL_ID1, false);  // false : 位置制御, true : 拡張位置制御(マルチターン)
     write_operatingMode(&UART0, Hand::DXL_ID2, false);
+    write_operatingMode(&UART0, Dist::DXL_ID_LEFT, false);
+    write_operatingMode(&UART0, Dist::DXL_ID_RIGHT, false);
     sleep_ms(1000);
     write_torqueEnable(&UART0, Hand::DXL_ID1, true);
     write_torqueEnable(&UART0, Hand::DXL_ID2, true);
+    write_torqueEnable(&UART0, Dist::DXL_ID_LEFT, true);
+    write_torqueEnable(&UART0, Dist::DXL_ID_RIGHT, true);
     sleep_ms(500);
     control_position(&UART0, Hand::DXL_ID1, 132.10f);
     sleep_ms(500);
     control_position_multiturn(&UART0, Hand::DXL_ID2, Hand::START_UP_ANGLE);
+    sleep_ms(500);
+    control_position_multiturn(&UART0, Dist::DXL_ID_LEFT, Dist::LEFT_DEPLOY_PRE);
+    sleep_ms(500);
+    control_position_multiturn(&UART0, Dist::DXL_ID_RIGHT, Dist::RIGHT_DEPLOY_PRE);
     sleep_ms(1000);
     gpio_put(Hand::SOLENOID_PIN, 0);  // ソレノイドを吸着状態にする
     gpio_put(Hand::PUMP_PIN, 1);
@@ -410,46 +437,45 @@ void hand_tick(hand_state_t* hand_state, bool* has_work, absolute_time_t* state_
     }
 }
 
-// 妨害の初期化
-void init_disturbance() {
-    // Dynamixelの設定
-    g_debug_manager->info("Initializing Dynamixels (Daisy Chain on UART1)...\n");
-    init_crc();
-    configure_uart(&UART1, BAUD_RATE);
-    sleep_ms(100);
-    write_statusReturnLevel(&UART1, Hand::DXL_ID1, 0x00);
-    write_statusReturnLevel(&UART1, Hand::DXL_ID2, 0x00);
-    sleep_ms(100);
-    write_dxl_led(&UART1, Hand::DXL_ID1, true);
-    write_dxl_led(&UART1, Hand::DXL_ID2, true);
-    sleep_ms(1000);
-    write_dxl_led(&UART1, Hand::DXL_ID1, false);
-    write_dxl_led(&UART1, Hand::DXL_ID2, false);
-    sleep_ms(100);
-    write_torqueEnable(&UART1, Hand::DXL_ID1, false);
-    write_torqueEnable(&UART1, Hand::DXL_ID2, false);
-    sleep_ms(100);
-    write_dxl_current_limit(&UART1, Hand::DXL_ID1, 1000);  // ID=1, 電流制限=100mA
-    write_dxl_current_limit(&UART1, Hand::DXL_ID2, 1000);  // ID=2, 電流制限=100mA
-    sleep_ms(100);
-    write_operatingMode(&UART1, Hand::DXL_ID1, false);  // false : 位置制御, true : 拡張位置制御(マルチターン)
-    write_operatingMode(&UART1, Hand::DXL_ID2, false);
-    sleep_ms(1000);
-    write_torqueEnable(&UART1, Hand::DXL_ID1, true);
-    write_torqueEnable(&UART1, Hand::DXL_ID2, true);
-    sleep_ms(500);
-    control_position_multiturn(&UART1, Hand::DXL_ID1, 0.0f);
-    sleep_ms(500);
-    control_position_multiturn(&UART1, Hand::DXL_ID2, 0.0f);
-    sleep_ms(1000);
-    g_debug_manager->info("disturbance initialized\n");
+// 展開処理（ループ内で呼び出す）
+void disturbance_tick(int32_t pos_L_1st, int32_t pos_R_1st, int32_t pos_L_2nd, int32_t pos_R_2nd) {
+    static DisturbanceDeployState disturbance_state = DISTURBANCE_IDLE;
+
+    switch (disturbance_state) {
+        case DISTURBANCE_IDLE:
+            // 初期位置から第1段階へ（位置制御）
+            control_position_multiturn(&UART1, Dist::DXL_ID_LEFT, pos_L_1st);
+            sleep_ms(500);
+            control_position_multiturn(&UART1, Dist::DXL_ID_RIGHT, pos_R_1st);
+            sleep_ms(500);
+            disturbance_state = DISTURBANCE_STAGE1;
+            break;
+
+        case DISTURBANCE_STAGE1:
+            // ここで任意タイミングで2段階目へ移行
+            if (request_stage2) {
+                control_position_multiturn(&UART1, Dist::DXL_ID_LEFT, pos_L_2nd);
+                sleep_ms(500);
+                control_position_multiturn(&UART1, Dist::DXL_ID_RIGHT, pos_R_2nd);
+                sleep_ms(500);
+                disturbance_state = DISTURBANCE_STAGE2;
+            }
+            break;
+
+        case DISTURBANCE_STAGE2:
+            // ハードストッパーで止まるまで電流制御
+            // 必要なら完了判定を追加
+            break;
+
+        case DISTURBANCE_DONE:
+            // 展開完了
+            break;
+    }
 }
 
-// 妨害を展開する(引数は目標位置のセンサ生値)
-void deploy_disturbance(int32_t dist_L, int32_t dist_R) {
-    g_debug_manager->debug("Deploying disturbance: R=%d, P=%d\n", dist_L, dist_R);
-    control_position_multiturn(&UART1, Hand::DXL_ID1, dist_L);
-    control_position_multiturn(&UART1, Hand::DXL_ID2, dist_R);
+// 外部から2段階目へ移行を指示する関数
+void trigger_disturbance_stage2() {
+    request_stage2 = true;
 }
 
 // デバッグ用ユーティリティ関数: 軌道目標値を安全に取得する共通関数
@@ -774,11 +800,8 @@ bool initialize_system() {
         sleep_ms(1000);
     }
 
-    // ハンドの初期化
-    init_hand();
-
-    // 妨害の初期化
-    init_disturbance();
+    // ハンド・妨害機構の初期化
+    init_hand_dist();
 
     sleep_ms(2000);  // シリアル接続待ち
 
@@ -1000,6 +1023,9 @@ int main(void) {
     hand_state_t hand_state = HAND_IDLE;
     bool has_work = false;
     absolute_time_t hand_timer = get_absolute_time();
+
+    // 妨害機構の展開
+    disturbance_tick(Dist::LEFT_DEPLOY_1ST, Dist::RIGHT_DEPLOY_1ST, Dist::LEFT_DEPLOY_2ND, Dist::RIGHT_DEPLOY_2ND);
 
     while (1) {
         // FIFOから同期信号を待機（ブロッキング）
