@@ -126,24 +126,6 @@ constexpr float P_S_CURVE_RATIO = 0.4f;  // P軸S字曲線の割合
 
 // 軌道データ配列設定
 constexpr u_int16_t MAX_TRAJECTORY_POINTS = 600;  // 最大軌道点数
-
-// // Ruckig の設定用定数（Ruckigの引数指定がdoubleなのでdoubleで宣言）
-// namespace RuckigConfig {
-// // 軌道生成の最大速度
-// constexpr double R_MAX_VELOCITY = 0.15 * MechanismConfig::R_MAX_VELOCITY;
-// constexpr double P_MAX_VELOCITY = 0.7 * MechanismConfig::P_MAX_VELOCITY;
-
-// // 動き出しの加速は速く、止まるときの減速は遅く
-// constexpr double R_ACCEL = 0.95 * MechanismConfig::R_MAX_ACCELERATION;
-// constexpr double R_DECEL = 0.8 * MechanismConfig::R_MAX_ACCELERATION;
-// constexpr double P_ACCEL = 0.9 * MechanismConfig::P_MAX_ACCELERATION;
-// constexpr double P_DECEL = 0.8 * MechanismConfig::P_MAX_ACCELERATION;
-
-// // 最大ジャーク
-// constexpr double R_JERK = 100 * R_ACCEL;
-// constexpr double P_JERK = 100 * P_ACCEL;
-// }  // namespace RuckigConfig
-
 }  // namespace TrajectoryConfig
 // 軌道データ管理構造体
 typedef struct {

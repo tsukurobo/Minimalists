@@ -45,7 +45,7 @@ class trajectory_t {
      * @param target_vel 目標速度へのポインタ
      * @param target_accel 目標加速度へのポインタ
      */
-    void get_s_curve_state(float current_time, float* target_pos, float* target_vel, float* target_accel) const;
+    void get_s_curve_state(float current_time, float& target_pos, float& target_vel, float& target_accel) const;
 
     // ゲッター関数
     float get_max_vel() const { return max_vel_; }

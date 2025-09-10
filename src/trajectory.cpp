@@ -43,37 +43,37 @@ void trajectory_t::calculate_s_curve_trajectory_params() {
     }
 }
 
-void trajectory_t::get_s_curve_state(float current_time, float* target_pos, float* target_vel, float* target_accel) const {
+void trajectory_t::get_s_curve_state(float current_time, float& target_pos, float& target_vel, float& target_accel) const {
     float direction = (end_pos_ > start_pos_) ? 1.0f : -1.0f;
 
     if (current_time <= accel_time_) {
         // 加速期間
-        *target_accel = direction * max_accel_;
-        *target_vel = direction * max_accel_ * current_time;
-        *target_pos = start_pos_ + direction * 0.5f * max_accel_ * current_time * current_time;
+        target_accel = direction * max_accel_;
+        target_vel = direction * max_accel_ * current_time;
+        target_pos = start_pos_ + direction * 0.5f * max_accel_ * current_time * current_time;
     } else if (current_time <= accel_time_ + const_vel_time_) {
         // 定速期間
         float t_const = current_time - accel_time_;
-        *target_accel = 0.0f;
-        *target_vel = direction * max_vel_;
-        *target_pos = start_pos_ + direction * (0.5f * max_accel_ * accel_time_ * accel_time_ + max_vel_ * t_const);
+        target_accel = 0.0f;
+        target_vel = direction * max_vel_;
+        target_pos = start_pos_ + direction * (0.5f * max_accel_ * accel_time_ * accel_time_ + max_vel_ * t_const);
     } else if (current_time <= accel_time_ + const_vel_time_ + decel_time_) {
         // 減速期間
         float t_decel = current_time - (accel_time_ + const_vel_time_);
-        *target_accel = -direction * max_decel_;
-        *target_vel = direction * (max_vel_ - max_decel_ * t_decel);
-        *target_pos = start_pos_ + direction * (0.5f * max_accel_ * accel_time_ * accel_time_ + max_vel_ * const_vel_time_ + 0.5f * (max_vel_ + (max_vel_ - max_decel_ * t_decel)) * t_decel);
+        target_accel = -direction * max_decel_;
+        target_vel = direction * (max_vel_ - max_decel_ * t_decel);
+        target_pos = start_pos_ + direction * (0.5f * max_accel_ * accel_time_ * accel_time_ + max_vel_ * const_vel_time_ + 0.5f * (max_vel_ + (max_vel_ - max_decel_ * t_decel)) * t_decel);
     } else if (current_time <= accel_time_ + const_vel_time_ + decel_time_ + s_curve_time_) {
         // S字軌道期間
         float t_s_curve = current_time - (accel_time_ + const_vel_time_ + decel_time_);
-        *target_accel = -direction * max_decel_ * (1 - (t_s_curve / s_curve_time_));
-        *target_vel = direction * 0.5f * (s_curve_time_ - t_s_curve) * (s_curve_time_ - t_s_curve) * max_decel_ / s_curve_time_;
-        *target_pos = end_pos_ - direction * (1.0f / 6.0f) * max_decel_ * (s_curve_time_ - t_s_curve) * (s_curve_time_ - t_s_curve) * (s_curve_time_ - t_s_curve) / s_curve_time_;
+        target_accel = -direction * max_decel_ * (1 - (t_s_curve / s_curve_time_));
+        target_vel = direction * 0.5f * (s_curve_time_ - t_s_curve) * (s_curve_time_ - t_s_curve) * max_decel_ / s_curve_time_;
+        target_pos = end_pos_ - direction * (1.0f / 6.0f) * max_decel_ * (s_curve_time_ - t_s_curve) * (s_curve_time_ - t_s_curve) * (s_curve_time_ - t_s_curve) / s_curve_time_;
     } else {
         // 終了後は目標位置に固定
-        *target_accel = 0.0f;
-        *target_vel = 0.0f;
-        *target_pos = end_pos_;
+        target_accel = 0.0f;
+        target_vel = 0.0f;
+        target_pos = end_pos_;
     }
 }
 // ---S字プロファイルの実装ここまで---
