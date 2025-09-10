@@ -160,121 +160,89 @@ bool init_encoders() {
 bool calculate_trajectory_core0(
     const float current_position[2],
     const float target_position[2],
-    const float intermediate_position[2]) {
-    // // intermediate_positionがNAN配列の場合は中継点がない
-    // bool has_intermediate = false;
-    // if (!std::isnan(intermediate_position[0]) && !std::isnan(intermediate_position[1])) {
-    //     has_intermediate = true;
+    const float intermediate_pos1[2],
+    const float intermediate_pos2[2]) {
+    // // 中継点の有無を判定
+    // bool has_inter1 = !std::isnan(intermediate_pos1[0]) && !std::isnan(intermediate_pos1[1]);
+    // bool has_inter2 = !std::isnan(intermediate_pos2[0]) && !std::isnan(intermediate_pos2[1]);
+
+    // // 軌道計算用入力構造体
+    // // まずはR軸のみ軌道を計算
+    // trajectory_t trajectory_R_core0(Traj::R_MAX_VELOCITY, Traj::R_ACCEL, Traj::R_DECEL, Traj::R_S_CURVE_RATIO, current_position[0], target_position[0]);
+    // trajectory_t trajectory_P_core0(Traj::P_MAX_VELOCITY, Traj::P_ACCEL, Traj::P_DECEL, Traj::P_S_CURVE_RATIO, current_position[1], target_position[1]);
+    // if (has_inter1) {
+    //     // 中継点1が設定されている場合、P軸のみ中継点1までの軌道を計算
+    //     trajectory_P_core0.set_end_pos(intermediate_pos1[1]);
+    // }
+    // trajectory_R_core0.calculate_s_curve_trajectory_params();
+    // trajectory_P_core0.calculate_s_curve_trajectory_params();
+    // // 軌道点数計算
+    // float total_time_R = trajectory_R_core0.get_total_time();  // R軸の総移動時間[s]
+    // float total_time_P = trajectory_P_core0.get_total_time();  // P軸の総移動時間[s]
+    // float total_time = std::max(total_time_R, total_time_P);   // R軸とP軸のうち長い方の時間を使用
+    // int point_count = static_cast<int>(total_time / Traj::TRAJECTORY_CONTROL_PERIOD) + 1;
+    // if (point_count > Traj::MAX_TRAJECTORY_POINTS) {
+    //     g_debug_manager->error("Calculated trajectory points exceed maximum limit!\n");
+    //     return false;
     // }
 
-    // ruckig::Ruckig<2> otg(Traj::TRAJECTORY_CONTROL_PERIOD);  // 2軸のRuckigオブジェクトを作成
-    // ruckig::InputParameter<2> input;
-    // ruckig::OutputParameter<2> output_intermediate;
-    // ruckig::InputParameter<2> input_intermediate;
-    // ruckig::OutputParameter<2> output;
-
-    // // 制限
-    // input.max_velocity = {
-    //     Traj::RuckigConfig::R_MAX_VELOCITY,
-    //     Traj::RuckigConfig::P_MAX_VELOCITY};
-    // input.min_velocity = {-input.max_velocity[0], -input.max_velocity[1]};
+    // // 軌道点の配列を確保
+    // static trajectory_point_t trajectory_points[Traj::MAX_TRAJECTORY_POINTS];
+    // bool overflow = false;
 
     // // 進行方向判定
     // bool is_forward_R = current_position[0] < target_position[0];
-    // bool is_forward_P = current_position[1] < target_position[1];
-    // // R軸加速度
-    // double accel_R = is_forward_R ? Traj::RuckigConfig::R_ACCEL : Traj::RuckigConfig::R_DECEL;
-    // double decel_R = is_forward_R ? Traj::RuckigConfig::R_DECEL : Traj::RuckigConfig::R_ACCEL;
-    // // P軸加速度
-    // double accel_P = is_forward_P ? Traj::RuckigConfig::P_ACCEL : Traj::RuckigConfig::P_DECEL;
-    // double decel_P = is_forward_P ? Traj::RuckigConfig::P_DECEL : Traj::RuckigConfig::P_ACCEL;
-    // input.max_acceleration = {accel_R, accel_P};
-    // input.min_acceleration = {-decel_R, -decel_P};
-    // input.max_jerk = {Traj::RuckigConfig::R_JERK, Traj::RuckigConfig::P_JERK};
-    // // 中継点の制限
-    // input_intermediate.max_velocity = input.max_velocity;
-    // input_intermediate.max_acceleration = input.max_acceleration;
-    // input_intermediate.max_jerk = input.max_jerk;
-    // input_intermediate.min_velocity = input.min_velocity;
-    // input_intermediate.min_acceleration = input.min_acceleration;
+    // // bool is_forward_P = current_position[1] < target_position[1];
 
-    // // 出発点の設定
-    // input.current_position = {current_position[0], current_position[1]};
-    // input.current_velocity = {0.0, 0.0};
-    // input.current_acceleration = {0.0, 0.0};
+    // // 中継点計算のためにまずはR軸だけを計算
+    // for (int i = 0; i < point_count; i++) {
+    //     float time = i * Traj::TRAJECTORY_CONTROL_PERIOD;
+    //     float pos_R, vel_R, acc_R;
+    //     float pos_P, vel_P, acc_P;
 
-    // // 目標位置と速度の設定
-    // if (has_intermediate) {  // 中継点が指定されている場合
-    //     input.target_position = {intermediate_position[0], intermediate_position[1]};
-    //     // 中継点のR軸は目標位置に向かう方向の速度に設定
-    //     double R_intermediate_vel = (target_position[0] - intermediate_position[0] > 0.0) ? input.max_velocity[0] : input.min_velocity.value()[0];
-    //     input.target_velocity = {R_intermediate_vel, 0.0};  // R軸は中継点が合っても動く方向は変わらない
-    //     input.target_acceleration = {0.0, 0.0};
-
-    //     // 中継点から（存在すれば）
-    //     input_intermediate.current_position = input.target_position;
-    //     input_intermediate.current_velocity = input.target_velocity;
-    //     input_intermediate.current_acceleration = input.target_acceleration;
-
-    //     input_intermediate.target_position = {target_position[0], target_position[1]};
-    //     input_intermediate.target_velocity = {0.0, 0.0};
-    //     input_intermediate.target_acceleration = {0.0, 0.0};
-    // } else {  // 中継点がない場合は直接目標位置へ
-    //     input.target_position = {target_position[0], target_position[1]};
-    //     input.target_velocity = {0.0, 0.0};
-    //     input.target_acceleration = {0.0, 0.0};
-    // }
-
-    // trajectory_point_t trajectory_points[Traj::MAX_TRAJECTORY_POINTS];
-    // uint16_t point_count = 0;
-    // bool overflow = false;
-    // if (has_intermediate) {
-    //     while (otg.update(input, output_intermediate) == ruckig::Result::Working) {
-    //         if (point_count >= Traj::MAX_TRAJECTORY_POINTS) {
-    //             overflow = true;
-    //             break;
-    //         }
-    //         trajectory_point_t pt;
-    //         pt.position_R = output_intermediate.new_position[0];
-    //         pt.velocity_R = output_intermediate.new_velocity[0];
-    //         pt.acceleration_R = output_intermediate.new_acceleration[0];
-    //         pt.position_P = output_intermediate.new_position[1];
-    //         pt.velocity_P = output_intermediate.new_velocity[1];
-    //         pt.acceleration_P = output_intermediate.new_acceleration[1];
-    //         trajectory_points[point_count++] = pt;
-    //         output_intermediate.pass_to_input(input);
+    //     // R軸の状態計算
+    //     if (time <= total_time_R) {
+    //         trajectory_R_core0.get_s_curve_state(time, &pos_R, &vel_R, &acc_R);
+    //     } else {
+    //         pos_R = target_position[0];
+    //         vel_R = 0.0f;
+    //         acc_R = 0.0f;
     //     }
-    //     while (!overflow && otg.update(input_intermediate, output) == ruckig::Result::Working) {
-    //         if (point_count >= Traj::MAX_TRAJECTORY_POINTS) {
-    //             overflow = true;
-    //             break;
-    //         }
-    //         trajectory_point_t pt;
-    //         pt.position_R = output.new_position[0];
-    //         pt.velocity_R = output.new_velocity[0];
-    //         pt.acceleration_R = output.new_acceleration[0];
-    //         pt.position_P = output.new_position[1];
-    //         pt.velocity_P = output.new_velocity[1];
-    //         pt.acceleration_P = output.new_acceleration[1];
-    //         trajectory_points[point_count++] = pt;
-    //         output.pass_to_input(input_intermediate);
+
+    //     // P軸の状態計算
+    //     if (time <= total_time_P) {
+    //         trajectory_P_core0.get_s_curve_state(time, &pos_P, &vel_P, &acc_P);
+    //     } else {
+    //         pos_P = target_position[1];
+    //         vel_P = 0.0f;
+    //         acc_P = 0.0f;
     //     }
-    // } else {
-    //     while (otg.update(input, output) == ruckig::Result::Working) {
-    //         if (point_count >= Traj::MAX_TRAJECTORY_POINTS) {
-    //             overflow = true;
-    //             break;
+    //     // 中継点を超えたら次の軌道を計算
+    //     if (has_inter1) {
+    //         if ((is_forward_R && pos_R >= intermediate_pos1[0]) ||
+    //             (!is_forward_R && pos_R <= intermediate_pos1[0])) {
+    //             // 中継点1を超えたら中継点2までの軌道を計算
+    //             trajectory_P_core0.set_start_pos(intermediate_pos1[1]);
+    //             if (has_inter2)
+    //                 trajectory_P_core0.set_end_pos(intermediate_pos2[1]);
+    //             else
+    //                 trajectory_P_core0.set_end_pos(target_position[1]);
+    //             trajectory_P_core0.calculate_s_curve_trajectory_params();
+    //             has_inter1 = false;  // 中継点1は処理済み
     //         }
-    //         trajectory_point_t pt;
-    //         pt.position_R = output.new_position[0];
-    //         pt.velocity_R = output.new_velocity[0];
-    //         pt.acceleration_R = output.new_acceleration[0];
-    //         pt.position_P = output.new_position[1];
-    //         pt.velocity_P = output.new_velocity[1];
-    //         pt.acceleration_P = output.new_acceleration[1];
-    //         trajectory_points[point_count++] = pt;
-    //         output.pass_to_input(input);
+    //     } else if (has_inter2) {
+    //         if ((is_forward_R && pos_R >= intermediate_pos2[0]) ||
+    //             (!is_forward_R && pos_R <= intermediate_pos2[0])) {
+    //             // 中継点2を超えたら目標位置までの軌道を計算
+    //             trajectory_P_core0.set_start_pos(intermediate_pos2[1]);
+    //             trajectory_P_core0.set_end_pos(target_position[1]);
+    //             trajectory_P_core0.calculate_s_curve_trajectory_params();
+    //             has_inter2 = false;  // 中継点2は処理済み
+    //         }
     //     }
+
+    //     // 軌道点を保存
+    //     trajectory_points[i] = {pos_R, vel_R, acc_R, pos_P, vel_P, acc_P};
     // }
 
     // if (!overflow) {
