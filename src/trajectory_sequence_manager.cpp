@@ -41,7 +41,7 @@ void TrajectorySequenceManager::setup_sequence(const trajectory_waypoint_t* wayp
 }
 
 bool TrajectorySequenceManager::get_next_waypoint(float target_position[2],
-                                                  float intermediate_position[2]) {
+                                                  TrajectoryConfig::PassThroughMode& mode) {
     if (!sequence_active || current_waypoint_index >= waypoint_count) {
         return false;
     }
@@ -49,8 +49,7 @@ bool TrajectorySequenceManager::get_next_waypoint(float target_position[2],
     int index = current_waypoint_index;
     target_position[0] = waypoints[index].position_R;
     target_position[1] = waypoints[index].position_P;
-    intermediate_position[0] = waypoints[index].intermediate_R;
-    intermediate_position[1] = waypoints[index].intermediate_P;
+    mode = waypoints[index].pass_through_mode;
 
     return true;
 }

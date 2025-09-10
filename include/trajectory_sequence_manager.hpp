@@ -1,6 +1,7 @@
 #ifndef TRAJECTORY_SEQUENCE_MANAGER_HPP
 #define TRAJECTORY_SEQUENCE_MANAGER_HPP
 
+#include "config.hpp"
 #include "debug_manager.hpp"
 
 /**
@@ -9,17 +10,20 @@
  * 3次元空間での目標位置を表現する構造体
  */
 struct trajectory_waypoint_t {
-    float position_R;          // R軸目標位置 [rad]
-    float position_P;          // P軸目標位置 [rad]
-    float end_effector_angle;  // 手先角度 [rad]（現在未使用、ダミーデータ）
-    float intermediate_R;      // 中間位置 R軸 [rad]
-    float intermediate_P;      // 中間位置 P軸 [rad]
+    float position_R;                                     // R軸目標位置 [rad]
+    float position_P;                                     // P軸目標位置 [rad]
+    float end_effector_angle;                             // 手先角度 [rad]
+    int32_t end_effector_height;                          // 手先高さ [Dynamixelの生センサ値]
+    TrajectoryConfig::PassThroughMode pass_through_mode;  // 中継点をどのように通過するか
 
     /**
      * @brief コンストラクタ
      */
-    trajectory_waypoint_t(float pos_R = 0.0f, float pos_P = 0.0f, float end_angle = 0.0f, float inter_R = NAN, float inter_P = NAN)
-        : position_R(pos_R), position_P(pos_P), end_effector_angle(end_angle), intermediate_R(inter_R), intermediate_P(inter_P) {}
+    trajectory_waypoint_t(
+        float pos_R = 0.0f, float pos_P = 0.0f,
+        float end_angle = 0.0f, int32_t end_height = 0,
+        TrajectoryConfig::PassThroughMode pass_through_mode = TrajectoryConfig::PassThroughMode::DIRECT)
+        : position_R(pos_R), position_P(pos_P), end_effector_angle(end_angle), end_effector_height(end_height), pass_through_mode(pass_through_mode) {}
 };
 
 /**
@@ -67,11 +71,11 @@ class TrajectorySequenceManager {
     /**
      * @brief 次のウェイポイントの取得
      * @param target_position 目標位置 [rad] (出力)
-     * @param intermediate_position 中間位置 [rad] (出力)
+     * @param pass_through_mode 中継点通過モード (出力)
      * @return 次のウェイポイントが存在する場合true
      */
     bool get_next_waypoint(float target_position[2],
-                           float intermediate_position[2]);
+                           TrajectoryConfig::PassThroughMode& pass_through_mode);
 
     /**
      * @brief 次のウェイポイントに進む

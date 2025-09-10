@@ -20,7 +20,6 @@
 #include "pico/mutex.h"
 #include "pico/stdlib.h"
 #include "robomaster_motor.hpp"
-#include "trajectory_sequence_manager.hpp"
 
 constexpr float PI_F = 3.14159265358979323846f;
 
@@ -100,22 +99,30 @@ constexpr float TRAJECTORY_COMPLETION_TOLERANCE_R = 0.1f;         // R軸完了�
 constexpr float TRAJECTORY_COMPLETION_TOLERANCE_P = 0.1f;         // P軸完了判定許容誤差 [rad]
 constexpr float TRAJECTORY_COMPLETION_VELOCITY_THRESHOLD = 0.1f;  // 完了判定時の速度閾値 [rad/s]
 
-// Ruckig の設定用定数（Ruckigの引数指定がdoubleなのでdoubleで宣言）
-namespace RuckigConfig {
+// 中継点座標（R軸 [rad]、P軸 [rad]）
+constexpr float INTERMEDIATE_POS_1[2] = {2.767f, -0.1992f / MechanismConfig::gear_radius_P};  // TODO:ボーナス取るときに必要な中継点を設定
+constexpr float INTERMEDIATE_POS_2[2] = {4.234f, -0.1744f / MechanismConfig::gear_radius_P};
+
+// 中継点の通過パターン
+enum class PassThroughMode : uint8_t {
+    DIRECT,           // 中継点なし
+    INTERMEDIATE_1,   // 中継点1のみ通過
+    INTERMEDIATE_12,  // 中継点1を通過してから中継点2も通過
+    INTERMEDIATE_21   // 中継点2を通過してから中継点1も通過
+};
+
 // 軌道生成の最大速度
-constexpr double R_MAX_VELOCITY = 0.15 * MechanismConfig::R_MAX_VELOCITY;
-constexpr double P_MAX_VELOCITY = 0.7 * MechanismConfig::P_MAX_VELOCITY;
+constexpr float R_MAX_VELOCITY = 0.15 * MechanismConfig::R_MAX_VELOCITY;
+constexpr float P_MAX_VELOCITY = 0.7 * MechanismConfig::P_MAX_VELOCITY;
 
 // 動き出しの加速は速く、止まるときの減速は遅く
-constexpr double R_ACCEL = 0.95 * MechanismConfig::R_MAX_ACCELERATION;
-constexpr double R_DECEL = 0.8 * MechanismConfig::R_MAX_ACCELERATION;
-constexpr double P_ACCEL = 0.9 * MechanismConfig::P_MAX_ACCELERATION;
-constexpr double P_DECEL = 0.8 * MechanismConfig::P_MAX_ACCELERATION;
+constexpr float R_ACCEL = 0.95 * MechanismConfig::R_MAX_ACCELERATION;
+constexpr float R_DECEL = 0.8 * MechanismConfig::R_MAX_ACCELERATION;
+constexpr float P_ACCEL = 0.9 * MechanismConfig::P_MAX_ACCELERATION;
+constexpr float P_DECEL = 0.8 * MechanismConfig::P_MAX_ACCELERATION;
 
-// 最大ジャーク
-constexpr double R_JERK = 100 * R_ACCEL;
-constexpr double P_JERK = 100 * P_ACCEL;
-}  // namespace RuckigConfig
+constexpr float R_S_CURVE_RATIO = 0.4f;  // R軸S字曲線の割合
+constexpr float P_S_CURVE_RATIO = 0.4f;  // P軸S字曲線の割合
 
 // 軌道データ配列設定
 constexpr u_int16_t MAX_TRAJECTORY_POINTS = 600;  // 最大軌道点数
@@ -164,16 +171,22 @@ namespace DynamixelConfig {
 constexpr int PUMP_PIN = 4;
 constexpr int SOLENOID_PIN = 3;
 
-// dynamixelの初期化角度　
-constexpr float START_HAND_ANGLE = 90.0f;
-constexpr int32_t START_UP_ANGLE = 0xFFFFE6B0;  // 上段
+constexpr uint16_t LIFT_CURRENT_LIMIT = 1400;  // 電流制限 [mA]
+constexpr uint16_t HAND_CURRENT_LIMIT = 1000;  // 電流制限 [mA]
 
-// 手先のdynamixcelの角度定数 0~360°
-constexpr float GRAB_ANGLE = 88.51f;
-constexpr float RELEASE_ANGLE = GRAB_ANGLE + 90.0f;  // 仮
-// 昇降用dynamixcelの角度定数　
-constexpr int32_t UP_ANGLE = 0xFFFFE6B0;  // 下段 -4100 上段 -6480
-constexpr int32_t DOWN_ANGLE = 0x0D70;    // 3440
+// 昇降機構用角度
+namespace LiftAngle {
+constexpr int32_t SHOOT_UP = -2600;  // シューティングエリア上段 -6480
+// constexpr int32_t SHOOT_LOW = -4100;      // シューティングエリア下段
+constexpr int32_t SHOOT_LOW = -2600;  // シューティングエリア下段
+constexpr int32_t PRE_CATCH = 4600;   // ワークをつかむ前の高さ
+constexpr int32_t CATCH = 8030;       // ワークをつかむときの高さ 3440
+}  // namespace LiftAngle
+
+// 手先角度
+namespace HandAngle {
+constexpr float START = 90.0f;
+}  // namespace HandAngle
 
 // dynamixelのID
 constexpr short DXL_ID1 = 0x01;  // 手先
