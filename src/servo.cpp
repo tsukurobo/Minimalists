@@ -17,7 +17,7 @@ Servo::Servo(uint pin) : pin_(pin) {
 
 void Servo::set_pulse_us(uint16_t us) {
     // 1カウント = 20ms / 25000 = 0.8us
-    uint16_t level = static_cast<uint16_t>(us / 0.8f);
+    uint16_t level = static_cast<uint16_t>(us * 1.25f);
     pwm_set_chan_level(slice_num_, channel_, level);
 }
 
