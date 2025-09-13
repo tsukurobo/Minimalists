@@ -47,6 +47,7 @@ add_executable(minimalists
         src/disturbance_observer.cpp
         src/low_pass_filter.cpp
         src/trajectory.cpp
+		src/servo.cpp
         )
 
 # Add pico_multicore which is required for multicore functionality
