@@ -48,6 +48,8 @@ bool AMT223V::init() {
         return false;
     }
 
+    read_angle();  // おまじない（2回目の読み取りで値が安定するため）
+
     // マルチターンエンコーダの場合は初期回転回数を保存
     if (is_multiturn) {
         initial_turn_count = turn_count;
