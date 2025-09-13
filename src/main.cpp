@@ -22,6 +22,9 @@ const spi_config_t SPI1_CONFIG = {
     .pin_rst = -1  // MCP25625用リセットピン
 };
 
+// 妨害展開レベル (0: 初期状態, 1: 1段階目, 2: 2段階目)
+volatile int g_disturbance_level = 0;
+
 // MCP25625オブジェクトを作成（CAN SPI設定を使用）
 mcp25625_t can(SPI1_CONFIG.spi_port, SPI1_CONFIG.pin_cs[0], SPI1_CONFIG.pin_rst);
 
@@ -397,46 +400,23 @@ void hand_tick(hand_state_t* hand_state, bool* has_work, absolute_time_t* state_
     }
 }
 
-// 妨害の初期化
-void init_disturbance() {
-    // Dynamixelの設定
-    g_debug_manager->info("Initializing Dynamixels (Daisy Chain on UART1)...\n");
-    init_crc();
-    configure_uart(&UART1, BAUD_RATE);
-    sleep_ms(100);
-    write_statusReturnLevel(&UART1, Hand::DXL_ID1, 0x00);
-    write_statusReturnLevel(&UART1, Hand::DXL_ID2, 0x00);
-    sleep_ms(100);
-    write_dxl_led(&UART1, Hand::DXL_ID1, true);
-    write_dxl_led(&UART1, Hand::DXL_ID2, true);
-    sleep_ms(1000);
-    write_dxl_led(&UART1, Hand::DXL_ID1, false);
-    write_dxl_led(&UART1, Hand::DXL_ID2, false);
-    sleep_ms(100);
-    write_torqueEnable(&UART1, Hand::DXL_ID1, false);
-    write_torqueEnable(&UART1, Hand::DXL_ID2, false);
-    sleep_ms(100);
-    write_dxl_current_limit(&UART1, Hand::DXL_ID1, 1000);  // ID=1, 電流制限=100mA
-    write_dxl_current_limit(&UART1, Hand::DXL_ID2, 1000);  // ID=2, 電流制限=100mA
-    sleep_ms(100);
-    write_operatingMode(&UART1, Hand::DXL_ID1, false);  // false : 位置制御, true : 拡張位置制御(マルチターン)
-    write_operatingMode(&UART1, Hand::DXL_ID2, false);
-    sleep_ms(1000);
-    write_torqueEnable(&UART1, Hand::DXL_ID1, true);
-    write_torqueEnable(&UART1, Hand::DXL_ID2, true);
-    sleep_ms(500);
-    control_position_multiturn(&UART1, Hand::DXL_ID1, 0.0f);
-    sleep_ms(500);
-    control_position_multiturn(&UART1, Hand::DXL_ID2, 0.0f);
-    sleep_ms(1000);
-    g_debug_manager->info("disturbance initialized\n");
+// 妨害展開・最速アームの割り込みハンドラ
+void handle_disturbance_trigger() {
+    static uint32_t last_button_press_time = 0;
+    uint32_t now = time_us_32();
+    // 200ms以内の連続した割り込みはチャタリングとみなし無視する
+    if (now - last_button_press_time < 200 * 1000) {
+        return;
+    }
+    last_button_press_time = now;
+
+    // 妨害レベルを 0 -> 1 -> 2 -> 0 -> ... と変化させる
+    g_disturbance_level = (g_disturbance_level + 1) % 3;
 }
 
-// 妨害を展開する(引数は目標位置のセンサ生値)
-void deploy_disturbance(int32_t dist_L, int32_t dist_R) {
-    g_debug_manager->debug("Deploying disturbance: R=%d, P=%d\n", dist_L, dist_R);
-    control_position_multiturn(&UART1, Hand::DXL_ID1, dist_L);
-    control_position_multiturn(&UART1, Hand::DXL_ID2, dist_R);
+// ボタンを押したときのコールバック関数
+void button_cb(uint gpio, uint32_t events) {
+    handle_disturbance_trigger();
 }
 
 // デバッグ用ユーティリティ関数: 軌道目標値を安全に取得する共通関数
@@ -764,6 +744,13 @@ bool initialize_system() {
     // ハンド・妨害機構の初期化
     init_hand_dist();
 
+    // ボタンのGPIOと割り込み設定
+    gpio_init(BUTTON_PIN);
+    gpio_set_dir(BUTTON_PIN, GPIO_IN);
+    gpio_pull_up(BUTTON_PIN);  // 内部プルアップを有効化
+    // 立ち下がりエッジ（ボタンが押されたとき）で割り込み発生
+    gpio_set_irq_enabled_with_callback(BUTTON_PIN, GPIO_IRQ_EDGE_FALL, true, button_isr);
+
     sleep_ms(2000);  // シリアル接続待ち
 
     // LEDのGPIO初期化
@@ -983,7 +970,33 @@ int main(void) {
     bool has_work = false;
     absolute_time_t hand_timer = get_absolute_time();
 
+    int prev_disturbance_level = -1;  // 前回の妨害レベルを保持
+
     while (1) {
+        // 妨害の展開
+        if (prev_disturbance_level != g_disturbance_level) {
+            switch (g_disturbance_level) {
+                case 0:  // 初期状態に戻す
+                    g_debug_manager->info("Disturbance returning to initial position.");
+                    control_position_multiturn(&UART1, Dist::DXL_ID_LEFT, Dist::LEFT_DEPLOY_PRE);
+                    control_position_multiturn(&UART1, Dist::DXL_ID_RIGHT, Dist::RIGHT_DEPLOY_PRE);
+                    sleep_ms(100);
+                    g_debug_manager->info("FastArm is moving!");
+                    break;
+                case 1:  // 1段階目
+                    g_debug_manager->info("Disturbance deploying to 1st stage.");
+                    control_position_multiturn(&UART1, Dist::DXL_ID_LEFT, Dist::LEFT_DEPLOY_1ST);
+                    control_position_multiturn(&UART1, Dist::DXL_ID_RIGHT, Dist::RIGHT_DEPLOY_1ST);
+                    break;
+                case 2:  // 2段階目
+                    g_debug_manager->info("Disturbance deploying to 2nd stage.");
+                    control_position_multiturn(&UART1, Dist::DXL_ID_LEFT, Dist::LEFT_DEPLOY_2ND);
+                    control_position_multiturn(&UART1, Dist::DXL_ID_RIGHT, Dist::RIGHT_DEPLOY_2ND);
+                    break;
+            }
+            prev_disturbance_level = g_disturbance_level;  // 状態を更新
+        }
+
         // FIFOから同期信号を待機（ブロッキング）
         uint32_t signal = multicore_fifo_pop_blocking();
 
