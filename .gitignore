@@ -1,4 +1,4 @@
-build
+/build/*
 CMakeFiles
 pico-sdk
 cmake_install.cmake
@@ -10,3 +10,4 @@ pico_flash_region.ld
 !.vscode/*
 log
 .venv
+!/build/*.uf2
