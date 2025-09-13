@@ -63,13 +63,10 @@ void set_rx_mode(const uart_config_t* config) {
 void send_packet(const uart_config_t* config, const uint8_t* data, size_t length) {
     uart_clear_rx_buffer_safe(config);
     set_tx_mode(config);
-    sleep_us(10);  // DEピン安定化待ち
+    sleep_us(5);  // DEピン安定化待ち
     uart_write_blocking(config->uart_number, data, length);
-    uart_hw_t* uart_hw = (config->uart_number == uart0) ? uart0_hw : uart1_hw;
-    while (uart_hw->fr & UART_UARTFR_BUSY_BITS) {
-        tight_loop_contents();
-    }
-    sleep_us(1);
+    uart_tx_wait_blocking(config->uart_number);
+    sleep_us(20);  // 最後のデータが送信されるまで待つ
     set_rx_mode(config);
     sleep_us(1);
 }
@@ -79,7 +76,7 @@ int receive_packet(const uart_config_t* config, uint8_t* rx_buf, size_t expected
     uint8_t header[4] = {0};
     int sync_found = 0;
 
-    absolute_time_t timeout = make_timeout_time_ms(10);
+    absolute_time_t timeout = make_timeout_time_ms(100);
 
     while (absolute_time_diff_us(get_absolute_time(), timeout) > 0) {
         // シフト読み込み
@@ -88,7 +85,6 @@ int receive_packet(const uart_config_t* config, uint8_t* rx_buf, size_t expected
             header[1] = header[2];
             header[2] = header[3];
             header[3] = uart_getc(config->uart_number);
-            // printf("%02X\n", header[3]);
             if (header[0] == 0xFF && header[1] == 0xFF && header[2] == 0xFD && header[3] == 0x00) {
                 sync_found = 1;
                 break;
@@ -325,10 +321,6 @@ int read_position(const uart_config_t* config, uint8_t id, uint32_t* position) {
     uint8_t rx[15];
     int len = receive_packet(config, rx, 15);
 
-    // for (int i = 0; i < len; i++) {
-    //     printf("%02X ", rx[i]);
-    // }
-
     if (len < 15) return -1;
 
     uint16_t received_crc = rx[13] | (rx[14] << 8);
@@ -337,9 +329,6 @@ int read_position(const uart_config_t* config, uint8_t id, uint32_t* position) {
         printf("CRC mismatch! received=0x%04X, calculated=0x%04X\n", received_crc, calc_crc);
         return -1;
     }
-    // else{
-    //     printf("CRC match! received=0x%04X, calculated=0x%04X\n", received_crc, calc_crc);
-    // }
 
     *position = rx[9] | (rx[10] << 8) | (rx[11] << 16) | (rx[12] << 24);
     return 0;
