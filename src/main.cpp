@@ -418,7 +418,7 @@ void handle_disturbance_trigger() {
     }
     last_button_press_time = now;
 
-    // 妨害レベルを 0 -> 1 -> 2 -> 0 -> ... と変化させる
+    // 妨害レベルを変化させる
     g_disturbance_level = (g_disturbance_level + 1) % 2;
 }
 
