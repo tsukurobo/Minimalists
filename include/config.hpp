@@ -35,7 +35,7 @@ constexpr uint8_t ERROR_PIN = 19;
 namespace ShootingConfig {
 constexpr uint8_t SERVO_PIN = 12;
 constexpr float IDLE_ANGLE = 0.0f;         // 待機時の角度
-constexpr float CORRECTION_ANGLE = 30.0f;  // ワークの姿勢を整えるときの角度
+constexpr float CORRECTION_ANGLE = 90.0f;  // ワークの姿勢を整えるときの角度
 }  // namespace ShootingConfig
 
 // 軌道データ点の構造体（制御用の詳細軌道）
