@@ -168,8 +168,8 @@ void hand_tick(hand_state_t* hand_state, bool* has_work, absolute_time_t* state_
 void handle_disturbance_trigger() {
     static uint32_t last_button_press_time = 0;
     uint32_t now = time_us_32();
-    // 3s以内の連続した割り込みはチャタリングとみなし無視する
-    if (now - last_button_press_time < 3 * 1000 * 1000) {
+    // 1s以内の連続した割り込みはチャタリングとみなし無視する
+    if (now - last_button_press_time < 1 * 1000 * 1000) {
         return;
     }
     last_button_press_time = now;
@@ -272,7 +272,7 @@ int main(void) {
                 "trajectory_waypoint_t(%.3f, %.3f / Mech::gear_radius_P, %.3f, %08d),\n",
                 motor_position_R, motor_position_P * Mech::gear_radius_P, hand_angle_deg, lift_angle);
         }
-        tight_loop_contents();
+        sleep_ms(10);  // メインループの負荷を軽減
     }
     return 0;
 }
