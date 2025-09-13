@@ -24,7 +24,7 @@ constexpr int PUMP_PWM = 0.80;
 
 // dynamixelの初期化角度　
 constexpr int32_t START_HAND_ANGLE = 2977;
-constexpr int32_t START_UP_ANGLE = -2116;
+constexpr int32_t START_UP_ANGLE = -802;
 
 // 手先のdynamixcelの角度定数 0~360°
 constexpr int32_t CATCH_ANGLE = 3777;
@@ -32,8 +32,8 @@ constexpr int32_t SHOOTING_ANGLE = 2590;
 constexpr int32_t INTER_POINT = 3900;
 constexpr int32_t FOLD_ANGLE = 4751;
 // 昇降用dynamixcelの角度定数　
-constexpr int32_t UPPER_ANGLE = -2116;
-constexpr int32_t LOWER_ANGLE = 3227;
+constexpr int32_t UPPER_ANGLE = -802;
+constexpr int32_t LOWER_ANGLE = 4674;
 
 // dynamixelのID
 constexpr short DXL_ID5 = 0x05;  // 根元
