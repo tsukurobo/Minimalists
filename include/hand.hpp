@@ -10,8 +10,20 @@ typedef enum {
     HAND_LOWERING,
     HAND_SUCTION_WAIT,
     HAND_RAISING,
-    HAND_RELEASE
+    HAND_RELEASE,
+    HAND_WAITING,
 } hand_state_t;
+
+typedef enum {
+    HAND_STANDBY,
+    CATCHING_POSITON,
+    HAND_DROPPING,
+    CATCHING_WAIT,
+    HAND_LIFTING,
+    SHOOTING_POSITION,
+    HAND_FOLD,
+    HAND_FINISH
+} QuickArm_state_t;
 
 // ---- ポンプ制御 ----
 void pump_init(uint pump_pin);

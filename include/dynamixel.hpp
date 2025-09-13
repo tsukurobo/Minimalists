@@ -16,7 +16,7 @@ constexpr int PROTOCOL_VERSION = 2;
 constexpr short POLY = 0x8005;
 extern unsigned short crc_table[256];  // CRC-tabel 除算演算の事前演算結果
 
-constexpr uint BAUD_RATE = 57600;  // 1,000,000bpsに調整
+constexpr uint BAUD_RATE = 1000000;  // 1,000,000bpsに調整
 constexpr uint LED_PIN = 25;
 constexpr float CURRENT_UNIT = 2.69 * 0.001;  //[A]
 constexpr uint32_t PERIOD_US = 500;           // 1ms周期
@@ -66,9 +66,14 @@ int write_dxl_led(const uart_config_t* config, uint8_t id, uint8_t on);
 int write_goalCurrent(const uart_config_t* config, uint8_t id, int16_t value);
 int write_statusReturnLevel(const uart_config_t* config, uint8_t id, uint8_t level);
 int read_position(const uart_config_t* config, uint8_t id, uint32_t* position);
+int read_position_multiturn(const uart_config_t* config, uint8_t id, int32_t* position);
 int control_position(const uart_config_t* config, uint8_t id, float angle);
+int control_position_multiturn(const uart_config_t* config, uint8_t id, int32_t position);  // Extended Position Control Mode (Multi-turn): -256[rev] ~ 256[rev]
 // int return_DelayTime(const uart_config_t* config, uint8_t id, uint8_t time);
 int control_SyncWrite(const uart_config_t* config, uint8_t id1, uint8_t id2, float angle1, float angle2);
 float control_current_limit(float present_current);
-
+int write_dxl_current_limit(const uart_config_t* config, uint8_t id, uint16_t current_limit_mA);
+int write_position_Pgain(const uart_config_t* config, uint8_t id, uint16_t Kp);
+int write_position_Dgain(const uart_config_t* config, uint8_t id, uint16_t Kd);
+int write_position_Igain(const uart_config_t* config, uint8_t id, uint16_t Ki);
 #endif

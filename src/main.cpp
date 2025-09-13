@@ -1,17 +1,10 @@
 #include "config.hpp"
-
 // core0 から core1にhand実行時の監視
 bool g_hand_requested = false;
 mutex_t g_hand_mutex;
-// work　の保持状態
-bool g_has_work = false;
 // 把持状態のstate
-hand_state_t g_hand_state = HAND_IDLE;
+QuickArm_state_t g_quickarm_state = HAND_STANDBY;
 absolute_time_t g_hand_timer;
-
-uint pwm0_slice_num;
-uint pwm1_slice_num;
-uint chan;
 
 constexpr int SHUTDOWN_PIN = 27;  // シャットダウン用のGPIOピン
 
@@ -32,101 +25,117 @@ void init() {
     gpio_set_dir(SHUTDOWN_PIN, GPIO_OUT);
     gpio_put(SHUTDOWN_PIN, 0);
     // ポンプの設定
-    gpio_init(PUMP_PIN1);
-    gpio_set_dir(PUMP_PIN1, GPIO_OUT);
-    gpio_init(PUMP_PIN2);
-    gpio_set_dir(PUMP_PIN2, GPIO_OUT);
-    gpio_init(SOLENOID_PIN1);
-    gpio_set_dir(SOLENOID_PIN1, GPIO_OUT);
-
-    gpio_init(SOLENOID_PIN2);
-    gpio_set_dir(SOLENOID_PIN2, GPIO_OUT);
-
+    gpio_init(PUMP_PIN_SUB);
+    gpio_set_dir(PUMP_PIN_SUB, GPIO_OUT);
+    gpio_init(SOLENOID_PIN_SUB);
+    gpio_set_dir(SOLENOID_PIN_SUB, GPIO_OUT);
     sleep_ms(1000);  // GPIO初期化後の安定化待ち
-
     // Dynamixelの設定
     printf("Initializing Dynamixels (Daisy Chain on UART0)...\n");
     init_crc();
     configure_uart(&UART0, BAUD_RATE);
-    sleep_ms(1000);
-    write_statusReturnLevel(&UART0, DXL_ID1, 0x00);
-    write_statusReturnLevel(&UART0, DXL_ID2, 0x00);
-    sleep_ms(1000);
-    write_dxl_led(&UART0, DXL_ID1, true);
-    write_dxl_led(&UART0, DXL_ID2, true);
-    sleep_ms(1000);
-    write_dxl_led(&UART0, DXL_ID1, false);
-    write_dxl_led(&UART0, DXL_ID2, false);
-    sleep_ms(1000);
-    write_torqueEnable(&UART0, DXL_ID1, false);
-    write_torqueEnable(&UART0, DXL_ID2, false);
-    sleep_ms(1000);
-    write_operatingMode(&UART0, DXL_ID1, false);  // false : 位置制御, true : 拡張位置制御(マルチターン)
-    write_operatingMode(&UART0, DXL_ID2, false);
-    sleep_ms(1000);
-    write_torqueEnable(&UART0, DXL_ID1, true);
-    write_torqueEnable(&UART0, DXL_ID2, true);
+    sleep_ms(100);
+    write_statusReturnLevel(&UART0, DXL_ID5, 0x00);
+    write_statusReturnLevel(&UART0, DXL_ID6, 0x00);
+    sleep_ms(100);
+    write_dxl_led(&UART0, DXL_ID5, true);
+    write_dxl_led(&UART0, DXL_ID6, true);
+    sleep_ms(100);
+    write_dxl_led(&UART0, DXL_ID5, false);
+    write_dxl_led(&UART0, DXL_ID6, false);
+    sleep_ms(100);
+    write_torqueEnable(&UART0, DXL_ID5, false);
+    write_torqueEnable(&UART0, DXL_ID6, false);
+    sleep_ms(100);
+    write_position_Dgain(&UART0, DXL_ID5, 16000);
+    write_position_Pgain(&UART0, DXL_ID5, 1600);
+    write_position_Dgain(&UART0, DXL_ID6, 1900);
+    write_position_Pgain(&UART0, DXL_ID6, 2100);
+    sleep_ms(100);
+    write_dxl_current_limit(&UART0, DXL_ID5, 1400);  // ID=1, 電流制限=100mA
+    write_dxl_current_limit(&UART0, DXL_ID6, 1400);  // ID=2, 電流制限=100mA
+    sleep_ms(100);
+    write_operatingMode(&UART0, DXL_ID5, false);
+    write_operatingMode(&UART0, DXL_ID6, false);
+    sleep_ms(100);
+    write_torqueEnable(&UART0, DXL_ID5, true);
+    write_torqueEnable(&UART0, DXL_ID6, true);
+    sleep_ms(500);
+    control_position_multiturn(&UART0, DXL_ID5, START_HAND_ANGLE);
+    sleep_ms(500);
+    control_position_multiturn(&UART0, DXL_ID6, START_UP_ANGLE);
+    sleep_ms(100);
+    gpio_put(SOLENOID_PIN_SUB, 0);  // ソレノイドを吸着状態にする
+    gpio_put(PUMP_PIN_SUB, 1);
 }
 
-// 　ハンドの動作実行
-void hand_tick(hand_state_t* hand_state, bool* has_work, bool* hand_requested, absolute_time_t* hand_timer) {
+// 　最速アーム実行
+void exe_QuickArm(QuickArm_state_t* hand_state, bool* hand_requested, absolute_time_t* state_start_time) {
+    uint32_t elapsed_ms = absolute_time_diff_us(*state_start_time, get_absolute_time()) / 1000;
     switch (*hand_state) {
-        case HAND_IDLE:
+        case HAND_STANDBY:
             if (*hand_requested) {
                 printf("hand requested\n");
-                if (*has_work == false) {
-                    *hand_requested = false;
-                    *hand_state = HAND_LOWERING;
-                    *hand_timer = make_timeout_time_ms(10);  // 降ろす時間
-                    gpio_put(PUMP_PIN1, 1);                  // PWM デューティ設定
-
-                    std::cout << "Hand lowering..." << std::endl;
-                    // Dynamixel　降下処理
-                    control_position(&UART0, DXL_ID2, DOWN_ANGLE);
-
-                } else {
-                    *hand_requested = false;
-                    *hand_state = HAND_RELEASE;
-                    *hand_timer = make_timeout_time_ms(10);
-                    gpio_put(SOLENOID_PIN1, 1);  // ソレノイドを非吸着状態にする
-                }
+                *hand_requested = false;
+                *hand_state = CATCHING_POSITON;
+                *state_start_time = get_absolute_time();
+                gpio_put(PUMP_PIN_SUB, 1);
+                control_position_multiturn(&UART0, DXL_ID5, CATCH_ANGLE);
             }
             break;
 
-        case HAND_LOWERING:
-            if (absolute_time_diff_us(get_absolute_time(), *hand_timer) <= 0) {
-                *hand_state = HAND_SUCTION_WAIT;
-                *hand_timer = make_timeout_time_ms(10);  // 吸着待ち
-                printf("Hand suction wait...\n");
+        case CATCHING_POSITON:
+            if (elapsed_ms >= 490) {  // 500
+                *hand_state = HAND_DROPPING;
+                *state_start_time = get_absolute_time();
+                printf("Hand dropping...\n");
+                control_position_multiturn(&UART0, DXL_ID6, LOWER_ANGLE);
             }
             break;
 
-        case HAND_SUCTION_WAIT:
-            if (absolute_time_diff_us(get_absolute_time(), *hand_timer) <= 0) {
-                *hand_state = HAND_RAISING;
-                *hand_timer = make_timeout_time_ms(10);
-                // Dynamixel 昇降処理
-                control_position(&UART0, DXL_ID2, UP_ANGLE);
+        case HAND_DROPPING:
+            if (elapsed_ms >= 300) {
+                *hand_state = CATCHING_WAIT;
+                *state_start_time = get_absolute_time();
+            }
+            break;
+
+        case CATCHING_WAIT:
+            if (elapsed_ms >= 100) {
+                *hand_state = HAND_LIFTING;
+                *state_start_time = get_absolute_time();
+                control_position_multiturn(&UART0, DXL_ID6, UPPER_ANGLE);
                 printf("Hand raising...\n");
             }
             break;
 
-        case HAND_RAISING:
-            if (absolute_time_diff_us(get_absolute_time(), *hand_timer) <= 0) {
-                *has_work = true;
-                control_position(&UART0, DXL_ID1, RELEASE_ANGLE);
+        case HAND_LIFTING:
+            if (elapsed_ms >= 490) {
+                control_position_multiturn(&UART0, DXL_ID5, SHOOTING_ANGLE);
                 printf("Hand raised, work done.\n");
-                *hand_state = HAND_IDLE;
+                *state_start_time = get_absolute_time();
+                *hand_state = SHOOTING_POSITION;
             }
             break;
 
-        case HAND_RELEASE:
-            if (absolute_time_diff_us(get_absolute_time(), *hand_timer) <= 0) {
-                *has_work = false;
-                *hand_state = HAND_IDLE;
-                gpio_put(SOLENOID_PIN1, 0);  // ソレノイドを吸着状態にする
-                control_position(&UART0, DXL_ID1, GRAB_ANGLE);
-                printf("Hand released\n");
+        case SHOOTING_POSITION:
+            if (elapsed_ms >= 450) {  // 1000
+                *hand_state = HAND_FINISH;
+                *state_start_time = get_absolute_time();
+                gpio_put(SOLENOID_PIN_SUB, 1);  // ソレノイドを非吸着状態にする
+                printf("Hand in shooting position, pump off.\n");
+            }
+            break;
+
+        case HAND_FOLD:
+            if (elapsed_ms >= 100) {
+                control_position_multiturn(&UART0, DXL_ID5, INTER_POINT);
+                *hand_state = HAND_FINISH;
+            }
+
+        case HAND_FINISH:
+            if (elapsed_ms >= 450) {
+                control_position_multiturn(&UART0, DXL_ID5, FOLD_ANGLE);
             }
             break;
     }
@@ -134,24 +143,18 @@ void hand_tick(hand_state_t* hand_state, bool* has_work, bool* hand_requested, a
 
 // Core 1: 通信・デバッグ出力担当
 void core1_entry(void) {
-    gpio_put(SOLENOID_PIN1, 0);  // ソレノイドを吸着状態にする
-    gpio_put(PUMP_PIN1, 1);
+    gpio_put(SOLENOID_PIN_SUB, 0);  // ソレノイドを吸着状態にする
+    gpio_put(PUMP_PIN_SUB, 1);
     printf("hand initialized\n");
     sleep_ms(500);
-    control_position(&UART0, DXL_ID1, START_HAND_ANGLE);
-    sleep_ms(500);
-    control_position(&UART0, DXL_ID2, START_UP_ANGLE);
     while (1) {
         absolute_time_t next_time = make_timeout_time_ms(500);
         mutex_enter_blocking(&g_state_mutex);
         int speed = g_robot_state.motor_speed;
         int sensor = g_robot_state.sensor_value;
         mutex_exit(&g_state_mutex);
-        // デバッグ出力
-        // printf("[DEBUG] speed=%d, sensor=%d\n", speed, sensor);
-        // 通信処理（例: USB出力やUART送信など）ここに追加可能
         mutex_enter_blocking(&g_hand_mutex);
-        hand_tick(&g_hand_state, &g_has_work, &g_hand_requested, &g_hand_timer);
+        exe_QuickArm(&g_quickarm_state, &g_hand_requested, &g_hand_timer);
         mutex_exit(&g_hand_mutex);
         busy_wait_until(next_time);
     }
@@ -169,7 +172,6 @@ int main(void) {
     // 初期化関数の実行
     init();
     sleep_ms(2000);
-
     // LEDのGPIO初期化
     gpio_init(PICO_DEFAULT_LED_PIN);
     gpio_set_dir(PICO_DEFAULT_LED_PIN, GPIO_OUT);
@@ -181,7 +183,7 @@ int main(void) {
     // Core1で実行する関数を起動
     multicore_launch_core1(core1_entry);
 
-    int counter = 0;  // デバッグ用カウンタ
+    int counter = 1;
     while (1) {
         absolute_time_t next_time = make_timeout_time_ms(500);  // 今から500ms後
         // LEDを点滅させる
@@ -195,17 +197,17 @@ int main(void) {
         g_robot_state.motor_speed = new_speed;
         g_robot_state.sensor_value = new_sensor;
         mutex_exit(&g_state_mutex);
-
-        if (counter % 10 == 0) {
+        if (counter == 10) {
             request_hand_action();
             printf("request_hand_action() called at counter=%d\n", counter);
+        } else {
+            printf("Counter: %d\n", counter);
         }
         counter++;
-
         busy_wait_until(next_time);  // 500ms待機
     }
 
-    // gpio_put(SOLENOID_PIN1, 0);  // ソレノイドを非吸着状態にする
-    gpio_put(PUMP_PIN1, 0);  // ポンプを停止
+    // gpio_put(SOLENOID_PIN_SUB, 0);  // ソレノイドを非吸着状態にする
+    gpio_put(PUMP_PIN_SUB, 0);  // ポンプを停止
     return 0;
 }

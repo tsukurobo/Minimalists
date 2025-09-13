@@ -16,35 +16,35 @@
 #include "trajectory.hpp"
 
 // PIN設定
-constexpr int PUMP_PIN1 = 4;
-constexpr int PUMP_PIN2 = 11;
-constexpr int SOLENOID_PIN1 = 3;
-constexpr int SOLENOID_PIN2 = 13;
+constexpr int PUMP_PIN_SUB = 11;
+constexpr int SOLENOID_PIN_SUB = 13;
 
 // 手先のmotorに与えるduty比
 constexpr int PUMP_PWM = 0.80;
 
 // dynamixelの初期化角度　
-constexpr float START_HAND_ANGLE = 255.0f;
-constexpr float START_UP_ANGLE = 90.0f;
+constexpr int32_t START_HAND_ANGLE = 2977;
+constexpr int32_t START_UP_ANGLE = -2116;
 
 // 手先のdynamixcelの角度定数 0~360°
-constexpr float GRAB_ANGLE = 210.0f;
-constexpr float RELEASE_ANGLE = 300.0f;
+constexpr int32_t CATCH_ANGLE = 3777;
+constexpr int32_t SHOOTING_ANGLE = 2590;
+constexpr int32_t INTER_POINT = 3900;
+constexpr int32_t FOLD_ANGLE = 4751;
 // 昇降用dynamixcelの角度定数　
-constexpr float UP_ANGLE = 20.0f;
-constexpr float DOWN_ANGLE = 160.0f;
+constexpr int32_t UPPER_ANGLE = -2116;
+constexpr int32_t LOWER_ANGLE = 3227;
 
 // dynamixelのID
-constexpr short DXL_ID1 = 0x01;  // 手先
-constexpr short DXL_ID2 = 0x02;  // 昇降
+constexpr short DXL_ID5 = 0x05;  // 根元
+constexpr short DXL_ID6 = 0x06;  // 昇降
 
 extern mutex_t g_hand_mutex;
 extern bool g_hand_requested;
 extern bool g_has_work;
-extern hand_state_t g_hand_state;
+extern QuickArm_state_t g_quickarm_state;
 extern absolute_time_t g_hand_timer;
 
-void hand_tick(hand_state_t* hand_state, bool* has_work, bool* hand_requested, absolute_time_t* hand_timer);
+void exe_QuickArm(hand_state_t* hand_state, bool* has_work, bool* hand_requested, absolute_time_t* hand_timer);
 
 #endif  // HEADER_H
