@@ -1,5 +1,6 @@
 #include "config.hpp"
 #include "dynamixel.hpp"
+#include "servo.hpp"
 #include "trajectory.hpp"
 #include "trajectory_sequence_manager.hpp"
 
@@ -34,6 +35,8 @@ AMT223V_Manager encoder_manager(SPI1_CONFIG.spi_port, SPI1_CONFIG.pin_miso, SPI1
 // RoboMasterモータオブジェクト
 robomaster_motor_t motor1(&can, 1, Mech::gear_ratio_R);  // motor_id=1
 robomaster_motor_t motor2(&can, 2, Mech::gear_ratio_P);  // motor_id=2
+
+Servo shooting_servo(ShootingConfig::SERVO_PIN);
 
 float clampTorque(float torque, float max_torque) {
     if (torque > max_torque) {
@@ -998,6 +1001,18 @@ int main(void) {
                     break;
             }
             prev_disturbance_level = g_disturbance_level;  // 状態を更新
+        }
+
+        // シューティングエリアのサーボを3秒に1回動かす
+        static absolute_time_t last_shoot_servo_time = {0};
+        if (absolute_time_diff_us(last_shoot_servo_time, get_absolute_time()) >= 3'000'000 &&
+            absolute_time_diff_us(last_shoot_servo_time, get_absolute_time()) < 6'000'000) {
+            g_debug_manager->debug("Set shooting servo angle to correction angle.");
+            shooting_servo.set_angle(ShootingConfig::CORRECTION_ANGLE);
+        } else if (absolute_time_diff_us(last_shoot_servo_time, get_absolute_time()) >= 6'000'000) {
+            g_debug_manager->debug("Set shooting servo angle to idle angle.");
+            shooting_servo.set_angle(ShootingConfig::IDLE_ANGLE);
+            last_shoot_servo_time = get_absolute_time();
         }
 
         // FIFOから同期信号を待機（ブロッキング）
