@@ -465,7 +465,7 @@ void core1_entry(void) {
         }
 
         // 経過時間を秒単位に変換
-        float current_time_s = static_cast<float>(absolute_time_diff_us(control_start_time, control_timing.loop_start_time) / 1000000.0f);
+        float current_time_s = static_cast<float>(absolute_time_diff_us(control_start_time, control_timing.loop_start_time)) / 1000000.0f;
 
         // --- エンコーダ読み取り処理 ---
         float motor_position_R = 0.0f, motor_position_P = 0.0f;
