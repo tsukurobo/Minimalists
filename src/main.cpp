@@ -22,7 +22,7 @@ const spi_config_t SPI1_CONFIG = {
     .pin_rst = -1  // MCP25625用リセットピン
 };
 
-// 妨害展開レベル (0: 初期状態, 1: 1段階目, 2: 2段階目)
+// 妨害展開レベル (0: 1段階目, 1: 2段階目)
 volatile int g_disturbance_level = 0;
 
 // MCP25625オブジェクトを作成（CAN SPI設定を使用）
@@ -307,10 +307,10 @@ void init_hand_dist() {
     write_torqueEnable(&UART1, Dist::DXL_ID_LEFT, false);
     write_torqueEnable(&UART1, Dist::DXL_ID_RIGHT, false);
     sleep_ms(100);
-    write_dxl_current_limit(&UART1, Hand::DXL_ID1, 1000);       // ID=1, 電流制限=100mA
-    write_dxl_current_limit(&UART1, Hand::DXL_ID2, 1000);       // ID=2, 電流制限=100mA
-    write_dxl_current_limit(&UART1, Dist::DXL_ID_LEFT, 1000);   // ID=2, 電流制限=100mA
-    write_dxl_current_limit(&UART1, Dist::DXL_ID_RIGHT, 1000);  // ID=2, 電流制限=100mA
+    write_dxl_current_limit(&UART1, Hand::DXL_ID1, Hand::HAND_CURRENT_LIMIT);
+    write_dxl_current_limit(&UART1, Hand::DXL_ID2, Hand::LIFT_CURRENT_LIMIT);
+    write_dxl_current_limit(&UART1, Dist::DXL_ID_LEFT, Dist::DISTURBANCE_CURRENT_LIMIT);
+    write_dxl_current_limit(&UART1, Dist::DXL_ID_RIGHT, Dist::DISTURBANCE_CURRENT_LIMIT);
     sleep_ms(100);
     write_operatingMode(&UART1, Hand::DXL_ID1, false);  // false : 位置制御, true : 拡張位置制御(マルチターン)
     write_operatingMode(&UART1, Hand::DXL_ID2, false);
@@ -326,9 +326,9 @@ void init_hand_dist() {
     sleep_ms(500);
     control_position_multiturn(&UART1, Hand::DXL_ID2, Hand::LiftAngle::SHOOT_UP);
     sleep_ms(500);
-    control_position_multiturn(&UART1, Dist::DXL_ID_LEFT, Dist::LEFT_DEPLOY_PRE);
+    control_position_multiturn(&UART1, Dist::DXL_ID_LEFT, Dist::LEFT_DEPLOY_1ST);
     sleep_ms(500);
-    control_position_multiturn(&UART1, Dist::DXL_ID_RIGHT, Dist::RIGHT_DEPLOY_PRE);
+    control_position_multiturn(&UART1, Dist::DXL_ID_RIGHT, Dist::RIGHT_DEPLOY_1ST);
     sleep_ms(1000);
     gpio_put(Hand::SOLENOID_PIN, 0);  // ソレノイドを吸着状態にする
     gpio_put(Hand::PUMP_PIN, 1);
@@ -411,7 +411,7 @@ void handle_disturbance_trigger() {
     last_button_press_time = now;
 
     // 妨害レベルを 0 -> 1 -> 2 -> 0 -> ... と変化させる
-    g_disturbance_level = (g_disturbance_level + 1) % 3;
+    g_disturbance_level = (g_disturbance_level + 1) % 2;
 }
 
 // ボタンを押したときのコールバック関数
@@ -749,7 +749,7 @@ bool initialize_system() {
     gpio_set_dir(BUTTON_PIN, GPIO_IN);
     gpio_pull_up(BUTTON_PIN);  // 内部プルアップを有効化
     // 立ち下がりエッジ（ボタンが押されたとき）で割り込み発生
-    gpio_set_irq_enabled_with_callback(BUTTON_PIN, GPIO_IRQ_EDGE_FALL, true, button_isr);
+    gpio_set_irq_enabled_with_callback(BUTTON_PIN, GPIO_IRQ_EDGE_FALL, true, button_cb);
 
     sleep_ms(2000);  // シリアル接続待ち
 
@@ -976,22 +976,19 @@ int main(void) {
         // 妨害の展開
         if (prev_disturbance_level != g_disturbance_level) {
             switch (g_disturbance_level) {
-                case 0:  // 初期状態に戻す
-                    g_debug_manager->info("Disturbance returning to initial position.");
-                    control_position_multiturn(&UART1, Dist::DXL_ID_LEFT, Dist::LEFT_DEPLOY_PRE);
-                    control_position_multiturn(&UART1, Dist::DXL_ID_RIGHT, Dist::RIGHT_DEPLOY_PRE);
-                    sleep_ms(100);
-                    g_debug_manager->info("FastArm is moving!");
-                    break;
-                case 1:  // 1段階目
+                case 0:  // 1段階目に戻す
                     g_debug_manager->info("Disturbance deploying to 1st stage.");
                     control_position_multiturn(&UART1, Dist::DXL_ID_LEFT, Dist::LEFT_DEPLOY_1ST);
+                    sleep_ms(100);
                     control_position_multiturn(&UART1, Dist::DXL_ID_RIGHT, Dist::RIGHT_DEPLOY_1ST);
+                    sleep_ms(100);
                     break;
-                case 2:  // 2段階目
+                case 1:  // 2段階目
                     g_debug_manager->info("Disturbance deploying to 2nd stage.");
                     control_position_multiturn(&UART1, Dist::DXL_ID_LEFT, Dist::LEFT_DEPLOY_2ND);
+                    sleep_ms(100);
                     control_position_multiturn(&UART1, Dist::DXL_ID_RIGHT, Dist::RIGHT_DEPLOY_2ND);
+                    sleep_ms(100);
                     break;
             }
             prev_disturbance_level = g_disturbance_level;  // 状態を更新

@@ -238,6 +238,8 @@ constexpr int32_t RIGHT_DEPLOY_2ND = -27046;  // 右展開2段階(最奥)
 // dynamixelのID
 constexpr short DXL_ID_LEFT = 0x03;   // 左展開
 constexpr short DXL_ID_RIGHT = 0x04;  // 右展開
+// 電流制限
+constexpr uint16_t DISTURBANCE_CURRENT_LIMIT = 500;  // 電流制限 [mA]
 }  // namespace DisturbanceConfig
 
 namespace FastArmConfig {
