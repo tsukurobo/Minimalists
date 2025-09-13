@@ -279,7 +279,7 @@ void init_hand() {
     sleep_ms(1000);  // GPIO初期化後の安定化待ち
 
     // Dynamixelの設定
-    g_debug_manager->info("Initializing Dynamixels (Daisy Chain on UART0)...\n");
+    g_debug_manager->info("Initializing Dynamixels (Daisy Chain on UART1)...\n");
     init_crc();
     configure_uart(&UART1, BAUD_RATE);
     sleep_ms(100);
@@ -324,7 +324,7 @@ void hand_tick(hand_state_t* hand_state, bool* has_work, absolute_time_t* state_
                 *state_start_time = get_absolute_time();
                 gpio_put(Dxl::PUMP_PIN, 1);
                 g_debug_manager->debug("Hand lowering...");
-                control_position_multiturn(&UART0, Dxl::DXL_ID2, Dxl::LiftAngle::CATCH);
+                control_position_multiturn(&UART1, Dxl::DXL_ID2, Dxl::LiftAngle::CATCH);
             } else {
                 *hand_state = HAND_RELEASE;
                 *state_start_time = get_absolute_time();
@@ -344,7 +344,7 @@ void hand_tick(hand_state_t* hand_state, bool* has_work, absolute_time_t* state_
             if (elapsed_ms >= 100) {
                 *hand_state = HAND_RAISING;
                 *state_start_time = get_absolute_time();
-                control_position_multiturn(&UART0, Dxl::DXL_ID2, lift_angle);
+                control_position_multiturn(&UART1, Dxl::DXL_ID2, lift_angle);
                 g_debug_manager->debug("Hand raising...\n");
             }
             break;
@@ -352,7 +352,7 @@ void hand_tick(hand_state_t* hand_state, bool* has_work, absolute_time_t* state_
         case HAND_RAISING:
             if (elapsed_ms >= 200) {
                 *has_work = true;
-                control_position(&UART0, Dxl::DXL_ID1, hand_angle);
+                control_position(&UART1, Dxl::DXL_ID1, hand_angle);
                 g_debug_manager->debug("Hand raised, work done.\n");
                 *hand_state = HAND_WAITING;  // HAND_IDLE前に1秒待機
                 *state_start_time = get_absolute_time();
@@ -363,7 +363,7 @@ void hand_tick(hand_state_t* hand_state, bool* has_work, absolute_time_t* state_
             if (elapsed_ms >= 150) {
                 *has_work = false;
                 gpio_put(Dxl::SOLENOID_PIN, 0);
-                control_position(&UART0, Dxl::DXL_ID1, hand_angle);
+                control_position(&UART1, Dxl::DXL_ID1, hand_angle);
                 g_debug_manager->debug("Hand released\n");
                 *hand_state = HAND_WAITING;  // HAND_IDLE前に1秒待機
                 *state_start_time = get_absolute_time();
