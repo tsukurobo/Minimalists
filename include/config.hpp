@@ -22,6 +22,7 @@
 constexpr float PI_F = 3.14159265358979323846f;
 
 // pin
+constexpr uint8_t BUTTON_PIN = 255;  // 仮の値、後で変更する
 constexpr uint8_t UART0_TX_PIN = 0;
 constexpr uint8_t UART0_RX_PIN = 1;
 constexpr uint8_t UART0_DE_RE_PIN = 2;  // 最速アーム
