@@ -1004,7 +1004,7 @@ int main(void) {
         }
 
         // シューティングエリアのサーボを3秒に1回動かす
-        static absolute_time_t last_shoot_servo_time = {0};
+        static absolute_time_t last_shoot_servo_time = get_absolute_time();
         absolute_time_t now = get_absolute_time();
         if (absolute_time_diff_us(last_shoot_servo_time, now) >= 3'000'000 &&
             absolute_time_diff_us(last_shoot_servo_time, now) < 6'000'000) {
