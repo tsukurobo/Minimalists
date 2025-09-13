@@ -17,7 +17,6 @@ constexpr short POLY = 0x8005;
 extern unsigned short crc_table[256];  // CRC-tabel 除算演算の事前演算結果
 
 constexpr uint BAUD_RATE = 1'000'000;
-constexpr uint LED_PIN = 25;
 constexpr float CURRENT_UNIT = 2.69f * 0.001f;  //[A]
 constexpr uint32_t PERIOD_US = 500;           // 1ms周期
 constexpr float delta_t = static_cast<float>(PERIOD_US) / 1'000'000;
@@ -35,15 +34,15 @@ typedef struct {
 
 const uart_config_t UART0 = {
     .uart_number = uart0,
-    .tx_pin = 0,
-    .rx_pin = 1,
-    .de_pin = 2};
+    .tx_pin = UART0_TX_PIN,
+    .rx_pin = UART0_RX_PIN,
+    .de_pin = UART0_DE_RE_PIN};
 
 const uart_config_t UART1 = {
     .uart_number = uart1,
-    .tx_pin = 4,
-    .rx_pin = 5,
-    .de_pin = 6};
+    .tx_pin = UART1_TX_PIN,
+    .rx_pin = UART1_RX_PIN,
+    .de_pin = UART1_DE_RE_PIN};
 
 void init_crc();
 
