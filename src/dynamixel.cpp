@@ -65,10 +65,7 @@ void send_packet(const uart_config_t* config, const uint8_t* data, size_t length
     set_tx_mode(config);
     sleep_us(10);  // DEピン安定化待ち
     uart_write_blocking(config->uart_number, data, length);
-    uart_hw_t* uart_hw = (config->uart_number == uart0) ? uart0_hw : uart1_hw;
-    while (uart_hw->fr & UART_UARTFR_BUSY_BITS) {
-        tight_loop_contents();
-    }
+    uart_tx_wait_blocking(config->uart_number);
     sleep_us(1);
     set_rx_mode(config);
     sleep_us(1);
