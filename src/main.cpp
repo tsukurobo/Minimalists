@@ -168,15 +168,15 @@ bool calculate_trajectory_core0(
     const float current_position[2],
     const float target_position[2],
     const float intermediate_pos1[2],
-    const float intermediate_pos2[2]) {
+    const float intermediate_pos2[2],
+    const float intermediate_pos3[2]) {
     // 中継点の有無を判定
     bool has_inter1 = !std::isnan(intermediate_pos1[0]) && !std::isnan(intermediate_pos1[1]);
     bool has_inter2 = !std::isnan(intermediate_pos2[0]) && !std::isnan(intermediate_pos2[1]);
+    bool has_inter3 = !std::isnan(intermediate_pos3[0]) && !std::isnan(intermediate_pos3[1]);
 
-    // 軌道計算用入力構造体
-    // まずはR軸のみ軌道を計算
+    // 軌道計算用入力構造体、まずはR軸のみ軌道を計算
     trajectory_t trajectory_R_core0(Traj::R_MAX_VELOCITY, Traj::R_ACCEL, Traj::R_DECEL, Traj::R_S_CURVE_RATIO, current_position[0], target_position[0]);
-    trajectory_t trajectory_P_core0(Traj::P_MAX_VELOCITY, Traj::P_ACCEL, Traj::P_DECEL, Traj::P_S_CURVE_RATIO, current_position[1], target_position[1]);
 
     // R軸のみ軌道を計算
     trajectory_R_core0.calculate_s_curve_trajectory_params();
@@ -189,37 +189,33 @@ bool calculate_trajectory_core0(
 
     // 軌道点の配列を確保
     static trajectory_point_t trajectory_points[Traj::MAX_TRAJECTORY_POINTS];
-    // P軸の軌道区間管理
-    enum class PSection {
-        TO_INTER1,
-        TO_INTER2,
-        TO_TARGET
-    };
-    PSection p_section;
+
     // 進行方向判定
     bool is_forward_R = current_position[0] < target_position[0];
-    bool is_forward_P;
+    bool is_forward_P = has_inter1 ? (current_position[1] < intermediate_pos1[1]) : (current_position[1] < target_position[1]);
 
-    if (has_inter1 && has_inter2) {
-        // 両方の中継点が設定されている場合、P軸も中継点までの軌道を計算
-        p_section = PSection::TO_INTER1;
-        is_forward_P = current_position[1] < intermediate_pos1[1];
-        trajectory_P_core0.set_end_pos(intermediate_pos1[1]);
-    } else if (has_inter1 && !has_inter2) {
-        // 中継点1のみ設定されている場合、P軸は中継点1までの軌道を計算し、その後目標位置へ
-        p_section = PSection::TO_INTER1;
-        is_forward_P = current_position[1] < intermediate_pos1[1];
-        trajectory_P_core0.set_end_pos(intermediate_pos1[1]);
-    } else {
-        // 中継点が設定されていない場合、P軸は直接目標位置へ
-        p_section = PSection::TO_TARGET;
-        is_forward_P = current_position[1] < target_position[1];
-        trajectory_P_core0.set_end_pos(target_position[1]);
-    }
+    struct SectionInfo {
+        const float* start_pos;
+        const float* end_pos;
+    };
+    SectionInfo sections[4];  // 最大4区間（中継点3つ＋目標点）
+    int section_count = 0;
 
-    // 最初の通過点/目標点までの軌道をセット
+    // 区間リストを構築
+    sections[section_count] = {current_position, has_inter1 ? intermediate_pos1 : target_position};
+    if (has_inter2) sections[++section_count] = {intermediate_pos1, intermediate_pos2};
+    if (has_inter3) sections[++section_count] = {intermediate_pos2, intermediate_pos3};
+    sections[++section_count] = {
+        has_inter3 ? intermediate_pos3 : (has_inter2 ? intermediate_pos2 : (has_inter1 ? intermediate_pos1 : current_position)),
+        target_position};
+
+    int current_section = 0;
+    float section_start_time = 0.0f;
+
+    // P軸軌道オブジェクト
+    trajectory_t trajectory_P_core0(Traj::P_MAX_VELOCITY, Traj::P_ACCEL, Traj::P_DECEL, Traj::P_S_CURVE_RATIO,
+                                    sections[0].start_pos[1], sections[0].end_pos[1]);
     trajectory_P_core0.calculate_s_curve_trajectory_params();
-    float pre_section_time = 0.0f;
 
     for (int i = 0; i < point_count; i++) {
         float time = i * Traj::TRAJECTORY_CONTROL_PERIOD;
@@ -228,68 +224,24 @@ bool calculate_trajectory_core0(
 
         trajectory_R_core0.get_s_curve_state(time, pos_R, vel_R, acc_R);
 
-        // P軸の区間ごとに軌道計算
-        if (has_inter1 && has_inter2) {  // 両方の中継点が設定されている場合
-            switch (p_section) {
-                case PSection::TO_INTER1:
-                    trajectory_P_core0.get_s_curve_state(time, pos_P, vel_P, acc_P);
-                    // 中継点1到達判定
-                    if (((is_forward_R && pos_R >= intermediate_pos1[0]) ||
-                         (!is_forward_R && pos_R <= intermediate_pos1[0])) &&  // R軸も中継点1を通過
-                        ((is_forward_P && pos_P >= intermediate_pos1[1]) ||
-                         (!is_forward_P && pos_P <= intermediate_pos1[1]))) {  // P軸も中継点1を通過
-                        pre_section_time = time;
-                        // 次は中継点2へ
-                        trajectory_P_core0.set_start_pos(intermediate_pos1[1]);
-                        trajectory_P_core0.set_end_pos(intermediate_pos2[1]);
-                        trajectory_P_core0.calculate_s_curve_trajectory_params();
-                        p_section = PSection::TO_INTER2;
-                    }
-                    break;
-                case PSection::TO_INTER2:
-                    trajectory_P_core0.get_s_curve_state(time - pre_section_time, pos_P, vel_P, acc_P);
-                    // 中継点2到達判定
-                    if (((is_forward_R && pos_R >= intermediate_pos2[0]) ||
-                         (!is_forward_R && pos_R <= intermediate_pos2[0])) &&  // R軸も中継点2を通過
-                        ((is_forward_P && pos_P >= intermediate_pos2[1]) ||
-                         (!is_forward_P && pos_P <= intermediate_pos2[1]))) {  // P軸も中継点2を通過
-                        pre_section_time = time;
-                        // 次は目標位置へ
-                        trajectory_P_core0.set_start_pos(intermediate_pos2[1]);
-                        trajectory_P_core0.set_end_pos(target_position[1]);
-                        trajectory_P_core0.calculate_s_curve_trajectory_params();
-                        p_section = PSection::TO_TARGET;
-                    }
-                    break;
-                case PSection::TO_TARGET:
-                    trajectory_P_core0.get_s_curve_state(time - pre_section_time, pos_P, vel_P, acc_P);
-                    // 目標位置到達判定は不要（最後までこの区間）
-                    break;
-            }
-        } else if (has_inter1 && !has_inter2) {  // 中継点1のみ設定されている場合
-            if (p_section == PSection::TO_INTER1) {
-                trajectory_P_core0.get_s_curve_state(time, pos_P, vel_P, acc_P);
-                // 中継点1到達判定
-                if (((is_forward_R && pos_R >= intermediate_pos1[0]) ||
-                     (!is_forward_R && pos_R <= intermediate_pos1[0])) &&  // R軸も中継点1を通過
-                    ((is_forward_P && pos_P >= intermediate_pos1[1]) ||
-                     (!is_forward_P && pos_P <= intermediate_pos1[1]))) {  // P軸も中継点1を通過
-                    pre_section_time = time;
-                    // 次は目標位置へ
-                    trajectory_P_core0.set_start_pos(intermediate_pos1[1]);
-                    trajectory_P_core0.set_end_pos(target_position[1]);
-                    trajectory_P_core0.calculate_s_curve_trajectory_params();
-                    p_section = PSection::TO_TARGET;
-                }
-            } else {
-                // 目標位置までの区間
-                trajectory_P_core0.get_s_curve_state(time - pre_section_time, pos_P, vel_P, acc_P);
-            }
-        } else {  // 中継点が設定されていない場合
-            trajectory_P_core0.get_s_curve_state(time, pos_P, vel_P, acc_P);
+        // P軸の現在区間で軌道計算
+        trajectory_P_core0.get_s_curve_state(time - section_start_time, pos_P, vel_P, acc_P);
+
+        // 区間終端判定（R軸・P軸両方）
+        const float* end_pos = sections[current_section].end_pos;
+        bool r_reached = (is_forward_R && pos_R >= end_pos[0]) || (!is_forward_R && pos_R <= end_pos[0]);
+        bool p_reached = (is_forward_P && pos_P >= end_pos[1]) || (!is_forward_P && pos_P <= end_pos[1]);
+
+        if (r_reached && p_reached && current_section + 1 < section_count) {
+            // 次区間へ
+            section_start_time = time;
+            current_section++;
+            is_forward_P = sections[current_section].start_pos[1] < sections[current_section].end_pos[1];
+            trajectory_P_core0.set_start_pos(sections[current_section].start_pos[1]);
+            trajectory_P_core0.set_end_pos(sections[current_section].end_pos[1]);
+            trajectory_P_core0.calculate_s_curve_trajectory_params();
         }
 
-        // 軌道点を保存
         trajectory_points[i] = {pos_R, vel_R, acc_R, pos_P, vel_P, acc_P};
     }
 
@@ -1076,6 +1028,7 @@ int main(void) {
 
                         float intermediate_pos1[2] = {NAN, NAN};
                         float intermediate_pos2[2] = {NAN, NAN};
+                        float intermediate_pos3[2] = {NAN, NAN};
                         if (pass_through_mode == TrajectoryConfig::PassThroughMode::INTERMEDIATE_1) {
                             intermediate_pos1[0] = TrajectoryConfig::INTERMEDIATE_POS_1[0];
                             intermediate_pos1[1] = TrajectoryConfig::INTERMEDIATE_POS_1[1];
@@ -1089,13 +1042,27 @@ int main(void) {
                             intermediate_pos1[1] = TrajectoryConfig::INTERMEDIATE_POS_2[1];
                             intermediate_pos2[0] = TrajectoryConfig::INTERMEDIATE_POS_1[0];
                             intermediate_pos2[1] = TrajectoryConfig::INTERMEDIATE_POS_1[1];
+                        } else if (pass_through_mode == TrajectoryConfig::PassThroughMode::INTERMEDIATE_123) {
+                            intermediate_pos1[0] = TrajectoryConfig::INTERMEDIATE_POS_1[0];
+                            intermediate_pos1[1] = TrajectoryConfig::INTERMEDIATE_POS_1[1];
+                            intermediate_pos2[0] = TrajectoryConfig::INTERMEDIATE_POS_2[0];
+                            intermediate_pos2[1] = TrajectoryConfig::INTERMEDIATE_POS_2[1];
+                            intermediate_pos3[0] = TrajectoryConfig::INTERMEDIATE_POS_3[0];
+                            intermediate_pos3[1] = TrajectoryConfig::INTERMEDIATE_POS_3[1];
+                        } else if (pass_through_mode == TrajectoryConfig::PassThroughMode::INTERMEDIATE_321) {
+                            intermediate_pos1[0] = TrajectoryConfig::INTERMEDIATE_POS_3[0];
+                            intermediate_pos1[1] = TrajectoryConfig::INTERMEDIATE_POS_3[1];
+                            intermediate_pos2[0] = TrajectoryConfig::INTERMEDIATE_POS_2[0];
+                            intermediate_pos2[1] = TrajectoryConfig::INTERMEDIATE_POS_2[1];
+                            intermediate_pos3[0] = TrajectoryConfig::INTERMEDIATE_POS_1[0];
+                            intermediate_pos3[1] = TrajectoryConfig::INTERMEDIATE_POS_1[1];
                         } else if (pass_through_mode == TrajectoryConfig::PassThroughMode::DIRECT) {
-                            // NONEの場合は中間点なし
+                            // DIRECTの場合は中間点なし
                         } else {
                             g_debug_manager->error("Unknown pass-through mode");
                         }
 
-                        if (calculate_trajectory_core0(current_position, target_position, intermediate_pos1, intermediate_pos2)) {
+                        if (calculate_trajectory_core0(current_position, target_position, intermediate_pos1, intermediate_pos2, intermediate_pos3)) {
                             if (multicore_fifo_push_timeout_us(Mc::TRAJECTORY_DATA_SIGNAL, 0)) {
                                 traj_state = TRAJECTORY_EXECUTING;
                                 g_debug_manager->debug("Moving to waypoint: R=%.3f rad, P=%.1f mm",

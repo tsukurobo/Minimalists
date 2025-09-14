@@ -138,10 +138,12 @@ constexpr float INTERMEDIATE_POS_3[2] = {5.934f, -0.1744f / MechanismConfig::gea
 
 // 中継点の通過パターン
 enum class PassThroughMode : uint8_t {
-    DIRECT,           // 中継点なし
-    INTERMEDIATE_1,   // 中継点1のみ通過
-    INTERMEDIATE_12,  // 中継点1を通過してから中継点2も通過
-    INTERMEDIATE_21   // 中継点2を通過してから中継点1も通過
+    DIRECT,            // 中継点なし
+    INTERMEDIATE_1,    // 中継点1のみ通過
+    INTERMEDIATE_12,   // 中継点1を通過してから中継点2も通過
+    INTERMEDIATE_21,   // 中継点2を通過してから中継点1も通過
+    INTERMEDIATE_123,  // 中継点1を通過してから中継点2も通過してから中継点3も通過
+    INTERMEDIATE_321   // 中継点3を通過してから中継点2も通過してから中継点1も通過
 };
 
 // 軌道生成の最大速度
