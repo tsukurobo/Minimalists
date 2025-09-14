@@ -23,7 +23,7 @@ const spi_config_t SPI1_CONFIG = {
     .pin_rst = -1  // MCP25625用リセットピン
 };
 
-// 妨害展開レベル (0: 1段階目, 1: 2段階目)
+// 妨害展開レベル (0: 初期状態, 1: 1段階目, 2: 2段階目)
 volatile int g_disturbance_level = 0;
 
 // MCP25625オブジェクトを作成（CAN SPI設定を使用）
@@ -317,9 +317,9 @@ void init_hand_dist() {
     sleep_ms(500);
     control_position_multiturn(&UART1, Hand::DXL_ID2, Hand::LiftAngle::SHOOT_UP);
     sleep_ms(500);
-    control_position_multiturn(&UART1, Dist::DXL_ID_LEFT, Dist::LEFT_DEPLOY_1ST);
+    control_position_multiturn(&UART1, Dist::DXL_ID_LEFT, Dist::LEFT_DEPLOY_PRE);
     sleep_ms(500);
-    control_position_multiturn(&UART1, Dist::DXL_ID_RIGHT, Dist::RIGHT_DEPLOY_1ST);
+    control_position_multiturn(&UART1, Dist::DXL_ID_RIGHT, Dist::RIGHT_DEPLOY_PRE);
     sleep_ms(1000);
     gpio_put(Hand::SOLENOID_PIN, 0);  // ソレノイドを吸着状態にする
     gpio_put(Hand::PUMP_PIN, 1);
@@ -412,7 +412,7 @@ void handle_disturbance_trigger() {
     last_button_press_time = now;
 
     // 妨害レベルを変化させる
-    g_disturbance_level = (g_disturbance_level + 1) % 2;
+    g_disturbance_level = (g_disturbance_level) % 2 + 1;  // 1→2→1→2...
 }
 
 // ボタンを押したときのコールバック関数
@@ -733,7 +733,7 @@ bool initialize_system() {
     gpio_put(SPI1::Encoder::ON_PIN, 1);  // ON状態に設定
 
     // デバッグマネージャの初期化
-    g_debug_manager = new DebugManager(DebugLevel::INFO, 0.1f);
+    g_debug_manager = new DebugManager(DebugLevel::ERROR, 0.1f);
 
     // 全SPIデバイスの初期化
     while (!init_all_spi_devices()) {
@@ -983,12 +983,15 @@ int main(void) {
         // 妨害の展開
         if (prev_disturbance_level != g_disturbance_level) {
             switch (g_disturbance_level) {
-                case 0:  // 1段階目に戻す
+                case 0:  // 初期状態
+                    sleep_us(1);
+                    continue;  // 何もしない
+                case 1:        // 1段階目
                     g_debug_manager->info("Disturbance deploying to 1st stage.");
                     control_position_multiturn(&UART1, Dist::DXL_ID_LEFT, Dist::LEFT_DEPLOY_1ST);
                     control_position_multiturn(&UART1, Dist::DXL_ID_RIGHT, Dist::RIGHT_DEPLOY_1ST);
                     break;
-                case 1:  // 2段階目
+                case 2:  // 2段階目
                     g_debug_manager->info("Disturbance deploying to 2nd stage.");
                     control_position_multiturn(&UART1, Dist::DXL_ID_LEFT, Dist::LEFT_DEPLOY_2ND);
                     control_position_multiturn(&UART1, Dist::DXL_ID_RIGHT, Dist::RIGHT_DEPLOY_2ND);
