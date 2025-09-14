@@ -47,9 +47,11 @@ bool mcp25625_t::init(CAN_SPEED speed) {
 bool mcp25625_t::send_can_message(const struct can_frame_t* frame) {
     constexpr int max_wait = 250;  // 最大リトライ数（タイムアウト防止）
     for (int i = 0; i < max_wait; ++i) {
-        uint8_t status = _read_register(MCP_TXB0CTRL);
-        if ((status & 0x08) == 0) {
-            break;  // 空きが確認できたら送信準備へ
+        if (!gpio_get(INT_PIN)) {
+            uint8_t status = _read_register(MCP_TXB0CTRL);
+            if ((status & 0x08) == 0) {
+                break;  // 空きが確認できたら送信準備へ
+            }
         }
         sleep_us(1);  // 必要に応じて調整（100usなど）
         if (i == max_wait - 1) {
@@ -215,7 +217,7 @@ void mcp25625_t::_modify_register(uint8_t address, uint8_t mask, uint8_t data) {
 }
 
 void mcp25625_t::_request_to_send(uint8_t instruction) {
-    gpio_put(_cs_pin, 0);
-    spi_write_blocking(_spi, &instruction, 1);
-    gpio_put(_cs_pin, 1);
+    gpio_put(TX0RTS_PIN, 0);
+    sleep_us(2);
+    gpio_put(TX0RTS_PIN, 1);
 }
