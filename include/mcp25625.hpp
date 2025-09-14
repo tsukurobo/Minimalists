@@ -48,6 +48,8 @@ constexpr uint8_t MODE_CONFIG = 0x80;      ///< コンフィグレーション�
 // CANINTFフラグ [cite: 1591]
 constexpr uint8_t MCP_RX0IF = 0x01;  ///< 受信バッファ0フル割り込みフラグ
 constexpr uint8_t MCP_RX1IF = 0x02;  ///< 受信バッファ1フル割り込みフラグ
+constexpr uint8_t MCP_TX0IF = 0x03;  ///< 送信バッファ1フル割り込みフラグ
+constexpr uint8_t MCP_TX1IF = 0x04;  ///< 送信バッファ1フル割り込みフラグ
 
 /**
  * @enum CAN_SPEED
