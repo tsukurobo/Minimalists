@@ -127,15 +127,15 @@ constexpr float ENCODER_P_DIRECTION = 1.0f;  // P軸エンコーダの増加方�
 // ======== 軌道生成設定 ========
 // 軌道完了判定の許容誤差
 namespace TrajectoryConfig {
-constexpr float TRAJECTORY_CONTROL_PERIOD = MicrocontrollerConfig::CONTROL_PERIOD_S;  // 軌道点の周期周期 [s]
+constexpr float TRAJECTORY_CONTROL_PERIOD = MicrocontrollerConfig::CONTROL_PERIOD_S * 10;  // 軌道点の周期周期 [s]
 
 constexpr float TRAJECTORY_COMPLETION_TOLERANCE_R = 0.1f;         // R軸完了判定許容誤差 [rad]
 constexpr float TRAJECTORY_COMPLETION_TOLERANCE_P = 0.1f;         // P軸完了判定許容誤差 [rad]
 constexpr float TRAJECTORY_COMPLETION_VELOCITY_THRESHOLD = 0.1f;  // 完了判定時の速度閾値 [rad/s]
 
 // 中継点座標（R軸 [rad]、P軸 [rad]）
-constexpr float INTERMEDIATE_POS_1[2] = {2.824f, -0.107f / MechanismConfig::gear_radius_P};  // TODO:ボーナス取るときに必要な中継点を設定
-constexpr float INTERMEDIATE_POS_2[2] = {3.936f, -0.1958f / MechanismConfig::gear_radius_P};
+constexpr float INTERMEDIATE_POS_1[2] = {2.767f, -0.1992f / MechanismConfig::gear_radius_P};  // TODO:ボーナス取るときに必要な中継点を設定
+constexpr float INTERMEDIATE_POS_2[2] = {4.234f, -0.1744f / MechanismConfig::gear_radius_P};
 
 // 中継点の通過パターン
 enum class PassThroughMode : uint8_t {
@@ -159,7 +159,7 @@ constexpr float R_S_CURVE_RATIO = 0.4f;  // R軸S字曲線の割合
 constexpr float P_S_CURVE_RATIO = 0.4f;  // P軸S字曲線の割合
 
 // 軌道データ配列設定
-constexpr uint16_t MAX_TRAJECTORY_POINTS = 6000;  // 最大軌道点数
+constexpr uint16_t MAX_TRAJECTORY_POINTS = 600;  // 最大軌道点数
 }  // namespace TrajectoryConfig
 // 軌道データ管理構造体
 typedef struct {

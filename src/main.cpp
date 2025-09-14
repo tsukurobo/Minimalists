@@ -739,8 +739,12 @@ void core1_entry(void) {
                 trajectory_target_vel_P = g_trajectory_data.points[idx].velocity_P;
                 trajectory_target_accel_P = g_trajectory_data.points[idx].acceleration_P;
 
-                // 軌道インデックスを進める
-                g_trajectory_data.current_index++;
+                // Core1が10回回るごとに軌道インデックスを1だけ進める
+                static float last_trajectory_update_time = current_time_s;  // 最後の軌道更新時刻
+                if (current_time_s - last_trajectory_update_time >= Traj::TRAJECTORY_CONTROL_PERIOD) {
+                    g_trajectory_data.current_index++;
+                    last_trajectory_update_time = current_time_s;
+                }
 
                 // 軌道の時系列が完了した場合、位置ベースの完了判定に移行
             } else if (g_trajectory_data.current_index >= g_trajectory_data.point_count) {
