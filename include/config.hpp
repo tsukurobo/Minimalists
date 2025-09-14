@@ -214,7 +214,7 @@ constexpr int32_t SHOOT_UP = -4400;  // シューティングエリア上段 -64
 // constexpr int32_t SHOOT_LOW = -4100;      // シューティングエリア下段
 constexpr int32_t SHOOT_LOW = -2600;  // シューティングエリア下段
 constexpr int32_t PRE_CATCH = 4600;   // ワークをつかむ前の高さ
-constexpr int32_t CATCH = 8030;       // ワークをつかむときの高さ 3440
+constexpr int32_t CATCH = 5300;       // ワークをつかむときの高さ 3440
 }  // namespace LiftAngle
 
 // 手先角度
