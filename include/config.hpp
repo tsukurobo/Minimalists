@@ -132,9 +132,11 @@ constexpr float TRAJECTORY_COMPLETION_TOLERANCE_P = 0.1f;         // P軸完了�
 constexpr float TRAJECTORY_COMPLETION_VELOCITY_THRESHOLD = 0.1f;  // 完了判定時の速度閾値 [rad/s]
 
 // 中継点座標（R軸 [rad]、P軸 [rad]）
-constexpr float INTERMEDIATE_POS_1[2] = {2.767f, -0.1992f / MechanismConfig::gear_radius_P};
-constexpr float INTERMEDIATE_POS_2[2] = {4.234f, -0.1744f / MechanismConfig::gear_radius_P};
-constexpr float INTERMEDIATE_POS_3[2] = {5.934f, -0.1744f / MechanismConfig::gear_radius_P};  // TODO: 調整予定
+constexpr float INTERMEDIATE_POS_1[2] = {3.179f, -0.076f / MechanismConfig::gear_radius_P};
+constexpr float INTERMEDIATE_POS_2[2] = {3.571f, -0.215f / MechanismConfig::gear_radius_P};        // フィールド上の中継点
+constexpr float INTERMEDIATE_POS_UNDER_1[2] = {2.739f, -0.219f / MechanismConfig::gear_radius_P};  // 下1
+constexpr float INTERMEDIATE_POS_UNDER_2[2] = {2.343f, -0.232f / MechanismConfig::gear_radius_P};  // 下2
+constexpr float INTERMEDIATE_POS_UNDER_3[2] = {1.989f, -0.328f / MechanismConfig::gear_radius_P};  // 下3
 
 // 中継点の通過パターン
 enum class PassThroughMode : uint8_t {
