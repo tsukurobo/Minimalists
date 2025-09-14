@@ -202,10 +202,10 @@ bool calculate_trajectory_core0(
     int section_count = 0;
 
     // 区間リストを構築
-    sections[section_count] = {current_position, has_inter1 ? intermediate_pos1 : target_position};
-    if (has_inter2) sections[++section_count] = {intermediate_pos1, intermediate_pos2};
-    if (has_inter3) sections[++section_count] = {intermediate_pos2, intermediate_pos3};
-    sections[++section_count] = {
+    if (has_inter1) sections[section_count++] = {current_position, intermediate_pos1};
+    if (has_inter2) sections[section_count++] = {intermediate_pos1, intermediate_pos2};
+    if (has_inter3) sections[section_count++] = {intermediate_pos2, intermediate_pos3};
+    sections[section_count++] = {
         has_inter3 ? intermediate_pos3 : (has_inter2 ? intermediate_pos2 : (has_inter1 ? intermediate_pos1 : current_position)),
         target_position};
 
@@ -244,6 +244,19 @@ bool calculate_trajectory_core0(
 
         trajectory_points[i] = {pos_R, vel_R, acc_R, pos_P, vel_P, acc_P};
     }
+
+    // // 軌道点を全て表示
+    // printf("Point, Rpos, Rvel, Racc, Ppos, Pvel, Pacc\n");
+    // for (int i = 0; i < point_count; i++) {
+    //     printf("  %d, %.6f, %.6f, %.6f, %.6f, %.6f, %.6f\n",
+    //            i,
+    //            trajectory_points[i].position_R,
+    //            trajectory_points[i].velocity_R,
+    //            trajectory_points[i].acceleration_R,
+    //            trajectory_points[i].position_P,
+    //            trajectory_points[i].velocity_P,
+    //            trajectory_points[i].acceleration_P);
+    // }
 
     // 軌道データを計算して配列に格納
     mutex_enter_blocking(&g_trajectory_mutex);
