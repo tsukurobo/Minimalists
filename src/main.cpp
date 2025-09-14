@@ -1002,12 +1002,16 @@ int main(void) {
                 case 1:        // 1段階目
                     g_debug_manager->info("Disturbance deploying to 1st stage.");
                     control_position_multiturn(&UART1, Dist::DXL_ID_LEFT, Dist::LEFT_DEPLOY_1ST);
+                    sleep_ms(100);
                     control_position_multiturn(&UART1, Dist::DXL_ID_RIGHT, Dist::RIGHT_DEPLOY_1ST);
+                    sleep_ms(100);
                     break;
                 case 2:  // 2段階目
                     g_debug_manager->info("Disturbance deploying to 2nd stage.");
                     control_position_multiturn(&UART1, Dist::DXL_ID_LEFT, Dist::LEFT_DEPLOY_2ND);
+                    sleep_ms(100);
                     control_position_multiturn(&UART1, Dist::DXL_ID_RIGHT, Dist::RIGHT_DEPLOY_2ND);
+                    sleep_ms(100);
                     break;
             }
             prev_disturbance_level = g_disturbance_level;  // 状態を更新
