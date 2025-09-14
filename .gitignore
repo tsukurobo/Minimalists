@@ -1,4 +1,5 @@
-build
+build/*
+!build/*.uf2
 CMakeFiles
 pico-sdk
 cmake_install.cmake
