@@ -51,6 +51,9 @@ constexpr uint8_t MCP_RX1IF = 0x02;  ///< 受信バッファ1フル割り込み�
 constexpr uint8_t MCP_TX0IF = 0x03;  ///< 送信バッファ1フル割り込みフラグ
 constexpr uint8_t MCP_TX1IF = 0x04;  ///< 送信バッファ1フル割り込みフラグ
 
+constexpr uint8_t _int_pin = 9;
+constexpr uint8_t _tx0rts_pin = 14;
+
 /**
  * @enum CAN_SPEED
  * @brief CAN通信のボーレート設定

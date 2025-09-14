@@ -47,7 +47,7 @@ bool mcp25625_t::init(CAN_SPEED speed) {
 bool mcp25625_t::send_can_message(const struct can_frame_t* frame) {
     constexpr int max_wait = 250;  // 最大リトライ数（タイムアウト防止）
     for (int i = 0; i < max_wait; ++i) {
-        if (!gpio_get(INT_PIN)) {  // 何らかの割込みでINTピン降下
+        if (!gpio_get(_int_pin)) {  // 何らかの割込みでINTピン降下
             uint8_t status = _read_register(MCP_TXB0CTRL);
             if ((status & 0x08) == 0) {
                 _modify_register(MCP_CANINTF, MCP_TX0IF, 0x00);  // 送信割込みフラグ初期化、ダメならCANINTF全部初期化。
@@ -219,7 +219,7 @@ void mcp25625_t::_modify_register(uint8_t address, uint8_t mask, uint8_t data) {
 }
 
 void mcp25625_t::_request_to_send(uint8_t instruction) {
-    gpio_put(TX0RTS_PIN, 0);
+    gpio_put(_tx0rts_pin, 0);
     sleep_us(2);
-    gpio_put(TX0RTS_PIN, 1);
+    gpio_put(_tx0rts_pin, 1);
 }
