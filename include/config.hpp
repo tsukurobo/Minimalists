@@ -4,9 +4,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#include <cmath>
 #include <cstring>
-#include <iostream>
 
 #include "amt223v.hpp"
 #include "control_timing.hpp"

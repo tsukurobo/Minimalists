@@ -244,7 +244,6 @@ bool calculate_trajectory_core0(
                         trajectory_P_core0.set_end_pos(intermediate_pos2[1]);
                         trajectory_P_core0.calculate_s_curve_trajectory_params();
                         p_section = PSection::TO_INTER2;
-                        std::cout << "Switch to TO_INTER2" << std::endl;
                     }
                     break;
                 case PSection::TO_INTER2:
@@ -260,7 +259,6 @@ bool calculate_trajectory_core0(
                         trajectory_P_core0.set_end_pos(target_position[1]);
                         trajectory_P_core0.calculate_s_curve_trajectory_params();
                         p_section = PSection::TO_TARGET;
-                        std::cout << "Switch to TO_TARGET" << std::endl;
                     }
                     break;
                 case PSection::TO_TARGET:
@@ -282,7 +280,6 @@ bool calculate_trajectory_core0(
                     trajectory_P_core0.set_end_pos(target_position[1]);
                     trajectory_P_core0.calculate_s_curve_trajectory_params();
                     p_section = PSection::TO_TARGET;
-                    std::cout << "Switch to TO_TARGET" << std::endl;
                 }
             } else {
                 // 目標位置までの区間
@@ -295,90 +292,6 @@ bool calculate_trajectory_core0(
         // 軌道点を保存
         trajectory_points[i] = {pos_R, vel_R, acc_R, pos_P, vel_P, acc_P};
     }
-
-    // /// ・あああああああああああああああああああああああああああああああああああ
-
-    // for (int i = 0; i < point_count; i++) {
-    //     float time = i * Traj::TRAJECTORY_CONTROL_PERIOD;
-    //     float pos_R, vel_R, acc_R;
-    //     float pos_P, vel_P, acc_P;
-
-    //     trajectory_R_core0.get_s_curve_state(time, pos_R, vel_R, acc_R);
-
-    //     if (has_inter1) {
-    //         // 中継点1が設定されている場合、P軸のみ中継点1までの軌道を計算
-    //         trajectory_P_core0.set_end_pos(intermediate_pos1[1]);
-    //     }
-    //     trajectory_R_core0.calculate_s_curve_trajectory_params();
-    //     trajectory_P_core0.calculate_s_curve_trajectory_params();
-    //     // 軌道点数計算
-    //     float total_time_R = trajectory_R_core0.get_total_time();  // R軸の総移動時間[s]
-    //     float total_time_P = trajectory_P_core0.get_total_time();  // P軸の総移動時間[s]
-    //     float total_time = std::max(total_time_R, total_time_P);   // R軸とP軸のうち長い方の時間を使用
-    //     int point_count = static_cast<int>(total_time / Traj::TRAJECTORY_CONTROL_PERIOD) + 1;
-    //     if (point_count > Traj::MAX_TRAJECTORY_POINTS) {
-    //         g_debug_manager->error("Calculated trajectory points %d exceed maximum limit!\n", point_count);
-    //         return false;
-    //     }
-
-    //     // 軌道点の配列を確保
-    //     static trajectory_point_t trajectory_points[Traj::MAX_TRAJECTORY_POINTS];
-    //     bool overflow = false;
-
-    //     // 進行方向判定
-    //     bool is_forward_R = current_position[0] < target_position[0];
-    //     // bool is_forward_P = current_position[1] < target_position[1];
-
-    //     // 中継点計算のためにまずはR軸だけを計算
-    //     for (int i = 0; i < point_count; i++) {
-    //         float time = i * Traj::TRAJECTORY_CONTROL_PERIOD;
-    //         float pos_R, vel_R, acc_R;
-    //         float pos_P, vel_P, acc_P;
-
-    //         // R軸の状態計算
-    //         if (time <= total_time_R) {
-    //             trajectory_R_core0.get_s_curve_state(time, pos_R, vel_R, acc_R);
-    //         } else {
-    //             pos_R = target_position[0];
-    //             vel_R = 0.0f;
-    //             acc_R = 0.0f;
-    //         }
-
-    //         // P軸の状態計算
-    //         if (time <= total_time_P) {
-    //             trajectory_P_core0.get_s_curve_state(time, pos_P, vel_P, acc_P);
-    //         } else {
-    //             pos_P = target_position[1];
-    //             vel_P = 0.0f;
-    //             acc_P = 0.0f;
-    //         }
-    //         // 中継点を超えたら次の軌道を計算
-    //         if (has_inter1) {
-    //             if ((is_forward_R && pos_R >= intermediate_pos1[0]) ||
-    //                 (!is_forward_R && pos_R <= intermediate_pos1[0])) {
-    //                 // 中継点1を超えたら中継点2までの軌道を計算
-    //                 trajectory_P_core0.set_start_pos(intermediate_pos1[1]);
-    //                 if (has_inter2)
-    //                     trajectory_P_core0.set_end_pos(intermediate_pos2[1]);
-    //                 else
-    //                     trajectory_P_core0.set_end_pos(target_position[1]);
-    //                 trajectory_P_core0.calculate_s_curve_trajectory_params();
-    //                 has_inter1 = false;  // 中継点1は処理済み
-    //             }
-    //         } else if (has_inter2) {
-    //             if ((is_forward_R && pos_R >= intermediate_pos2[0]) ||
-    //                 (!is_forward_R && pos_R <= intermediate_pos2[0])) {
-    //                 // 中継点2を超えたら目標位置までの軌道を計算
-    //                 trajectory_P_core0.set_start_pos(intermediate_pos2[1]);
-    //                 trajectory_P_core0.set_end_pos(target_position[1]);
-    //                 trajectory_P_core0.calculate_s_curve_trajectory_params();
-    //                 has_inter2 = false;  // 中継点2は処理済み
-    //             }
-    //         }
-
-    //         // 軌道点を保存
-    //         trajectory_points[i] = {pos_R, vel_R, acc_R, pos_P, vel_P, acc_P};
-    //     }
 
     // 軌道データを計算して配列に格納
     mutex_enter_blocking(&g_trajectory_mutex);
@@ -395,18 +308,6 @@ bool calculate_trajectory_core0(
     g_debug_manager->debug("Trajectory calculated: %d points, max_time=%.2fs", point_count, point_count * Mc::CONTROL_PERIOD_S);
     g_debug_manager->debug("  R: %.3f → %.3f rad, P: %.3f → %.3f rad",
                            current_position[0], target_position[0], current_position[1], target_position[1]);
-
-    // 軌道点を全て表示
-    std::cout << "  Point, Rpos, Rvel, Racc, Ppos, Pvel, Pacc" << std::endl;
-    for (int i = 0; i < point_count; i++) {
-        std::cout << "  " << i << ", "
-                  << trajectory_points[i].position_R << ", "
-                  << trajectory_points[i].velocity_R << ", "
-                  << trajectory_points[i].acceleration_R << ", "
-                  << trajectory_points[i].position_P << ", "
-                  << trajectory_points[i].velocity_P << ", "
-                  << trajectory_points[i].acceleration_P << std::endl;
-    }
 
     return true;
 }
