@@ -853,128 +853,93 @@ int main(void) {
 
     static const trajectory_waypoint_t all_waypoints[WAYPOINT_NUM] = {
         // 一番奥側ロボットから見て左から右へ
-        // 1行目
-        trajectory_waypoint_t(3.502f, -0.5191f / Mech::gear_radius_P, 132.28f, Hand::LiftAngle::CATCH, Traj::PassThroughMode::INTERMEDIATE_1),  // 1-1
-        trajectory_waypoint_t(2.699f, -0.3381f / Mech::gear_radius_P, 252.16f, Hand::LiftAngle::SHOOT_UP, Traj::PassThroughMode::INTERMEDIATE_1),
+        // 1行目519-381
+        trajectory_waypoint_t(3.470f, -0.531 / Mech::gear_radius_P, 224.615f, Hand::LiftAngle::CATCH, Traj::PassThroughMode::INTERMEDIATE_1),
+        trajectory_waypoint_t(2.649f, -0.347 / Mech::gear_radius_P, 171.429f, Hand::LiftAngle::SHOOT_UP, Traj::PassThroughMode::INTERMEDIATE_1),
+        trajectory_waypoint_t(3.577f, -0.461 / Mech::gear_radius_P, 218.198f, Hand::LiftAngle::CATCH, Traj::PassThroughMode::INTERMEDIATE_1),
+        trajectory_waypoint_t(2.666f, -0.275 / Mech::gear_radius_P, 169.495f, Hand::LiftAngle::SHOOT_UP, Traj::PassThroughMode::INTERMEDIATE_1),
+        trajectory_waypoint_t(3.756f, -0.385 / Mech::gear_radius_P, 208.000f, Hand::LiftAngle::CATCH, Traj::PassThroughMode::INTERMEDIATE_1),
+        trajectory_waypoint_t(2.572f, -0.347 / Mech::gear_radius_P, 178.198f, Hand::LiftAngle::SHOOT_UP, Traj::PassThroughMode::INTERMEDIATE_1),
+        trajectory_waypoint_t(3.924f, -0.338 / Mech::gear_radius_P, 198.945f, Hand::LiftAngle::CATCH, Traj::PassThroughMode::INTERMEDIATE_1),
+        trajectory_waypoint_t(2.579f, -0.275 / Mech::gear_radius_P, 178.374f, Hand::LiftAngle::SHOOT_UP, Traj::PassThroughMode::INTERMEDIATE_1),
+        trajectory_waypoint_t(4.176f, -0.307 / Mech::gear_radius_P, 186.374f, Hand::LiftAngle::CATCH, Traj::PassThroughMode::INTERMEDIATE_12),
+        trajectory_waypoint_t(2.509f, -0.354 / Mech::gear_radius_P, 182.418f, Hand::LiftAngle::SHOOT_UP, Traj::PassThroughMode::INTERMEDIATE_21),
+        trajectory_waypoint_t(4.360f, -0.309 / Mech::gear_radius_P, 173.890f, Hand::LiftAngle::CATCH, Traj::PassThroughMode::INTERMEDIATE_12),
+        trajectory_waypoint_t(2.494f, -0.279 / Mech::gear_radius_P, 186.901f, Hand::LiftAngle::SHOOT_UP, Traj::PassThroughMode::INTERMEDIATE_21),
+        trajectory_waypoint_t(4.615f, -0.346 / Mech::gear_radius_P, 158.681f, Hand::LiftAngle::CATCH, Traj::PassThroughMode::INTERMEDIATE_12),
+        trajectory_waypoint_t(2.444f, -0.354 / Mech::gear_radius_P, 188.044f, Hand::LiftAngle::SHOOT_UP, Traj::PassThroughMode::INTERMEDIATE_21),
+        trajectory_waypoint_t(4.762f, -0.392 / Mech::gear_radius_P, 150.857f, Hand::LiftAngle::CATCH, Traj::PassThroughMode::INTERMEDIATE_12),
+        trajectory_waypoint_t(2.421f, -0.283 / Mech::gear_radius_P, 192.791f, Hand::LiftAngle::SHOOT_UP, Traj::PassThroughMode::INTERMEDIATE_21),
+        trajectory_waypoint_t(4.948f, -0.479 / Mech::gear_radius_P, 140.044f, Hand::LiftAngle::CATCH, Traj::PassThroughMode::INTERMEDIATE_12),
+        trajectory_waypoint_t(2.390f, -0.373 / Mech::gear_radius_P, 194.286f, Hand::LiftAngle::SHOOT_UP, Traj::PassThroughMode::INTERMEDIATE_21),
+        trajectory_waypoint_t(5.048f, -0.547 / Mech::gear_radius_P, 135.736f, Hand::LiftAngle::CATCH, Traj::PassThroughMode::INTERMEDIATE_12),
+        trajectory_waypoint_t(2.355f, -0.303 / Mech::gear_radius_P, 198.506f, Hand::LiftAngle::SHOOT_UP, Traj::PassThroughMode::INTERMEDIATE_21),
 
-        trajectory_waypoint_t(3.607f, -0.4508f / Mech::gear_radius_P, 126.91f, Hand::LiftAngle::CATCH, Traj::PassThroughMode::INTERMEDIATE_1),  // 1-2
-        trajectory_waypoint_t(2.721f, -0.2571f / Mech::gear_radius_P, 252.16f, Hand::LiftAngle::SHOOT_UP, Traj::PassThroughMode::INTERMEDIATE_1),
-
-        trajectory_waypoint_t(3.811f, -0.3695f / Mech::gear_radius_P, 115.58f, Hand::LiftAngle::CATCH, Traj::PassThroughMode::INTERMEDIATE_1),  // 1-3
-        trajectory_waypoint_t(2.632f, -0.3304f / Mech::gear_radius_P, 258.00f, Hand::LiftAngle::SHOOT_UP, Traj::PassThroughMode::INTERMEDIATE_1),
-
-        trajectory_waypoint_t(3.962f, -0.3258f / Mech::gear_radius_P, 104.94f, Hand::LiftAngle::CATCH, Traj::PassThroughMode::INTERMEDIATE_1),  // 1-4
-        trajectory_waypoint_t(2.630f, -0.2626f / Mech::gear_radius_P, 258.00f, Hand::LiftAngle::SHOOT_UP, Traj::PassThroughMode::INTERMEDIATE_1),
-
-        trajectory_waypoint_t(4.219f, -0.2916f / Mech::gear_radius_P, 92.29f, Hand::LiftAngle::CATCH, Traj::PassThroughMode::INTERMEDIATE_1),  // 1-5
-        trajectory_waypoint_t(2.571f, -0.3432f / Mech::gear_radius_P, 267.54f, Hand::LiftAngle::SHOOT_UP, Traj::PassThroughMode::INTERMEDIATE_1),
-
-        trajectory_waypoint_t(4.401f, -0.2959f / Mech::gear_radius_P, 79.80f, Hand::LiftAngle::CATCH, Traj::PassThroughMode::INTERMEDIATE_12),  // 1-6
-        trajectory_waypoint_t(2.572f, -0.2690f / Mech::gear_radius_P, 267.54f, Hand::LiftAngle::SHOOT_LOW, Traj::PassThroughMode::INTERMEDIATE_21),
-
-        trajectory_waypoint_t(4.654f, -0.3303f / Mech::gear_radius_P, 67.32f, Hand::LiftAngle::CATCH, Traj::PassThroughMode::INTERMEDIATE_12),  // 1-7
-        trajectory_waypoint_t(2.510f, -0.3459f / Mech::gear_radius_P, 269.3f, Hand::LiftAngle::SHOOT_LOW, Traj::PassThroughMode::INTERMEDIATE_21),
-
-        trajectory_waypoint_t(4.801f, -0.3715f / Mech::gear_radius_P, 57.92f, Hand::LiftAngle::CATCH, Traj::PassThroughMode::INTERMEDIATE_12),  // 1-8
-        trajectory_waypoint_t(2.504f, -0.2812f / Mech::gear_radius_P, 269.3f, Hand::LiftAngle::SHOOT_LOW, Traj::PassThroughMode::INTERMEDIATE_21),
-
-        trajectory_waypoint_t(4.985f, -0.4569f / Mech::gear_radius_P, 46.41f, Hand::LiftAngle::CATCH, Traj::PassThroughMode::INTERMEDIATE_12),  // 1-9
-        trajectory_waypoint_t(2.452f, -0.3596f / Mech::gear_radius_P, 279.76f, Hand::LiftAngle::SHOOT_LOW, Traj::PassThroughMode::INTERMEDIATE_21),
-
-        trajectory_waypoint_t(5.079f, -0.5222f / Mech::gear_radius_P, 43.42f, Hand::LiftAngle::CATCH, Traj::PassThroughMode::INTERMEDIATE_12),  // 1-10
-        trajectory_waypoint_t(2.429f, -0.2856f / Mech::gear_radius_P, 279.76f, Hand::LiftAngle::SHOOT_LOW, Traj::PassThroughMode::INTERMEDIATE_21),
         // 2行目
-        trajectory_waypoint_t(3.415f, -0.4459f / Mech::gear_radius_P, 137.98f, Hand::LiftAngle::CATCH, Traj::PassThroughMode::INTERMEDIATE_1),  // 2-1
-        trajectory_waypoint_t(2.379f, -0.3746f / Mech::gear_radius_P, 271.14f, Hand::LiftAngle::SHOOT_UP, Traj::PassThroughMode::INTERMEDIATE_1),
+        trajectory_waypoint_t(3.378f, -0.460 / Mech::gear_radius_P, 228.923f, Hand::LiftAngle::CATCH, Traj::PassThroughMode::INTERMEDIATE_1),
+        trajectory_waypoint_t(2.328f, -0.394 / Mech::gear_radius_P, 191.824f, Hand::LiftAngle::SHOOT_UP, Traj::PassThroughMode::INTERMEDIATE_1),
+        trajectory_waypoint_t(3.482f, -0.386 / Mech::gear_radius_P, 223.297f, Hand::LiftAngle::CATCH, Traj::PassThroughMode::INTERMEDIATE_1),
+        trajectory_waypoint_t(2.275f, -0.318 / Mech::gear_radius_P, 198.066f, Hand::LiftAngle::SHOOT_UP, Traj::PassThroughMode::INTERMEDIATE_1),
+        trajectory_waypoint_t(3.674f, -0.292 / Mech::gear_radius_P, 210.637f, Hand::LiftAngle::CATCH, Traj::PassThroughMode::INTERMEDIATE_1),
+        trajectory_waypoint_t(2.257f, -0.395 / Mech::gear_radius_P, 198.681f, Hand::LiftAngle::SHOOT_UP, Traj::PassThroughMode::INTERMEDIATE_1),
+        trajectory_waypoint_t(3.850f, -0.250 / Mech::gear_radius_P, 202.637f, Hand::LiftAngle::CATCH, Traj::PassThroughMode::INTERMEDIATE_1),
+        trajectory_waypoint_t(2.219f, -0.336 / Mech::gear_radius_P, 203.253f, Hand::LiftAngle::SHOOT_UP, Traj::PassThroughMode::INTERMEDIATE_1),
+        trajectory_waypoint_t(4.157f, -0.210 / Mech::gear_radius_P, 184.791f, Hand::LiftAngle::CATCH, Traj::PassThroughMode::INTERMEDIATE_1),
+        trajectory_waypoint_t(2.205f, -0.434 / Mech::gear_radius_P, 204.132f, Hand::LiftAngle::SHOOT_UP, Traj::PassThroughMode::INTERMEDIATE_1),
+        trajectory_waypoint_t(4.385f, -0.210 / Mech::gear_radius_P, 173.187f, Hand::LiftAngle::CATCH, Traj::PassThroughMode::INTERMEDIATE_12),
+        trajectory_waypoint_t(2.150f, -0.355 / Mech::gear_radius_P, 209.758f, Hand::LiftAngle::SHOOT_UP, Traj::PassThroughMode::INTERMEDIATE_21),
+        trajectory_waypoint_t(4.676f, -0.247 / Mech::gear_radius_P, 157.099f, Hand::LiftAngle::CATCH, Traj::PassThroughMode::INTERMEDIATE_12),
+        trajectory_waypoint_t(2.155f, -0.450 / Mech::gear_radius_P, 211.341f, Hand::LiftAngle::SHOOT_UP, Traj::PassThroughMode::INTERMEDIATE_21),
+        trajectory_waypoint_t(4.857f, -0.309 / Mech::gear_radius_P, 145.495f, Hand::LiftAngle::CATCH, Traj::PassThroughMode::INTERMEDIATE_12),
+        trajectory_waypoint_t(2.084f, -0.371 / Mech::gear_radius_P, 217.758f, Hand::LiftAngle::SHOOT_UP, Traj::PassThroughMode::INTERMEDIATE_21),
+        trajectory_waypoint_t(5.047f, -0.401 / Mech::gear_radius_P, 137.758f, Hand::LiftAngle::CATCH, Traj::PassThroughMode::INTERMEDIATE_12),
+        trajectory_waypoint_t(2.103f, -0.468 / Mech::gear_radius_P, 221.802f, Hand::LiftAngle::SHOOT_UP, Traj::PassThroughMode::INTERMEDIATE_21),
+        trajectory_waypoint_t(5.148f, -0.478 / Mech::gear_radius_P, 129.758f, Hand::LiftAngle::CATCH, Traj::PassThroughMode::INTERMEDIATE_12),
+        trajectory_waypoint_t(2.033f, -0.400 / Mech::gear_radius_P, 222.945f, Hand::LiftAngle::SHOOT_UP, Traj::PassThroughMode::INTERMEDIATE_21),
 
-        trajectory_waypoint_t(3.510f, -0.3705f / Mech::gear_radius_P, 130.43f, Hand::LiftAngle::CATCH, Traj::PassThroughMode::INTERMEDIATE_1),  // 2-2
-        trajectory_waypoint_t(2.343f, -0.3038f / Mech::gear_radius_P, 271.14f, Hand::LiftAngle::SHOOT_UP, Traj::PassThroughMode::INTERMEDIATE_1),
-
-        trajectory_waypoint_t(3.728f, -0.2772f / Mech::gear_radius_P, 117.86f, Hand::LiftAngle::CATCH, Traj::PassThroughMode::INTERMEDIATE_1),  // 2-3
-        trajectory_waypoint_t(2.317f, -0.3839f / Mech::gear_radius_P, 281.16f, Hand::LiftAngle::SHOOT_UP, Traj::PassThroughMode::INTERMEDIATE_1),
-
-        trajectory_waypoint_t(3.901f, -0.2367f / Mech::gear_radius_P, 107.93f, Hand::LiftAngle::CATCH, Traj::PassThroughMode::INTERMEDIATE_1),  // 2-4
-        trajectory_waypoint_t(2.273f, -0.3275f / Mech::gear_radius_P, 281.16f, Hand::LiftAngle::SHOOT_UP, Traj::PassThroughMode::INTERMEDIATE_1),
-
-        trajectory_waypoint_t(4.217f, -0.1940f / Mech::gear_radius_P, 91.67f, Hand::LiftAngle::CATCH, Traj::PassThroughMode::INTERMEDIATE_1),  // 2-5
-        trajectory_waypoint_t(2.261f, -0.4047f / Mech::gear_radius_P, 290.65f, Hand::LiftAngle::SHOOT_UP, Traj::PassThroughMode::INTERMEDIATE_1),
-
-        trajectory_waypoint_t(4.432f, -0.1942f / Mech::gear_radius_P, 79.10f, Hand::LiftAngle::CATCH, Traj::PassThroughMode::INTERMEDIATE_12),  // 2-6
-        trajectory_waypoint_t(2.214f, -0.3408f / Mech::gear_radius_P, 290.65f, Hand::LiftAngle::SHOOT_LOW, Traj::PassThroughMode::INTERMEDIATE_21),
-
-        trajectory_waypoint_t(4.738f, -0.2363f / Mech::gear_radius_P, 61.52f, Hand::LiftAngle::CATCH, Traj::PassThroughMode::INTERMEDIATE_12),  // 2-7
-        trajectory_waypoint_t(2.209f, -0.4262f / Mech::gear_radius_P, 302.78f, Hand::LiftAngle::SHOOT_LOW, Traj::PassThroughMode::INTERMEDIATE_21),
-
-        trajectory_waypoint_t(4.897f, -0.2874f / Mech::gear_radius_P, 52.73f, Hand::LiftAngle::CATCH, Traj::PassThroughMode::INTERMEDIATE_12),  // 2-8
-        trajectory_waypoint_t(2.157f, -0.3616f / Mech::gear_radius_P, 302.78f, Hand::LiftAngle::SHOOT_LOW, Traj::PassThroughMode::INTERMEDIATE_21),
-
-        trajectory_waypoint_t(5.081f, -0.3841f / Mech::gear_radius_P, 39.64f, Hand::LiftAngle::CATCH, Traj::PassThroughMode::INTERMEDIATE_12),  // 2-9
-        trajectory_waypoint_t(2.154f, -0.4532f / Mech::gear_radius_P, 308.58f, Hand::LiftAngle::SHOOT_LOW, Traj::PassThroughMode::INTERMEDIATE_21),
-
-        trajectory_waypoint_t(5.179f, -0.4548f / Mech::gear_radius_P, 35.24f, Hand::LiftAngle::CATCH, Traj::PassThroughMode::INTERMEDIATE_12),  // 2-10
-        trajectory_waypoint_t(2.096f, -0.3832f / Mech::gear_radius_P, 308.58f, Hand::LiftAngle::SHOOT_LOW, Traj::PassThroughMode::INTERMEDIATE_21),
         // 3行目
-        trajectory_waypoint_t(5.218f, -0.3155f / Mech::gear_radius_P, 33.75f, Hand::LiftAngle::CATCH, Traj::PassThroughMode::INTERMEDIATE_12),  // 3-9
-        trajectory_waypoint_t(1.947f, -0.5686f / Mech::gear_radius_P, 333.90f, Hand::LiftAngle::SHOOT_LOW, Traj::PassThroughMode::INTERMEDIATE_21),
-
-        trajectory_waypoint_t(5.305f, -0.3999f / Mech::gear_radius_P, 28.74f, Hand::LiftAngle::CATCH, Traj::PassThroughMode::INTERMEDIATE_12),  // 3-10
-        trajectory_waypoint_t(1.887f, -0.5324f / Mech::gear_radius_P, 333.90f, Hand::LiftAngle::SHOOT_LOW, Traj::PassThroughMode::INTERMEDIATE_21),
-
-        trajectory_waypoint_t(4.856f, -0.1461f / Mech::gear_radius_P, 55.28f, Hand::LiftAngle::CATCH, Traj::PassThroughMode::INTERMEDIATE_12),  // 3-7
-        trajectory_waypoint_t(1.980f, -0.5472f / Mech::gear_radius_P, 318.52f, Hand::LiftAngle::SHOOT_LOW, Traj::PassThroughMode::INTERMEDIATE_21),
-
-        trajectory_waypoint_t(5.028f, -0.2081f / Mech::gear_radius_P, 45.70f, Hand::LiftAngle::CATCH, Traj::PassThroughMode::INTERMEDIATE_12),  // 3-8
-        trajectory_waypoint_t(1.909f, -0.4954f / Mech::gear_radius_P, 318.52f, Hand::LiftAngle::SHOOT_LOW, Traj::PassThroughMode::INTERMEDIATE_21),
-
-        trajectory_waypoint_t(4.209f, -0.0917f / Mech::gear_radius_P, 90.0f, Hand::LiftAngle::CATCH, Traj::PassThroughMode::INTERMEDIATE_1),  // 3-5
-        trajectory_waypoint_t(2.020f, -0.5216f / Mech::gear_radius_P, 315.88f, Hand::LiftAngle::SHOOT_LOW, Traj::PassThroughMode::INTERMEDIATE_1),
-
-        trajectory_waypoint_t(4.481f, -0.0962f / Mech::gear_radius_P, 75.59f, Hand::LiftAngle::CATCH, Traj::PassThroughMode::INTERMEDIATE_12),  // 3-6
-        trajectory_waypoint_t(1.955f, -0.4707f / Mech::gear_radius_P, 315.88f, Hand::LiftAngle::SHOOT_LOW, Traj::PassThroughMode::INTERMEDIATE_21),
-
-        trajectory_waypoint_t(3.615f, -0.1994f / Mech::gear_radius_P, 124.19f, Hand::LiftAngle::CATCH, Traj::PassThroughMode::INTERMEDIATE_1),  // 3-3
-        trajectory_waypoint_t(2.380f, -0.5645f / Mech::gear_radius_P, 309.02f, Hand::LiftAngle::SHOOT_UP, Traj::PassThroughMode::INTERMEDIATE_1),
-
-        trajectory_waypoint_t(3.817f, -0.1403f / Mech::gear_radius_P, 113.29f, Hand::LiftAngle::CATCH, Traj::PassThroughMode::INTERMEDIATE_1),  // 3-4
-        trajectory_waypoint_t(2.064f, -0.4998f / Mech::gear_radius_P, 309.02f, Hand::LiftAngle::SHOOT_UP, Traj::PassThroughMode::INTERMEDIATE_1),
-
-        trajectory_waypoint_t(3.301f, -0.3890f / Mech::gear_radius_P, 142.82f, Hand::LiftAngle::CATCH, Traj::PassThroughMode::INTERMEDIATE_1),  // 3-1
-        trajectory_waypoint_t(2.108f, -0.4725f / Mech::gear_radius_P, 302.43f, Hand::LiftAngle::SHOOT_UP, Traj::PassThroughMode::INTERMEDIATE_1),
-
-        trajectory_waypoint_t(3.399f, -0.3075f / Mech::gear_radius_P, 137.55f, Hand::LiftAngle::CATCH, Traj::PassThroughMode::INTERMEDIATE_1),  // 3-2
-        trajectory_waypoint_t(2.038f, -0.4139f / Mech::gear_radius_P, 302.43f, Hand::LiftAngle::SHOOT_UP, Traj::PassThroughMode::INTERMEDIATE_1),
+        trajectory_waypoint_t(3.236f, -0.406 / Mech::gear_radius_P, 236.396f, Hand::LiftAngle::CATCH, Traj::PassThroughMode::INTERMEDIATE_1),
+        trajectory_waypoint_t(2.052f, -0.493 / Mech::gear_radius_P, 215.033f, Hand::LiftAngle::SHOOT_UP, Traj::PassThroughMode::INTERMEDIATE_1),
+        trajectory_waypoint_t(3.341f, -0.323 / Mech::gear_radius_P, 227.077f, Hand::LiftAngle::CATCH, Traj::PassThroughMode::INTERMEDIATE_1),
+        trajectory_waypoint_t(1.978f, -0.430 / Mech::gear_radius_P, 219.780f, Hand::LiftAngle::SHOOT_UP, Traj::PassThroughMode::INTERMEDIATE_1),
+        trajectory_waypoint_t(3.537f, -0.219 / Mech::gear_radius_P, 216.879f, Hand::LiftAngle::CATCH, Traj::PassThroughMode::INTERMEDIATE_1),
+        trajectory_waypoint_t(2.007f, -0.514 / Mech::gear_radius_P, 225.407f, Hand::LiftAngle::SHOOT_UP, Traj::PassThroughMode::INTERMEDIATE_1),
+        trajectory_waypoint_t(3.729f, -0.157 / Mech::gear_radius_P, 209.846f, Hand::LiftAngle::CATCH, Traj::PassThroughMode::INTERMEDIATE_1),
+        trajectory_waypoint_t(1.937f, -0.461 / Mech::gear_radius_P, 223.824f, Hand::LiftAngle::SHOOT_UP, Traj::PassThroughMode::INTERMEDIATE_1),
+        trajectory_waypoint_t(4.090f, -0.109 / Mech::gear_radius_P, 183.736f, Hand::LiftAngle::CATCH, Traj::PassThroughMode::INTERMEDIATE_1),
+        trajectory_waypoint_t(1.967f, -0.544 / Mech::gear_radius_P, 226.022f, Hand::LiftAngle::SHOOT_UP, Traj::PassThroughMode::INTERMEDIATE_1),
+        trajectory_waypoint_t(4.388f, -0.109 / Mech::gear_radius_P, 169.495f, Hand::LiftAngle::CATCH, Traj::PassThroughMode::INTERMEDIATE_1),
+        trajectory_waypoint_t(1.893f, -0.480 / Mech::gear_radius_P, 228.132f, Hand::LiftAngle::SHOOT_UP, Traj::PassThroughMode::INTERMEDIATE_1),
+        trajectory_waypoint_t(4.791f, -0.167 / Mech::gear_radius_P, 149.099f, Hand::LiftAngle::CATCH, Traj::PassThroughMode::INTERMEDIATE_1),
+        trajectory_waypoint_t(1.928f, -0.561 / Mech::gear_radius_P, 236.044f, Hand::LiftAngle::SHOOT_UP, Traj::PassThroughMode::INTERMEDIATE_1),
+        trajectory_waypoint_t(4.969f, -0.225 / Mech::gear_radius_P, 139.429f, Hand::LiftAngle::CATCH, Traj::PassThroughMode::INTERMEDIATE_1),
+        trajectory_waypoint_t(1.852f, -0.512 / Mech::gear_radius_P, 234.901f, Hand::LiftAngle::SHOOT_UP, Traj::PassThroughMode::INTERMEDIATE_1),
+        trajectory_waypoint_t(5.165f, -0.334 / Mech::gear_radius_P, 123.956f, Hand::LiftAngle::CATCH, Traj::PassThroughMode::INTERMEDIATE_1),
+        trajectory_waypoint_t(1.901f, -0.590 / Mech::gear_radius_P, 236.747f, Hand::LiftAngle::SHOOT_UP, Traj::PassThroughMode::INTERMEDIATE_1),
+        trajectory_waypoint_t(5.270f, -0.417 / Mech::gear_radius_P, 120.967f, Hand::LiftAngle::CATCH, Traj::PassThroughMode::INTERMEDIATE_1),
+        trajectory_waypoint_t(1.819f, -0.543 / Mech::gear_radius_P, 240.615f, Hand::LiftAngle::SHOOT_UP, Traj::PassThroughMode::INTERMEDIATE_1),
 
         // 4行目（ロボットに一番近い行）
-        trajectory_waypoint_t(3.175f, -0.3465f / Mech::gear_radius_P, 149.77f, Hand::LiftAngle::CATCH, Traj::PassThroughMode::INTERMEDIATE_1),  // 4-1
-        trajectory_waypoint_t(2.533f, -0.1960f / Mech::gear_radius_P, 90.0f, Hand::LiftAngle::SHOOT_UP, Traj::PassThroughMode::INTERMEDIATE_1),
-
-        trajectory_waypoint_t(3.258f, -0.2520f / Mech::gear_radius_P, 146.07f, Hand::LiftAngle::CATCH, Traj::PassThroughMode::INTERMEDIATE_1),  // 4-2
-        trajectory_waypoint_t(2.533f, -0.1960f / Mech::gear_radius_P, 90.0f, Hand::LiftAngle::SHOOT_UP, Traj::PassThroughMode::INTERMEDIATE_1),
-
-        trajectory_waypoint_t(3.473f, -0.1255f / Mech::gear_radius_P, 132.36f, Hand::LiftAngle::CATCH, Traj::PassThroughMode::INTERMEDIATE_1),  // 4-3
-        trajectory_waypoint_t(2.533f, -0.1960f / Mech::gear_radius_P, 90.0f, Hand::LiftAngle::SHOOT_UP, Traj::PassThroughMode::INTERMEDIATE_1),
-
-        trajectory_waypoint_t(3.687f, -0.0623f / Mech::gear_radius_P, 120.94f, Hand::LiftAngle::CATCH, Traj::PassThroughMode::INTERMEDIATE_1),  // 4-4
-        trajectory_waypoint_t(2.533f, -0.1960f / Mech::gear_radius_P, 90.0f, Hand::LiftAngle::SHOOT_UP, Traj::PassThroughMode::INTERMEDIATE_1),
-
-        trajectory_waypoint_t(4.189f, +0.410f / Mech::gear_radius_P, 89.21f, Hand::LiftAngle::CATCH, Traj::PassThroughMode::INTERMEDIATE_1),  // 4-5
-        trajectory_waypoint_t(2.533f, -0.1960f / Mech::gear_radius_P, 90.0f, Hand::LiftAngle::SHOOT_UP, Traj::PassThroughMode::INTERMEDIATE_1),
-
-        trajectory_waypoint_t(4.575f, +0.094f / Mech::gear_radius_P, 68.29f, Hand::LiftAngle::CATCH, Traj::PassThroughMode::INTERMEDIATE_1),  // 4-6
-        trajectory_waypoint_t(2.533f, -0.1960f / Mech::gear_radius_P, 90.0f, Hand::LiftAngle::SHOOT_UP, Traj::PassThroughMode::INTERMEDIATE_1),
-
-        trajectory_waypoint_t(5.037f, -0.0605f / Mech::gear_radius_P, 45.26f, Hand::LiftAngle::CATCH, Traj::PassThroughMode::INTERMEDIATE_1),  // 4-7
-        trajectory_waypoint_t(2.533f, -0.1960f / Mech::gear_radius_P, 90.0f, Hand::LiftAngle::SHOOT_UP, Traj::PassThroughMode::INTERMEDIATE_1),
-
-        trajectory_waypoint_t(5.209f, -0.1365f / Mech::gear_radius_P, 33.84f, Hand::LiftAngle::CATCH, Traj::PassThroughMode::INTERMEDIATE_1),  // 4-8
-        trajectory_waypoint_t(2.533f, -0.1960f / Mech::gear_radius_P, 90.0f, Hand::LiftAngle::SHOOT_UP, Traj::PassThroughMode::INTERMEDIATE_1),
-
-        trajectory_waypoint_t(5.372f, -0.2592f / Mech::gear_radius_P, 25.75f, Hand::LiftAngle::CATCH, Traj::PassThroughMode::INTERMEDIATE_1),  // 4-9
-        trajectory_waypoint_t(2.533f, -0.1960f / Mech::gear_radius_P, 90.0f, Hand::LiftAngle::SHOOT_UP, Traj::PassThroughMode::INTERMEDIATE_1),
-
-        trajectory_waypoint_t(5.446f, -0.3456f / Mech::gear_radius_P, 21.09f, Hand::LiftAngle::CATCH, Traj::PassThroughMode::INTERMEDIATE_1),  // 4-10
-        trajectory_waypoint_t(2.533f, -0.1960f / Mech::gear_radius_P, 90.0f, Hand::LiftAngle::SHOOT_UP, Traj::PassThroughMode::INTERMEDIATE_1),
-    };
+        trajectory_waypoint_t(3.124f, -0.359 / Mech::gear_radius_P, 242.813f, Hand::LiftAngle::CATCH, Traj::PassThroughMode::INTERMEDIATE_1),
+        trajectory_waypoint_t(2.597f, -0.3f / Mech::gear_radius_P, 275.253f, Hand::LiftAngle::CATCH, Traj::PassThroughMode::INTERMEDIATE_1),
+        trajectory_waypoint_t(3.201f, -0.265 / Mech::gear_radius_P, 237.187f, Hand::LiftAngle::SHOOT_UP, Traj::PassThroughMode::INTERMEDIATE_1),
+        trajectory_waypoint_t(2.597f, -0.3f / Mech::gear_radius_P, 275.253f, Hand::LiftAngle::CATCH, Traj::PassThroughMode::INTERMEDIATE_1),
+        trajectory_waypoint_t(3.389f, -0.140 / Mech::gear_radius_P, 228.571f, Hand::LiftAngle::CATCH, Traj::PassThroughMode::INTERMEDIATE_1),
+        trajectory_waypoint_t(2.597f, -0.3f / Mech::gear_radius_P, 275.253f, Hand::LiftAngle::CATCH, Traj::PassThroughMode::INTERMEDIATE_1),
+        trajectory_waypoint_t(3.570f, -0.074 / Mech::gear_radius_P, 216.440f, Hand::LiftAngle::SHOOT_UP, Traj::PassThroughMode::INTERMEDIATE_1),
+        trajectory_waypoint_t(2.597f, -0.3f / Mech::gear_radius_P, 275.253f, Hand::LiftAngle::CATCH, Traj::PassThroughMode::INTERMEDIATE_1),
+        trajectory_waypoint_t(4.040f, -0.006 / Mech::gear_radius_P, 187.341f, Hand::LiftAngle::CATCH, Traj::PassThroughMode::INTERMEDIATE_1),
+        trajectory_waypoint_t(2.597f, -0.3f / Mech::gear_radius_P, 275.253f, Hand::LiftAngle::CATCH, Traj::PassThroughMode::INTERMEDIATE_1),
+        trajectory_waypoint_t(4.467f, -0.012 / Mech::gear_radius_P, 165.538f, Hand::LiftAngle::SHOOT_UP, Traj::PassThroughMode::INTERMEDIATE_1),
+        trajectory_waypoint_t(2.597f, -0.3f / Mech::gear_radius_P, 275.253f, Hand::LiftAngle::CATCH, Traj::PassThroughMode::INTERMEDIATE_1),
+        trajectory_waypoint_t(4.939f, -0.079 / Mech::gear_radius_P, 138.374f, Hand::LiftAngle::CATCH, Traj::PassThroughMode::INTERMEDIATE_1),
+        trajectory_waypoint_t(2.597f, -0.3f / Mech::gear_radius_P, 275.253f, Hand::LiftAngle::CATCH, Traj::PassThroughMode::INTERMEDIATE_1),
+        trajectory_waypoint_t(5.138f, -0.151 / Mech::gear_radius_P, 126.506f, Hand::LiftAngle::SHOOT_UP, Traj::PassThroughMode::INTERMEDIATE_1),
+        trajectory_waypoint_t(2.597f, -0.3f / Mech::gear_radius_P, 275.253f, Hand::LiftAngle::CATCH, Traj::PassThroughMode::INTERMEDIATE_1),
+        trajectory_waypoint_t(5.327f, -0.278 / Mech::gear_radius_P, 116.220f, Hand::LiftAngle::CATCH, Traj::PassThroughMode::INTERMEDIATE_1),
+        trajectory_waypoint_t(2.597f, -0.3f / Mech::gear_radius_P, 275.253f, Hand::LiftAngle::CATCH, Traj::PassThroughMode::INTERMEDIATE_1),
+        trajectory_waypoint_t(5.410f, -0.372 / Mech::gear_radius_P, 113.407f, Hand::LiftAngle::SHOOT_UP, Traj::PassThroughMode::INTERMEDIATE_1),
+        trajectory_waypoint_t(2.597f, -0.3f / Mech::gear_radius_P, 275.253f, Hand::LiftAngle::CATCH, Traj::PassThroughMode::INTERMEDIATE_1)};
     TrajectorySequenceManager* seq_manager = new TrajectorySequenceManager(g_debug_manager);
     seq_manager->setup_sequence(all_waypoints, WAYPOINT_NUM);
 

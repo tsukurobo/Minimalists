@@ -219,7 +219,7 @@ constexpr int32_t CATCH = 8030;       // ワークをつかむときの高さ 34
 
 // 手先角度
 namespace HandAngle {
-constexpr float START = 132.28f;
+constexpr float START = 224.615f;
 }  // namespace HandAngle
 
 // dynamixelのID
