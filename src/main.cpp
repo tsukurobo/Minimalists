@@ -417,6 +417,9 @@ void handle_disturbance_trigger() {
 
 // ボタンを押したときのコールバック関数
 void button_cb(uint gpio, uint32_t events) {
+    if (gpio != BUTTON_PIN || !(events & GPIO_IRQ_EDGE_FALL)) {
+        return;  // 関係ないピンやイベントは無視
+    }
     gpio_set_irq_enabled(BUTTON_PIN, GPIO_IRQ_EDGE_FALL, false);
     handle_disturbance_trigger();
     gpio_set_irq_enabled(BUTTON_PIN, GPIO_IRQ_EDGE_FALL, true);
