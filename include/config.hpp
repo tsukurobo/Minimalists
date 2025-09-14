@@ -127,7 +127,7 @@ constexpr float ENCODER_P_DIRECTION = 1.0f;  // P軸エンコーダの増加方�
 namespace TrajectoryConfig {
 constexpr float TRAJECTORY_CONTROL_PERIOD = MicrocontrollerConfig::CONTROL_PERIOD_S * 10;  // 軌道点の周期周期 [s]
 
-constexpr float TRAJECTORY_COMPLETION_TOLERANCE_R = 0.1f;         // R軸完了判定許容誤差 [rad]
+constexpr float TRAJECTORY_COMPLETION_TOLERANCE_R = 0.01f;        // R軸完了判定許容誤差 [rad](一番遠いワークまでの距離が790㎜、許容誤差を7.5㎜とした)
 constexpr float TRAJECTORY_COMPLETION_TOLERANCE_P = 0.1f;         // P軸完了判定許容誤差 [rad]
 constexpr float TRAJECTORY_COMPLETION_VELOCITY_THRESHOLD = 0.1f;  // 完了判定時の速度閾値 [rad/s]
 
