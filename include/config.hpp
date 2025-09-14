@@ -140,12 +140,22 @@ constexpr float INTERMEDIATE_POS_UNDER_3[2] = {1.989f, -0.328f / MechanismConfig
 
 // 中継点の通過パターン
 enum class PassThroughMode : uint8_t {
-    DIRECT,            // 中継点なし
-    INTERMEDIATE_1,    // 中継点1のみ通過
-    INTERMEDIATE_12,   // 中継点1を通過してから中継点2も通過
-    INTERMEDIATE_21,   // 中継点2を通過してから中継点1も通過
-    INTERMEDIATE_123,  // 中継点1を通過してから中継点2も通過してから中継点3も通過
-    INTERMEDIATE_321   // 中継点3を通過してから中継点2も通過してから中継点1も通過
+    DIRECT,             // 中継点なし
+    INTERMEDIATE_1,     // 中継点1のみ通過
+    INTERMEDIATE_12,    // 中継点1を通過してから中継点2も通過
+    INTERMEDIATE_21,    // 中継点2を通過してから中継点1も通過
+    INTERMEDIATE_1U1,   // 中継点1→中継点下1
+    INTERMEDIATE_1U2,   // 中継点1→中継点下2
+    INTERMEDIATE_1U3,   // 中継点1→中継点下3
+    INTERMEDIATE_U11,   // 中継点下1→中継点1
+    INTERMEDIATE_U21,   // 中継点下2→中継点1
+    INTERMEDIATE_U31,   // 中継点下3→中継点
+    INTERMEDIATE_12U1,  // 中継点1→中継点2→中継点下1
+    INTERMEDIATE_12U2,  // 中継点1→中継点2→中継点下2
+    INTERMEDIATE_12U3,  // 中継点1→中継点2→中継点下3
+    INTERMEDIATE_U121,  // 中継点下1→中継点2→中継点1
+    INTERMEDIATE_U221,  // 中継点下2→中継点2→中継点1
+    INTERMEDIATE_U321,  // 中継点下3→中継点2→中継点1
 };
 
 // 軌道生成の最大速度

@@ -1061,16 +1061,74 @@ int main(void) {
                             intermediate_pos1[1] = TrajectoryConfig::INTERMEDIATE_POS_2[1];
                             intermediate_pos2[0] = TrajectoryConfig::INTERMEDIATE_POS_1[0];
                             intermediate_pos2[1] = TrajectoryConfig::INTERMEDIATE_POS_1[1];
-                        } else if (pass_through_mode == TrajectoryConfig::PassThroughMode::INTERMEDIATE_123) {
+                        } else if (pass_through_mode == TrajectoryConfig::PassThroughMode::INTERMEDIATE_1U1) {
+                            intermediate_pos1[0] = TrajectoryConfig::INTERMEDIATE_POS_1[0];
+                            intermediate_pos1[1] = TrajectoryConfig::INTERMEDIATE_POS_1[1];
+                            intermediate_pos2[0] = TrajectoryConfig::INTERMEDIATE_POS_UNDER_1[0];
+                            intermediate_pos2[1] = TrajectoryConfig::INTERMEDIATE_POS_UNDER_1[1];
+                        } else if (pass_through_mode == TrajectoryConfig::PassThroughMode::INTERMEDIATE_U11) {
+                            intermediate_pos1[0] = TrajectoryConfig::INTERMEDIATE_POS_UNDER_1[0];
+                            intermediate_pos1[1] = TrajectoryConfig::INTERMEDIATE_POS_UNDER_1[1];
+                            intermediate_pos2[0] = TrajectoryConfig::INTERMEDIATE_POS_1[0];
+                            intermediate_pos2[1] = TrajectoryConfig::INTERMEDIATE_POS_1[1];
+                        } else if (pass_through_mode == TrajectoryConfig::PassThroughMode::INTERMEDIATE_1U2) {
+                            intermediate_pos1[0] = TrajectoryConfig::INTERMEDIATE_POS_1[0];
+                            intermediate_pos1[1] = TrajectoryConfig::INTERMEDIATE_POS_1[1];
+                            intermediate_pos2[0] = TrajectoryConfig::INTERMEDIATE_POS_UNDER_2[0];
+                            intermediate_pos2[1] = TrajectoryConfig::INTERMEDIATE_POS_UNDER_2[1];
+                        } else if (pass_through_mode == TrajectoryConfig::PassThroughMode::INTERMEDIATE_U21) {
+                            intermediate_pos1[0] = TrajectoryConfig::INTERMEDIATE_POS_UNDER_2[0];
+                            intermediate_pos1[1] = TrajectoryConfig::INTERMEDIATE_POS_UNDER_2[1];
+                            intermediate_pos2[0] = TrajectoryConfig::INTERMEDIATE_POS_1[0];
+                            intermediate_pos2[1] = TrajectoryConfig::INTERMEDIATE_POS_1[1];
+                        } else if (pass_through_mode == TrajectoryConfig::PassThroughMode::INTERMEDIATE_1U3) {
+                            intermediate_pos1[0] = TrajectoryConfig::INTERMEDIATE_POS_1[0];
+                            intermediate_pos1[1] = TrajectoryConfig::INTERMEDIATE_POS_1[1];
+                            intermediate_pos2[0] = TrajectoryConfig::INTERMEDIATE_POS_UNDER_3[0];
+                            intermediate_pos2[1] = TrajectoryConfig::INTERMEDIATE_POS_UNDER_3[1];
+                        } else if (pass_through_mode == TrajectoryConfig::PassThroughMode::INTERMEDIATE_U31) {
+                            intermediate_pos1[0] = TrajectoryConfig::INTERMEDIATE_POS_UNDER_3[0];
+                            intermediate_pos1[1] = TrajectoryConfig::INTERMEDIATE_POS_UNDER_3[1];
+                            intermediate_pos2[0] = TrajectoryConfig::INTERMEDIATE_POS_1[0];
+                            intermediate_pos2[1] = TrajectoryConfig::INTERMEDIATE_POS_1[1];
+                        } else if (pass_through_mode == TrajectoryConfig::PassThroughMode::INTERMEDIATE_12U1) {
                             intermediate_pos1[0] = TrajectoryConfig::INTERMEDIATE_POS_1[0];
                             intermediate_pos1[1] = TrajectoryConfig::INTERMEDIATE_POS_1[1];
                             intermediate_pos2[0] = TrajectoryConfig::INTERMEDIATE_POS_2[0];
                             intermediate_pos2[1] = TrajectoryConfig::INTERMEDIATE_POS_2[1];
-                            intermediate_pos3[0] = TrajectoryConfig::INTERMEDIATE_POS_3[0];
-                            intermediate_pos3[1] = TrajectoryConfig::INTERMEDIATE_POS_3[1];
-                        } else if (pass_through_mode == TrajectoryConfig::PassThroughMode::INTERMEDIATE_321) {
-                            intermediate_pos1[0] = TrajectoryConfig::INTERMEDIATE_POS_3[0];
-                            intermediate_pos1[1] = TrajectoryConfig::INTERMEDIATE_POS_3[1];
+                            intermediate_pos3[0] = TrajectoryConfig::INTERMEDIATE_POS_UNDER_1[0];
+                            intermediate_pos3[1] = TrajectoryConfig::INTERMEDIATE_POS_UNDER_1[1];
+                        } else if (pass_through_mode == TrajectoryConfig::PassThroughMode::INTERMEDIATE_U121) {
+                            intermediate_pos1[0] = TrajectoryConfig::INTERMEDIATE_POS_UNDER_1[0];
+                            intermediate_pos1[1] = TrajectoryConfig::INTERMEDIATE_POS_UNDER_1[1];
+                            intermediate_pos2[0] = TrajectoryConfig::INTERMEDIATE_POS_2[0];
+                            intermediate_pos2[1] = TrajectoryConfig::INTERMEDIATE_POS_2[1];
+                            intermediate_pos3[0] = TrajectoryConfig::INTERMEDIATE_POS_1[0];
+                            intermediate_pos3[1] = TrajectoryConfig::INTERMEDIATE_POS_1[1];
+                        } else if (pass_through_mode == TrajectoryConfig::PassThroughMode::INTERMEDIATE_12U2) {
+                            intermediate_pos1[0] = TrajectoryConfig::INTERMEDIATE_POS_1[0];
+                            intermediate_pos1[1] = TrajectoryConfig::INTERMEDIATE_POS_1[1];
+                            intermediate_pos2[0] = TrajectoryConfig::INTERMEDIATE_POS_2[0];
+                            intermediate_pos2[1] = TrajectoryConfig::INTERMEDIATE_POS_2[1];
+                            intermediate_pos3[0] = TrajectoryConfig::INTERMEDIATE_POS_UNDER_2[0];
+                            intermediate_pos3[1] = TrajectoryConfig::INTERMEDIATE_POS_UNDER_2[1];
+                        } else if (pass_through_mode == TrajectoryConfig::PassThroughMode::INTERMEDIATE_U221) {
+                            intermediate_pos1[0] = TrajectoryConfig::INTERMEDIATE_POS_UNDER_2[0];
+                            intermediate_pos1[1] = TrajectoryConfig::INTERMEDIATE_POS_UNDER_2[1];
+                            intermediate_pos2[0] = TrajectoryConfig::INTERMEDIATE_POS_2[0];
+                            intermediate_pos2[1] = TrajectoryConfig::INTERMEDIATE_POS_2[1];
+                            intermediate_pos3[0] = TrajectoryConfig::INTERMEDIATE_POS_1[0];
+                            intermediate_pos3[1] = TrajectoryConfig::INTERMEDIATE_POS_1[1];
+                        } else if (pass_through_mode == TrajectoryConfig::PassThroughMode::INTERMEDIATE_12U3) {
+                            intermediate_pos1[0] = TrajectoryConfig::INTERMEDIATE_POS_1[0];
+                            intermediate_pos1[1] = TrajectoryConfig::INTERMEDIATE_POS_1[1];
+                            intermediate_pos2[0] = TrajectoryConfig::INTERMEDIATE_POS_2[0];
+                            intermediate_pos2[1] = TrajectoryConfig::INTERMEDIATE_POS_2[1];
+                            intermediate_pos3[0] = TrajectoryConfig::INTERMEDIATE_POS_UNDER_3[0];
+                            intermediate_pos3[1] = TrajectoryConfig::INTERMEDIATE_POS_UNDER_3[1];
+                        } else if (pass_through_mode == TrajectoryConfig::PassThroughMode::INTERMEDIATE_U321) {
+                            intermediate_pos1[0] = TrajectoryConfig::INTERMEDIATE_POS_UNDER_3[0];
+                            intermediate_pos1[1] = TrajectoryConfig::INTERMEDIATE_POS_UNDER_3[1];
                             intermediate_pos2[0] = TrajectoryConfig::INTERMEDIATE_POS_2[0];
                             intermediate_pos2[1] = TrajectoryConfig::INTERMEDIATE_POS_2[1];
                             intermediate_pos3[0] = TrajectoryConfig::INTERMEDIATE_POS_1[0];
