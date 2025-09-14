@@ -392,6 +392,7 @@ void hand_tick(hand_state_t* hand_state, bool* has_work, absolute_time_t* state_
                 *hand_state = HAND_RELEASE;
                 *state_start_time = get_absolute_time();
                 gpio_put(Hand::SOLENOID_PIN, 1);
+                gpio_put(Hand::PUMP_PIN, 0);
             }
             break;
 
@@ -431,6 +432,7 @@ void hand_tick(hand_state_t* hand_state, bool* has_work, absolute_time_t* state_
                 gpio_set_irq_enabled(BUTTON_PIN, GPIO_IRQ_EDGE_FALL, false);
                 *has_work = false;
                 gpio_put(Hand::SOLENOID_PIN, 0);
+                gpio_put(Hand::PUMP_PIN, 1);
                 control_position(&UART1, Hand::DXL_ID1, hand_angle);
                 g_debug_manager->debug("Hand released\n");
                 *hand_state = HAND_WAITING;  // HAND_IDLE前に1秒待機
