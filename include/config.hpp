@@ -132,8 +132,9 @@ constexpr float TRAJECTORY_COMPLETION_TOLERANCE_P = 0.1f;         // P軸完了�
 constexpr float TRAJECTORY_COMPLETION_VELOCITY_THRESHOLD = 0.1f;  // 完了判定時の速度閾値 [rad/s]
 
 // 中継点座標（R軸 [rad]、P軸 [rad]）
-constexpr float INTERMEDIATE_POS_1[2] = {2.767f, -0.1992f / MechanismConfig::gear_radius_P};  // TODO:ボーナス取るときに必要な中継点を設定
+constexpr float INTERMEDIATE_POS_1[2] = {2.767f, -0.1992f / MechanismConfig::gear_radius_P};
 constexpr float INTERMEDIATE_POS_2[2] = {4.234f, -0.1744f / MechanismConfig::gear_radius_P};
+constexpr float INTERMEDIATE_POS_3[2] = {5.934f, -0.1744f / MechanismConfig::gear_radius_P};  // TODO: 調整予定
 
 // 中継点の通過パターン
 enum class PassThroughMode : uint8_t {
@@ -208,11 +209,12 @@ constexpr uint16_t HAND_CURRENT_LIMIT = 1000;  // 電流制限 [mA]
 
 // 昇降機構用角度
 namespace LiftAngle {
-constexpr int32_t SHOOT_UP = -4400;  // シューティングエリア上段 -6480
+constexpr int32_t SHOOT_UP = -4500;  // シューティングエリア上段 -6480
 // constexpr int32_t SHOOT_LOW = -4100;      // シューティングエリア下段
-constexpr int32_t SHOOT_LOW = -2600;  // シューティングエリア下段
-constexpr int32_t PRE_CATCH = 4600;   // ワークをつかむ前の高さ
-constexpr int32_t CATCH = 5300;       // ワークをつかむときの高さ 3440
+constexpr int32_t SHOOT_LOW = -2600;   // シューティングエリア下段
+constexpr int32_t PRE_CATCH = 4600;    // ワークをつかむ前の高さ
+constexpr int32_t FRONT_CATCH = 5100;  // 前側のワークをつかむときの高さ
+constexpr int32_t BACK_CATCH = 5600;   // 後ろ側のワークをつかむときの高さ
 }  // namespace LiftAngle
 
 // 手先角度
