@@ -28,7 +28,7 @@ void trajectory_t::calculate_s_curve_trajectory_params() {
     float s_curve_dist_0 = max_decel_ * s_curve_time_ * s_curve_time_ / 6.0f;               // S字軌道の距離
 
     if (accel_dist_0 + decel_dist_0 + s_curve_dist_0 >= total_dist_) {
-        printf("Warning: No constant velocity phase. Adjust max_vel or max_accel.\n");
+        // printf("Warning: No constant velocity phase. Adjust max_vel or max_accel.\n");
         const_vel_time_ = 0.0f;
         // s_curve_ratioの二乗
         float inter_value = 0.5f / max_accel_ + 0.5f * (1 - s_curve_ratio_sq) / max_decel_ + (2.0f * s_curve_ratio_sq / 3.0f / max_decel_);  // 分母の計算

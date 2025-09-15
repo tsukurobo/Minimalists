@@ -9,5 +9,4 @@ build.ninja
 generated
 pico_flash_region.ld
 !.vscode/*
-log
 .venv

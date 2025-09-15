@@ -44,7 +44,7 @@ bool AMT223V::init() {
 
     // 初期読み取りテスト
     if (!read_angle()) {
-        printf("AMT223V initialization failed - initial read failed\n");
+        // printf("AMT223V initialization failed - initial read failed\n");
         return false;
     }
 
@@ -53,13 +53,13 @@ bool AMT223V::init() {
     // マルチターンエンコーダの場合は初期回転回数を保存
     if (is_multiturn) {
         initial_turn_count = turn_count;
-        printf("Initial turn count saved: %d\n", initial_turn_count);
+        // printf("Initial turn count saved: %d\n", initial_turn_count);
     }
 
-    printf("AMT223V initialized successfully on CS pin %d (multiturn: %s)\n",
-           cs_pin, is_multiturn ? "yes" : "no");
-    printf("Initial angle: %d counts, %.2f deg, %.4f rad\n",
-           raw_angle, angle_deg, angle_rad);
+    // printf("AMT223V initialized successfully on CS pin %d (multiturn: %s)\n",
+    //        cs_pin, is_multiturn ? "yes" : "no");
+    // printf("Initial angle: %d counts, %.2f deg, %.4f rad\n",
+    //        raw_angle, angle_deg, angle_rad);
 
     // // 単回転エンコーダの場合はゼロ位置セットを実行
     // if (!is_multiturn) {
@@ -101,7 +101,7 @@ bool AMT223V::read_angle() {
 
         // パリティチェック実行
         if (!verify_parity(received_angle)) {
-            printf("Warning: Parity check failed for angle data\n");
+            // printf("Warning: Parity check failed for angle data\n");
             return false;
         }
 
@@ -153,7 +153,7 @@ bool AMT223V::read_angle() {
 
         // パリティチェック実行
         if (!verify_parity(received_data)) {
-            printf("Warning: Parity check failed for single-turn data\n");
+            // printf("Warning: Parity check failed for single-turn data\n");
             return false;
         }
 
@@ -171,7 +171,7 @@ bool AMT223V::read_angle() {
 
     // データの妥当性チェック（14ビット範囲内かどうか）
     if (raw_angle >= COUNTS_PER_REV) {
-        printf("Warning: Invalid angle data received: %d\n", raw_angle);
+        // printf("Warning: Invalid angle data received: %d\n", raw_angle);
         return false;
     }
 
@@ -186,7 +186,7 @@ bool AMT223V::read_angle() {
 bool AMT223V::set_zero_position() {
     // マルチターンエンコーダではゼロ位置セットは使用できません
     if (is_multiturn) {
-        printf("Error: Set zero position is not supported for multiturn encoders\n");
+        // printf("Error: Set zero position is not supported for multiturn encoders\n");
         return false;
     }
 
@@ -194,7 +194,7 @@ bool AMT223V::set_zero_position() {
     uint8_t tx_data[2] = {CMD_SET_ZERO[0], CMD_SET_ZERO[1]};  // {0x00, 0x70}
     uint8_t rx_data[2] = {0};
 
-    printf("Sending set zero command: 0x%02X 0x%02X\n", tx_data[0], tx_data[1]);
+    // printf("Sending set zero command: 0x%02X 0x%02X\n", tx_data[0], tx_data[1]);
 
     // SPI通信実行
     select();
@@ -205,27 +205,27 @@ bool AMT223V::set_zero_position() {
     uint16_t received_data = (rx_data[0] << 8) | rx_data[1];
     uint16_t position_before_reset = received_data & ANGLE_MASK;
 
-    printf("Position before reset: %d counts (%.2f deg)\n",
-           position_before_reset,
-           (float)position_before_reset * 360.0f / COUNTS_PER_REV);
+    // printf("Position before reset: %d counts (%.2f deg)\n",
+    //        position_before_reset,
+    //        (float)position_before_reset * 360.0f / COUNTS_PER_REV);
 
     // エンコーダがリセット処理を完了するまで待機
     // データシートによると、リセット処理には時間がかかる場合があります
     sleep_ms(100);
 
-    printf("Zero position set command completed\n");
+    // printf("Zero position set command completed\n");
     return true;
 }
 
 bool AMT223V::reset_turn_count() {
     if (!is_multiturn) {
-        printf("Error: Reset turn count is only supported for multiturn encoders\n");
+        // printf("Error: Reset turn count is only supported for multiturn encoders\n");
         return false;
     }
 
     // 現在の生の回転回数を読み取り
     if (!read_angle()) {
-        printf("Error: Failed to read current angle for turn count reset\n");
+        // printf("Error: Failed to read current angle for turn count reset\n");
         return false;
     }
 
@@ -234,7 +234,7 @@ bool AMT223V::reset_turn_count() {
     initial_turn_count = initial_turn_count + turn_count;
     turn_count = 0;  // 差分をリセット
 
-    printf("Turn count reset completed. New reference: %d\n", initial_turn_count);
+    // printf("Turn count reset completed. New reference: %d\n", initial_turn_count);
     return true;
 }
 
@@ -298,9 +298,9 @@ bool AMT223V::verify_parity(uint16_t response) const {
     // デバッグ情報（初期化時のみ表示）
     static int parity_debug_count = 0;
     if (parity_debug_count < 3 || !parity_ok) {
-        printf("Parity check: 0x%04X, pos=0x%04X, K1=%d(calc:%d), K0=%d(calc:%d) -> %s\n",
-               response, position, k1, k1_calc, k0, k0_calc,
-               parity_ok ? "OK" : "ERROR");
+        // printf("Parity check: 0x%04X, pos=0x%04X, K1=%d(calc:%d), K0=%d(calc:%d) -> %s\n",
+        //        response, position, k1, k1_calc, k0, k0_calc,
+        //        parity_ok ? "OK" : "ERROR");
         if (parity_ok) parity_debug_count++;
     }
 
@@ -320,8 +320,8 @@ void AMT223V::calculate_angular_velocity(float current_angle_rad, uint64_t curre
         }
     }
 
-    velocity_filter.update(current_angle_rad);                   // フィルタを更新
-    angular_velocity_rad = velocity_filter.get_dot_value();      // 疑似微分済み角速度を取得
+    velocity_filter.update(current_angle_rad);                    // フィルタを更新
+    angular_velocity_rad = velocity_filter.get_dot_value();       // 疑似微分済み角速度を取得
     angular_velocity_deg = angular_velocity_rad * 180.0f / PI_F;  // ラジアンから度に変換
 
     // 異常値フィルタリング（物理的に不可能な角速度をチェック）
@@ -350,7 +350,7 @@ AMT223V_Manager::AMT223V_Manager(spi_inst_t* spi_instance, int miso, int sck, in
 
 int AMT223V_Manager::add_encoder(int cs_pin, float velocity_cutoff_freq, bool multiturn_support) {
     if (num_encoders >= MAX_ENCODERS) {
-        printf("Error: Maximum %d encoders supported, current count: %d\n", MAX_ENCODERS, num_encoders);
+        // printf("Error: Maximum %d encoders supported, current count: %d\n", MAX_ENCODERS, num_encoders);
         return -1;
     }
 
@@ -358,30 +358,30 @@ int AMT223V_Manager::add_encoder(int cs_pin, float velocity_cutoff_freq, bool mu
     encoders[num_encoders] = new AMT223V(spi_port, velocity_cutoff_freq, cs_pin, multiturn_support);
     num_encoders++;
 
-    printf("Added encoder %d with CS pin %d (multiturn: %s)\n",
-           num_encoders - 1, cs_pin, multiturn_support ? "yes" : "no");
-    printf("Current encoder count: %d/%d\n", num_encoders, MAX_ENCODERS);
+    // printf("Added encoder %d with CS pin %d (multiturn: %s)\n",
+    //    num_encoders - 1, cs_pin, multiturn_support ? "yes" : "no");
+    // printf("Current encoder count: %d/%d\n", num_encoders, MAX_ENCODERS);
     return num_encoders - 1;
 }
 
 bool AMT223V_Manager::init_all_encoders() {
-    printf("Initializing %d/%d AMT223-V encoders...\n", num_encoders, MAX_ENCODERS);
+    // printf("Initializing %d/%d AMT223-V encoders...\n", num_encoders, MAX_ENCODERS);
 
     for (int i = 0; i < num_encoders; i++) {
         if (!encoders[i]->init()) {
-            printf("Failed to initialize Encoder %d!\n", i);
+            // printf("Failed to initialize Encoder %d!\n", i);
             return false;
         }
     }
 
-    printf("All %d encoders initialized successfully! (Max capacity: %d)\n",
-           num_encoders, MAX_ENCODERS);
+    // printf("All %d encoders initialized successfully! (Max capacity: %d)\n",
+    //    num_encoders, MAX_ENCODERS);
     return true;
 }
 
 bool AMT223V_Manager::read_encoder(int encoder_index) {
     if (!is_valid_encoder_index(encoder_index)) {
-        printf("Error: Invalid encoder index %d (valid range: 0-%d)\n", encoder_index, num_encoders - 1);
+        // printf("Error: Invalid encoder index %d (valid range: 0-%d)\n", encoder_index, num_encoders - 1);
         return false;
     }
 
@@ -402,7 +402,7 @@ int AMT223V_Manager::read_all_encoders() {
 
 float AMT223V_Manager::get_encoder_angle_rad(int encoder_index) const {
     if (!is_valid_encoder_index(encoder_index)) {
-        printf("Error: Invalid encoder index %d (valid range: 0-%d)\n", encoder_index, num_encoders - 1);
+        // printf("Error: Invalid encoder index %d (valid range: 0-%d)\n", encoder_index, num_encoders - 1);
         return -1.0f;
     }
 
@@ -411,7 +411,7 @@ float AMT223V_Manager::get_encoder_angle_rad(int encoder_index) const {
 
 float AMT223V_Manager::get_encoder_angle_deg(int encoder_index) const {
     if (!is_valid_encoder_index(encoder_index)) {
-        printf("Error: Invalid encoder index %d (valid range: 0-%d)\n", encoder_index, num_encoders - 1);
+        // printf("Error: Invalid encoder index %d (valid range: 0-%d)\n", encoder_index, num_encoders - 1);
         return -1.0f;
     }
 
@@ -420,7 +420,7 @@ float AMT223V_Manager::get_encoder_angle_deg(int encoder_index) const {
 
 int16_t AMT223V_Manager::get_encoder_turn_count(int encoder_index) const {
     if (!is_valid_encoder_index(encoder_index)) {
-        printf("Error: Invalid encoder index %d (valid range: 0-%d)\n", encoder_index, num_encoders - 1);
+        // printf("Error: Invalid encoder index %d (valid range: 0-%d)\n", encoder_index, num_encoders - 1);
         return 0;
     }
 
@@ -429,7 +429,7 @@ int16_t AMT223V_Manager::get_encoder_turn_count(int encoder_index) const {
 
 float AMT223V_Manager::get_encoder_continuous_angle_rad(int encoder_index) const {
     if (!is_valid_encoder_index(encoder_index)) {
-        printf("Error: Invalid encoder index %d (valid range: 0-%d)\n", encoder_index, num_encoders - 1);
+        // printf("Error: Invalid encoder index %d (valid range: 0-%d)\n", encoder_index, num_encoders - 1);
         return 0.0f;
     }
 
@@ -438,7 +438,7 @@ float AMT223V_Manager::get_encoder_continuous_angle_rad(int encoder_index) const
 
 float AMT223V_Manager::get_encoder_continuous_angle_deg(int encoder_index) const {
     if (!is_valid_encoder_index(encoder_index)) {
-        printf("Error: Invalid encoder index %d (valid range: 0-%d)\n", encoder_index, num_encoders - 1);
+        // printf("Error: Invalid encoder index %d (valid range: 0-%d)\n", encoder_index, num_encoders - 1);
         return 0.0f;
     }
 
@@ -447,17 +447,17 @@ float AMT223V_Manager::get_encoder_continuous_angle_deg(int encoder_index) const
 
 bool AMT223V_Manager::set_encoder_zero_position(int encoder_index) {
     if (!is_valid_encoder_index(encoder_index)) {
-        printf("Error: Invalid encoder index %d (valid range: 0-%d)\n", encoder_index, num_encoders - 1);
+        // printf("Error: Invalid encoder index %d (valid range: 0-%d)\n", encoder_index, num_encoders - 1);
         return false;
     }
 
-    printf("Setting zero position for encoder %d...\n", encoder_index);
+    // printf("Setting zero position for encoder %d...\n", encoder_index);
     return encoders[encoder_index]->set_zero_position();
 }
 
 float AMT223V_Manager::get_encoder_angular_velocity_rad(int encoder_index) const {
     if (!is_valid_encoder_index(encoder_index)) {
-        printf("Error: Invalid encoder index %d (valid range: 0-%d)\n", encoder_index, num_encoders - 1);
+        // printf("Error: Invalid encoder index %d (valid range: 0-%d)\n", encoder_index, num_encoders - 1);
         return 0.0f;
     }
 
@@ -466,7 +466,7 @@ float AMT223V_Manager::get_encoder_angular_velocity_rad(int encoder_index) const
 
 float AMT223V_Manager::get_encoder_angular_velocity_deg(int encoder_index) const {
     if (!is_valid_encoder_index(encoder_index)) {
-        printf("Error: Invalid encoder index %d (valid range: 0-%d)\n", encoder_index, num_encoders - 1);
+        // printf("Error: Invalid encoder index %d (valid range: 0-%d)\n", encoder_index, num_encoders - 1);
         return 0.0f;
     }
 
@@ -475,10 +475,10 @@ float AMT223V_Manager::get_encoder_angular_velocity_deg(int encoder_index) const
 
 bool AMT223V_Manager::reset_encoder_turn_count(int encoder_index) {
     if (!is_valid_encoder_index(encoder_index)) {
-        printf("Error: Invalid encoder index %d (valid range: 0-%d)\n", encoder_index, num_encoders - 1);
+        // printf("Error: Invalid encoder index %d (valid range: 0-%d)\n", encoder_index, num_encoders - 1);
         return false;
     }
 
-    printf("Resetting turn count for encoder %d...\n", encoder_index);
+    // printf("Resetting turn count for encoder %d...\n", encoder_index);
     return encoders[encoder_index]->reset_turn_count();
 }

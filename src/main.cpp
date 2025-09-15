@@ -500,23 +500,17 @@ void core1_entry(void) {
     // ループカウンタの初期化
     int loop_counter = 0;
 
+    // ｓチャープ信号用パラメータ
+    float chirp_amplitude = 1.5f;        // 振幅 (rad)
+    float chirp_start_frequency = 0.1f;  // 開始周波数 (Hz)
+    float chirp_end_frequency = 4.0f;    // 終了周波数 (Hz)
+    float T = 40.0f;                     // チャープ信号の総時間 (秒)
+
+    float k = (chirp_end_frequency - chirp_start_frequency) / T;  // 周波数変化率
+
     while (true) {
         // 制御周期開始処理
         control_timing_start(&control_timing, Mc::CONTROL_PERIOD_MS);
-
-        // FIFOから軌道開始信号をチェック（ノンブロッキング）
-        uint32_t trajectory_signal;
-        if (multicore_fifo_pop_timeout_us(0, &trajectory_signal)) {
-            if (trajectory_signal == Mc::TRAJECTORY_DATA_SIGNAL) {
-                // 軌道データの実行を開始
-                mutex_enter_blocking(&g_trajectory_mutex);
-                g_trajectory_data.active = true;
-                g_trajectory_data.current_index = 0;
-                g_trajectory_data.complete = false;
-                g_trajectory_data.position_reached = false;  // 位置到達フラグをリセット
-                mutex_exit(&g_trajectory_mutex);
-            }
-        }
 
         // 経過時間を秒単位に変換
         float current_time_s = static_cast<float>(absolute_time_diff_us(control_start_time, control_timing.loop_start_time)) / 1000000.0f;
@@ -550,17 +544,6 @@ void core1_entry(void) {
             encoder_p_continuous_angle_rad = encoder_manager.get_encoder_continuous_angle_rad(1);
         }
 
-        // // --- モータフィードバック受信 ---
-        // float motor_velocity_R = 0.0, motor_velocity_P = 0.0f;
-        // if (motor1.receive_feedback()) {
-        //     // motor_position_R = motor1.get_continuous_angle() * MOTOR_R_DIRECTION; //  位置は外付けエンコーダの方を使う
-        //     motor_velocity_R = motor1.get_angular_velocity();
-        // }
-        // if (motor2.receive_feedback()) {
-        //     // motor_position_P = motor2.get_continuous_angle() * MOTOR_P_DIRECTION;
-        //     motor_velocity_P = motor2.get_angular_velocity();
-        // }
-
         // --- 共有データから目標値取得と状態更新 ---
 
         mutex_enter_blocking(&g_state_mutex);
@@ -583,90 +566,13 @@ void core1_entry(void) {
 
         mutex_exit(&g_state_mutex);
 
-        // --- 軌道データベースの制御計算 ---
-        float trajectory_target_pos_R = motor_position_R;  // デフォルトは現在位置
-        float trajectory_target_pos_P = motor_position_P;
-        float trajectory_target_vel_R = 0.0f;
+        // システム同定用の信号を生成
+        // P軸は値を固定
+        float trajectory_target_pos_P = -0.6f / Mech::gear_radius_P;  // -0.1mの位置
         float trajectory_target_vel_P = 0.0f;
-        float trajectory_target_accel_R = 0.0f;
         float trajectory_target_accel_P = 0.0f;
 
-        // 軌道データから目標値を取得
-        mutex_enter_blocking(&g_trajectory_mutex);
-        bool trajectory_completed = false;
-        if (g_trajectory_data.active) {
-            if (g_trajectory_data.current_index < g_trajectory_data.point_count) {
-                int idx = g_trajectory_data.current_index;
-                trajectory_target_pos_R = g_trajectory_data.points[idx].position_R;
-                trajectory_target_vel_R = g_trajectory_data.points[idx].velocity_R;
-                trajectory_target_accel_R = g_trajectory_data.points[idx].acceleration_R;
-                trajectory_target_pos_P = g_trajectory_data.points[idx].position_P;
-                trajectory_target_vel_P = g_trajectory_data.points[idx].velocity_P;
-                trajectory_target_accel_P = g_trajectory_data.points[idx].acceleration_P;
-
-                // Core1が10回回るごとに軌道インデックスを1だけ進める
-                static float last_trajectory_update_time = current_time_s;  // 最後の軌道更新時刻
-                if (current_time_s - last_trajectory_update_time >= Traj::TRAJECTORY_CONTROL_PERIOD) {
-                    g_trajectory_data.current_index++;
-                    last_trajectory_update_time = current_time_s;
-                }
-
-                // 軌道の時系列が完了した場合、位置ベースの完了判定に移行
-            } else if (g_trajectory_data.current_index >= g_trajectory_data.point_count) {
-                // 最終目標位置を設定し、位置到達判定モードに移行
-                trajectory_target_pos_R = g_trajectory_data.final_target_R;
-                trajectory_target_pos_P = g_trajectory_data.final_target_P;
-                trajectory_target_vel_R = 0.0f;
-                trajectory_target_vel_P = 0.0f;
-                trajectory_target_accel_R = 0.0f;
-                trajectory_target_accel_P = 0.0f;
-
-                // 位置到達判定
-                float position_error_R = std::abs(g_trajectory_data.final_target_R - motor_position_R);
-                float position_error_P = std::abs(g_trajectory_data.final_target_P - motor_position_P);
-                float velocity_magnitude_R = std::abs(motor_velocity_R);
-                float velocity_magnitude_P = std::abs(motor_velocity_P);
-
-                // 位置誤差と速度が両方とも許容範囲内の場合に完了とする
-                if (position_error_R < Traj::TRAJECTORY_COMPLETION_TOLERANCE_R &&
-                    position_error_P < Traj::TRAJECTORY_COMPLETION_TOLERANCE_P &&
-                    velocity_magnitude_R < Traj::TRAJECTORY_COMPLETION_VELOCITY_THRESHOLD &&
-                    velocity_magnitude_P < Traj::TRAJECTORY_COMPLETION_VELOCITY_THRESHOLD) {
-                    g_trajectory_data.active = false;
-                    g_trajectory_data.complete = true;
-                    g_trajectory_data.position_reached = true;
-                    trajectory_completed = true;
-                }
-            }
-        } else if (!g_trajectory_data.active) {
-            // 軌道停止時は現在位置を保持
-            trajectory_target_pos_R = motor_position_R;
-            trajectory_target_vel_R = 0.0f;
-            trajectory_target_accel_R = 0.0f;
-            trajectory_target_pos_P = motor_position_P;
-            trajectory_target_vel_P = 0.0f;
-            trajectory_target_accel_P = 0.0f;
-        }
-        mutex_exit(&g_trajectory_mutex);
-
-        // 軌道完了信号の送信（mutex外で実行）
-        if (trajectory_completed) {
-            if (!multicore_fifo_push_timeout_us(Mc::TRAJECTORY_COMPLETE_SIGNAL, 0)) {
-                // FIFO満杯の場合は次回再試行
-                g_debug_manager->error("Core1: Failed to push trajectory complete signal to Core0 FIFO");
-            }
-        }
-
         // --- 制御計算 ---
-        // R軸の制御計算
-        error_position_R = Mech::R_EQ_INERTIA * Ctrl::R_POSITION_GAIN * (trajectory_target_pos_R - motor_position_R);
-        error_velocity_R = Mech::R_EQ_INERTIA * Ctrl::R_VELOCITY_GAIN * (trajectory_target_vel_R - motor_velocity_R);
-        acceleration_feedforward_R = Mech::R_EQ_INERTIA * trajectory_target_accel_R;
-        control_torque_R = error_position_R + error_velocity_R + disturbance_torque_R + acceleration_feedforward_R;  // 制御トルク計算
-        target_torque_R = clampTorque(control_torque_R, Mech::R_MAX_TORQUE);                                         // 制御トルク制限
-        control_torque_R = target_torque_R;                                                                          // 制御トルクを目標トルクに設定
-        disturbance_torque_R = dob_R.update(control_torque_R, motor_velocity_R);                                     // 外乱トルクの更新
-
         // P軸の制御計算
         error_position_P = Mech::P_EQ_INERTIA * Ctrl::P_POSITION_GAIN * (trajectory_target_pos_P - motor_position_P);
         error_velocity_P = Mech::P_EQ_INERTIA * Ctrl::P_VELOCITY_GAIN * (trajectory_target_vel_P - motor_velocity_P);
@@ -677,10 +583,21 @@ void core1_entry(void) {
         disturbance_torque_P = dob_P.update(control_torque_P, motor_velocity_P);  // 外乱トルクの更新
 
         // // トルクから電流への変換
-        target_current[0] = target_torque_R / Mech::R_TORQUE_CONSTANT;  // Motor1 (R軸)
         target_current[1] = target_torque_P / Mech::P_TORQUE_CONSTANT;  // Motor2 (P軸)
-        // target_current[0] = 0.0f;  // Motor1 (R軸)
-        // target_current[1] = 0.0f;  // Motor2 (P軸)
+
+        // R軸は正弦波を生成
+        if (current_time_s >= 10.0f && current_time_s <= T + 10.0f) {                    // 10秒後から動作開始
+            float t = current_time_s - 10.0f;                                            // 10秒のオフセットを考慮
+            float phase = 2.0f * PI_F * (chirp_start_frequency * t + 0.5f * k * t * t);  // 位相
+            target_torque_R = chirp_amplitude * sinf(phase);                             // 正弦波信号
+            target_current[0] = target_torque_R / Mech::R_TORQUE_CONSTANT;               // Motor1 (R軸)
+            printf("%.5f s, %.3f rad, %.3f Nm\n",
+                   t,
+                   motor_position_R,
+                   target_torque_R);
+        } else {
+            target_current[0] = 0.0f;
+        }
 
         // --- 制御結果を共有データに保存 ---
         mutex_enter_blocking(&g_state_mutex);
@@ -740,7 +657,7 @@ bool initialize_system() {
     gpio_put(SPI1::Encoder::ON_PIN, 1);  // ON状態に設定
 
     // デバッグマネージャの初期化
-    g_debug_manager = new DebugManager(DebugLevel::DEBUG, 0.1f);
+    g_debug_manager = new DebugManager(DebugLevel::OFF, 0.1f);
 
     // 全SPIデバイスの初期化
     while (!init_all_spi_devices()) {
