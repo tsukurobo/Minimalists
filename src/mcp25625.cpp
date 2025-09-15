@@ -21,6 +21,16 @@ bool mcp25625_t::init(CAN_SPEED speed) {
     // _reset();
     sleep_ms(10);
 
+    // INTピンを初期化
+    gpio_init(_int_pin);
+    gpio_set_dir(_int_pin, GPIO_OUT);
+    gpio_put(_int_pin, 1);
+
+    // TX0RTSピンを初期化
+    gpio_init(_tx0rts_pin);
+    gpio_set_dir(_tx0rts_pin, GPIO_OUT);
+    gpio_put(_tx0rts_pin, 1);
+
     if (!_set_mode(MODE_CONFIG)) {  // コンフィグレーションモードに設定 [cite: 295]
         printf("[ERROR] Failed to set configuration mode.\n");
         return false;
@@ -37,6 +47,10 @@ bool mcp25625_t::init(CAN_SPEED speed) {
 
     _modify_register(MCP_CANINTE, 0xFF, 0x04);  // CANINTFの送信フラグTX0IFのみ許可
 
+    _modify_register(MCP_CANINTF, 0xFF, 0x00);  // CANINTF初期化
+
+    _modify_register(MCP_TXRTSCTRL, 0x3F, 0x01);
+
     if (!_set_mode(MODE_NORMAL)) {  // 通常動作モードに設定 [cite: 300]
         printf("[ERROR] Failed to set normal mode.\n");
         return false;
@@ -50,7 +64,7 @@ bool mcp25625_t::send_can_message(const struct can_frame_t* frame) {
     constexpr int max_wait = 200;  // 最大リトライ数（タイムアウト防止）
     for (int i = 0; i < max_wait; ++i) {
         if (!gpio_get(_int_pin)) {
-            _modify_register(MCP_CANINTF, 0xFF, 0x00);
+            // _modify_register(MCP_CANINTF, 0xFF, 0x00);
             // printf("int lowed");
             break;
         }
