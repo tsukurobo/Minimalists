@@ -47,12 +47,15 @@ void init() {
     write_torqueEnable(&UART0, DXL_ID5, false);
     write_torqueEnable(&UART0, DXL_ID6, false);
     sleep_ms(100);
-    write_position_Dgain(&UART0, DXL_ID5, 16000);
-    write_position_Pgain(&UART0, DXL_ID5, 1600);
-    write_position_Dgain(&UART0, DXL_ID6, 1900);
-    write_position_Pgain(&UART0, DXL_ID6, 2100);
+    write_position_Dgain(&UART0, DXL_ID5, 1000);
+    write_position_Dgain(&UART0, DXL_ID6, 500);
     sleep_ms(100);
-    write_dxl_current_limit(&UART0, DXL_ID5, 1400);  // ID=1, 電流制限=100mA
+    write_position_Pgain(&UART0, DXL_ID5, 80);
+    write_position_Pgain(&UART0, DXL_ID6, 1000);
+    sleep_ms(100);
+    write_position_Igain(&UART0, DXL_ID6, 100);
+    sleep_ms(100);
+    write_dxl_current_limit(&UART0, DXL_ID5, 350);   // ID=1, 電流制限=100mA
     write_dxl_current_limit(&UART0, DXL_ID6, 1400);  // ID=2, 電流制限=100mA
     sleep_ms(100);
     write_operatingMode(&UART0, DXL_ID5, false);
@@ -81,11 +84,12 @@ void exe_QuickArm(QuickArm_state_t* hand_state, bool* hand_requested, absolute_t
                 *state_start_time = get_absolute_time();
                 gpio_put(PUMP_PIN_SUB, 1);
                 control_position_multiturn(&UART0, DXL_ID5, CATCH_ANGLE);
+                printf("Hand catching position %d\n");
             }
             break;
 
         case CATCHING_POSITON:
-            if (elapsed_ms >= 490) {  // 500
+            if (elapsed_ms >= 500) {  // 500
                 *hand_state = HAND_DROPPING;
                 *state_start_time = get_absolute_time();
                 printf("Hand dropping...\n");
@@ -101,7 +105,7 @@ void exe_QuickArm(QuickArm_state_t* hand_state, bool* hand_requested, absolute_t
             break;
 
         case CATCHING_WAIT:
-            if (elapsed_ms >= 100) {
+            if (elapsed_ms >= 150) {
                 *hand_state = HAND_LIFTING;
                 *state_start_time = get_absolute_time();
                 control_position_multiturn(&UART0, DXL_ID6, UPPER_ANGLE);
@@ -110,7 +114,7 @@ void exe_QuickArm(QuickArm_state_t* hand_state, bool* hand_requested, absolute_t
             break;
 
         case HAND_LIFTING:
-            if (elapsed_ms >= 490) {
+            if (elapsed_ms >= 500) {
                 control_position_multiturn(&UART0, DXL_ID5, SHOOTING_ANGLE);
                 printf("Hand raised, work done.\n");
                 *state_start_time = get_absolute_time();
@@ -119,9 +123,10 @@ void exe_QuickArm(QuickArm_state_t* hand_state, bool* hand_requested, absolute_t
             break;
 
         case SHOOTING_POSITION:
-            if (elapsed_ms >= 450) {  // 1000
-                *hand_state = HAND_FINISH;
+            if (elapsed_ms >= 500) {
+                *hand_state = HAND_FOLD;
                 *state_start_time = get_absolute_time();
+                gpio_put(PUMP_PIN_SUB, 0);      // ポンプ停止
                 gpio_put(SOLENOID_PIN_SUB, 1);  // ソレノイドを非吸着状態にする
                 printf("Hand in shooting position, pump off.\n");
             }
@@ -129,13 +134,16 @@ void exe_QuickArm(QuickArm_state_t* hand_state, bool* hand_requested, absolute_t
 
         case HAND_FOLD:
             if (elapsed_ms >= 100) {
+                *state_start_time = get_absolute_time();
                 control_position_multiturn(&UART0, DXL_ID5, INTER_POINT);
+                printf("Hand folding...\n");
                 *hand_state = HAND_FINISH;
             }
 
         case HAND_FINISH:
-            if (elapsed_ms >= 450) {
+            if (elapsed_ms >= 500) {
                 control_position_multiturn(&UART0, DXL_ID5, FOLD_ANGLE);
+                printf("Hand folded, work done.\n");
             }
             break;
     }

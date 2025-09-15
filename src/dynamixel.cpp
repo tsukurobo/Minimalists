@@ -165,7 +165,6 @@ int write_torqueEnable(const uart_config_t* config, uint8_t id, bool on) {
 int write_dxl_led(const uart_config_t* config, uint8_t id, uint8_t on) {
     uint8_t packet[13];
     uint16_t crc;
-
     packet[0] = 0xFF;
     packet[1] = 0xFF;
     packet[2] = 0xFD;
@@ -177,20 +176,16 @@ int write_dxl_led(const uart_config_t* config, uint8_t id, uint8_t on) {
     packet[8] = 0x41;               // Address L
     packet[9] = 0x00;               // Address H
     packet[10] = on ? 0x01 : 0x00;  // LED value
-
     crc = update_crc(0, packet, 11);
     packet[11] = crc & 0xFF;
     packet[12] = (crc >> 8) & 0xFF;
-
     send_packet(config, packet, 13);
-
     return 0;
 }
 
 int write_goalCurrent(const uart_config_t* config, uint8_t id, int16_t value) {
     uint8_t packet[14];
     uint16_t crc;
-
     packet[0] = 0xFF;
     packet[1] = 0xFF;
     packet[2] = 0xFD;
@@ -203,13 +198,10 @@ int write_goalCurrent(const uart_config_t* config, uint8_t id, int16_t value) {
     packet[9] = 0x00;                  // Address H
     packet[10] = value & 0xFF;         // Data length L
     packet[11] = (value >> 8) & 0xFF;  // Data length H
-
     crc = update_crc(0, packet, 12);
     packet[12] = crc & 0xFF;
     packet[13] = (crc >> 8) & 0xFF;
-
     send_packet(config, packet, 14);
-
     return 0;
 }
 
@@ -516,7 +508,7 @@ int write_position_Pgain(const uart_config_t* config, uint8_t id, uint16_t Kp) {
     packet[10] = Kp & 0xFF;
     packet[11] = (Kp >> 8) & 0xFF;
 
-    crc = update_crc(0, packet, 11);
+    crc = update_crc(0, packet, 12);
     packet[12] = crc & 0xFF;
     packet[13] = (crc >> 8) & 0xFF;
 
@@ -535,12 +527,12 @@ int write_position_Dgain(const uart_config_t* config, uint8_t id, uint16_t Kd) {
     packet[5] = 0x07;  // LEN_L = 7
     packet[6] = 0x00;  // LEN_H
     packet[7] = 0x03;  // Instruction: WRITE
-    packet[8] = 0x50;  // Address L Pgain = 84
+    packet[8] = 0x50;  // Address L Dgain = 80
     packet[9] = 0x00;  // Address H
     packet[10] = Kd & 0xFF;
     packet[11] = (Kd >> 8) & 0xFF;
 
-    crc = update_crc(0, packet, 11);
+    crc = update_crc(0, packet, 12);
     packet[12] = crc & 0xFF;
     packet[13] = (crc >> 8) & 0xFF;
 
@@ -559,12 +551,12 @@ int write_position_Igain(const uart_config_t* config, uint8_t id, uint16_t Ki) {
     packet[5] = 0x07;  // LEN_L = 7
     packet[6] = 0x00;  // LEN_H
     packet[7] = 0x03;  // Instruction: WRITE
-    packet[8] = 0x52;  // Address L Pgain = 84
+    packet[8] = 0x52;  // Address I Pgain = 82
     packet[9] = 0x00;  // Address H
     packet[10] = Ki & 0xFF;
     packet[11] = (Ki >> 8) & 0xFF;
 
-    crc = update_crc(0, packet, 11);
+    crc = update_crc(0, packet, 12);
     packet[12] = crc & 0xFF;
     packet[13] = (crc >> 8) & 0xFF;
 
