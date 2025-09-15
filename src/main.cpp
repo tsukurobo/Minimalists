@@ -677,10 +677,10 @@ void core1_entry(void) {
         disturbance_torque_P = dob_P.update(control_torque_P, motor_velocity_P);  // 外乱トルクの更新
 
         // // トルクから電流への変換
-        // target_current[0] = target_torque_R / Mech::R_TORQUE_CONSTANT;  // Motor1 (R軸)
-        // target_current[1] = target_torque_P / Mech::P_TORQUE_CONSTANT;  // Motor2 (P軸)
-        target_current[0] = 0.0f;  // Motor1 (R軸)
-        target_current[1] = 0.0f;  // Motor2 (P軸)
+        target_current[0] = target_torque_R / Mech::R_TORQUE_CONSTANT;  // Motor1 (R軸)
+        target_current[1] = target_torque_P / Mech::P_TORQUE_CONSTANT;  // Motor2 (P軸)
+        // target_current[0] = 0.0f;  // Motor1 (R軸)
+        // target_current[1] = 0.0f;  // Motor2 (P軸)
 
         // --- 制御結果を共有データに保存 ---
         mutex_enter_blocking(&g_state_mutex);

@@ -14,22 +14,22 @@ mcp25625_t::mcp25625_t(spi_inst_t* spi, uint8_t cs_pin, uint8_t rst_pin)
     gpio_init(_cs_pin);
     gpio_set_dir(_cs_pin, GPIO_OUT);
     gpio_put(_cs_pin, 1);
+
+    // TX0RTSピンを初期化
+    gpio_init(_tx0rts_pin);
+    gpio_set_dir(_tx0rts_pin, GPIO_OUT);
+    gpio_put(_tx0rts_pin, 1);
+
+    // INTピンを初期化
+    gpio_init(_int_pin);
+    gpio_set_dir(_int_pin, GPIO_OUT);
+    gpio_put(_int_pin, 1);
 }
 
 // 初期化: リセット、ビットタイミング設定、通常モードへの移行
 bool mcp25625_t::init(CAN_SPEED speed) {
     // _reset();
     sleep_ms(10);
-
-    // INTピンを初期化
-    gpio_init(_int_pin);
-    gpio_set_dir(_int_pin, GPIO_OUT);
-    gpio_put(_int_pin, 1);
-
-    // TX0RTSピンを初期化
-    gpio_init(_tx0rts_pin);
-    gpio_set_dir(_tx0rts_pin, GPIO_OUT);
-    gpio_put(_tx0rts_pin, 1);
 
     if (!_set_mode(MODE_CONFIG)) {  // コンフィグレーションモードに設定 [cite: 295]
         printf("[ERROR] Failed to set configuration mode.\n");
@@ -63,18 +63,20 @@ bool mcp25625_t::init(CAN_SPEED speed) {
 bool mcp25625_t::send_can_message(const struct can_frame_t* frame) {
     constexpr int max_wait = 200;  // 最大リトライ数（タイムアウト防止）
     for (int i = 0; i < max_wait; ++i) {
+        /*
         if (!gpio_get(_int_pin)) {
             // _modify_register(MCP_CANINTF, 0xFF, 0x00);
             // printf("int lowed");
             break;
         }
-        /*
+        */
+
         uint8_t status = _read_register(MCP_TXB0CTRL);
         if ((status & 0x08) == 0) {
             break;  // 空きが確認できたら送信準備へ
         }
-        */
-        sleep_us(1);  // 必要に応じて調整（100usなど）
+
+        tight_loop_contents();  // 必要に応じて調整（100usなど）
         if (i == max_wait - 1) {
             return false;  // タイムアウト
         }
