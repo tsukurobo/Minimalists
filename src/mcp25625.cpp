@@ -22,8 +22,8 @@ mcp25625_t::mcp25625_t(spi_inst_t* spi, uint8_t cs_pin, uint8_t rst_pin)
 
     // INTピンを初期化
     gpio_init(_int_pin);
-    gpio_set_dir(_int_pin, GPIO_OUT);
-    gpio_put(_int_pin, 1);
+    gpio_set_dir(_int_pin, GPIO_IN);
+    gpio_pull_up(_int_pin);
 }
 
 // 初期化: リセット、ビットタイミング設定、通常モードへの移行
@@ -45,9 +45,9 @@ bool mcp25625_t::init(CAN_SPEED speed) {
     _modify_register(MCP_RXB0CTRL, 0x60, 0x60);
     _modify_register(MCP_RXB1CTRL, 0x60, 0x60);  // RXB1: 全受信 ←追加
 
-    _modify_register(MCP_CANINTE, 0xFF, 0x04);  // CANINTFの送信フラグTX0IFのみ許可
-
     _modify_register(MCP_CANINTF, 0xFF, 0x00);  // CANINTF初期化
+
+    _modify_register(MCP_CANINTE, 0xFF, 0x04);  // CANINTFの送信フラグTX0IFのみ許可
 
     _modify_register(MCP_TXRTSCTRL, 0x3F, 0x01);
 
@@ -63,18 +63,13 @@ bool mcp25625_t::init(CAN_SPEED speed) {
 bool mcp25625_t::send_can_message(const struct can_frame_t* frame) {
     constexpr int max_wait = 200;  // 最大リトライ数（タイムアウト防止）
     for (int i = 0; i < max_wait; ++i) {
-        /*
-        if (!gpio_get(_int_pin)) {
-            // _modify_register(MCP_CANINTF, 0xFF, 0x00);
-            // printf("int lowed");
-            break;
-        }
-        */
-
-        uint8_t status = _read_register(MCP_TXB0CTRL);
+        // if (!gpio_get(_int_pin)) {
+        int8_t status = _read_register(MCP_TXB0CTRL);
+        //_modify_register(MCP_CANINTF, 0xFF, 0x00);
         if ((status & 0x08) == 0) {
             break;  // 空きが確認できたら送信準備へ
         }
+        //}
 
         tight_loop_contents();  // 必要に応じて調整（100usなど）
         if (i == max_wait - 1) {
