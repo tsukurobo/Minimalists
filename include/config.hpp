@@ -127,9 +127,9 @@ constexpr float ENCODER_P_DIRECTION = 1.0f;  // P軸エンコーダの増加方�
 namespace TrajectoryConfig {
 constexpr float TRAJECTORY_CONTROL_PERIOD = MicrocontrollerConfig::CONTROL_PERIOD_S * 10;  // 軌道点の周期周期 [s]
 
-constexpr float TRAJECTORY_COMPLETION_TOLERANCE_R = 0.01f;        // R軸完了判定許容誤差 [rad](一番遠いワークまでの距離が790㎜、許容誤差を7.5㎜とした)
-constexpr float TRAJECTORY_COMPLETION_TOLERANCE_P = 0.1f;         // P軸完了判定許容誤差 [rad]
-constexpr float TRAJECTORY_COMPLETION_VELOCITY_THRESHOLD = 0.1f;  // 完了判定時の速度閾値 [rad/s]
+constexpr float TRAJECTORY_COMPLETION_TOLERANCE_R = 0.01f;         // R軸完了判定許容誤差 [rad](一番遠いワークまでの距離が790㎜、許容誤差を7.5㎜とした)
+constexpr float TRAJECTORY_COMPLETION_TOLERANCE_P = 0.1f;          // P軸完了判定許容誤差 [rad]
+constexpr float TRAJECTORY_COMPLETION_VELOCITY_THRESHOLD = 0.01f;  // 完了判定時の速度閾値 [rad/s]
 
 // 中継点座標（R軸 [rad]、P軸 [rad]）
 constexpr float INTERMEDIATE_POS_1[2] = {3.179f, -0.076f / MechanismConfig::gear_radius_P};
@@ -142,6 +142,7 @@ constexpr float INTERMEDIATE_POS_UNDER_3[2] = {1.989f, -0.328f / MechanismConfig
 enum class PassThroughMode : uint8_t {
     DIRECT,             // 中継点なし
     INTERMEDIATE_1,     // 中継点1のみ通過
+    INTERMEDIATE_2,     // 中継点2のみ通過
     INTERMEDIATE_12,    // 中継点1を通過してから中継点2も通過
     INTERMEDIATE_21,    // 中継点2を通過してから中継点1も通過
     INTERMEDIATE_1U1,   // 中継点1→中継点下1
@@ -150,6 +151,9 @@ enum class PassThroughMode : uint8_t {
     INTERMEDIATE_U11,   // 中継点下1→中継点1
     INTERMEDIATE_U21,   // 中継点下2→中継点1
     INTERMEDIATE_U31,   // 中継点下3→中継点
+    INTERMEDIATE_U12,   // 中継点下1→中継点2
+    INTERMEDIATE_U22,   // 中継点下2→中継点2
+    INTERMEDIATE_U32,   // 中継点下3→中継点2
     INTERMEDIATE_12U1,  // 中継点1→中継点2→中継点下1
     INTERMEDIATE_12U2,  // 中継点1→中継点2→中継点下2
     INTERMEDIATE_12U3,  // 中継点1→中継点2→中継点下3
@@ -159,7 +163,7 @@ enum class PassThroughMode : uint8_t {
 };
 
 // 軌道生成の最大速度
-constexpr float R_MAX_VELOCITY = 0.15 * MechanismConfig::R_MAX_VELOCITY;
+constexpr float R_MAX_VELOCITY = 0.5 * MechanismConfig::R_MAX_VELOCITY;
 constexpr float P_MAX_VELOCITY = 0.7 * MechanismConfig::P_MAX_VELOCITY;
 
 // 動き出しの加速は速く、止まるときの減速は遅く
@@ -223,9 +227,8 @@ constexpr uint16_t HAND_CURRENT_LIMIT = 1000;  // 電流制限 [mA]
 
 // 昇降機構用角度
 namespace LiftAngle {
-constexpr int32_t SHOOT_UP = -4500;  // シューティングエリア上段 -6480
-// constexpr int32_t SHOOT_LOW = -4100;      // シューティングエリア下段
-constexpr int32_t SHOOT_LOW = -2600;   // シューティングエリア下段
+constexpr int32_t SHOOT_UP = -4500;    // シューティングエリア上段 -6480
+constexpr int32_t SHOOT_LOW = -2300;   // シューティングエリア下段
 constexpr int32_t PRE_CATCH = 4600;    // ワークをつかむ前の高さ
 constexpr int32_t FRONT_CATCH = 5100;  // 前側のワークをつかむときの高さ
 constexpr int32_t BACK_CATCH = 5600;   // 後ろ側のワークをつかむときの高さ
