@@ -35,6 +35,8 @@ bool mcp25625_t::init(CAN_SPEED speed) {
     _modify_register(MCP_RXB0CTRL, 0x60, 0x60);
     _modify_register(MCP_RXB1CTRL, 0x60, 0x60);  // RXB1: 全受信 ←追加
 
+    _modify_register(MCP_CANINTE, 0xFF, 0x04);  // CANINTFの送信フラグTX0IFのみ許可
+
     if (!_set_mode(MODE_NORMAL)) {  // 通常動作モードに設定 [cite: 300]
         printf("[ERROR] Failed to set normal mode.\n");
         return false;
@@ -45,16 +47,19 @@ bool mcp25625_t::init(CAN_SPEED speed) {
 
 // CANメッセージを送信バッファにロードして送信要求
 bool mcp25625_t::send_can_message(const struct can_frame_t* frame) {
-    constexpr int max_wait = 250;  // 最大リトライ数（タイムアウト防止）
+    constexpr int max_wait = 200;  // 最大リトライ数（タイムアウト防止）
     for (int i = 0; i < max_wait; ++i) {
-        if (!gpio_get(_int_pin)) {  // 何らかの割込みでINTピン降下
-            uint8_t status = _read_register(MCP_TXB0CTRL);
-            if ((status & 0x08) == 0) {
-                _modify_register(MCP_CANINTF, MCP_TX0IF, 0x00);  // 送信割込みフラグ初期化、ダメならCANINTF全部初期化。
-                _modify_register(MCP_CANINTF, MCP_TX1IF, 0x00);
-                break;  // 空きが確認できたら送信準備へ
-            }
+        if (!gpio_get(_int_pin)) {
+            _modify_register(MCP_CANINTF, 0xFF, 0x00);
+            // printf("int lowed");
+            break;
         }
+        /*
+        uint8_t status = _read_register(MCP_TXB0CTRL);
+        if ((status & 0x08) == 0) {
+            break;  // 空きが確認できたら送信準備へ
+        }
+        */
         sleep_us(1);  // 必要に応じて調整（100usなど）
         if (i == max_wait - 1) {
             return false;  // タイムアウト
@@ -79,8 +84,10 @@ bool mcp25625_t::send_can_message(const struct can_frame_t* frame) {
     sleep_us(1);
 
     // 送信要求 (Request-to-Send) [cite: 496]
-    _request_to_send(MCP_RTS_TXB0);
-    sleep_us(1);  // 送信要求後の安定化時間
+    //_request_to_send(MCP_RTS_TXB0);
+    gpio_put(_tx0rts_pin, 0);
+    sleep_us(1);
+    gpio_put(_tx0rts_pin, 1);  // 送信要求後の安定化時間
 
     return true;
 }
@@ -219,7 +226,7 @@ void mcp25625_t::_modify_register(uint8_t address, uint8_t mask, uint8_t data) {
 }
 
 void mcp25625_t::_request_to_send(uint8_t instruction) {
-    gpio_put(_tx0rts_pin, 0);
-    sleep_us(2);
-    gpio_put(_tx0rts_pin, 1);
+    gpio_put(_cs_pin, 0);
+    spi_write_blocking(_spi, &instruction, 1);
+    gpio_put(_cs_pin, 1);
 }
