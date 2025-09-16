@@ -61,6 +61,8 @@ bool mcp25625_t::init(CAN_SPEED speed) {
 
 // CANメッセージを送信バッファにロードして送信要求
 bool mcp25625_t::send_can_message(const struct can_frame_t* frame) {
+    spi_set_baudrate(_spi, 10000000);
+
     constexpr int max_wait = 200;  // 最大リトライ数（タイムアウト防止）
     for (int i = 0; i < max_wait; ++i) {
         // if (!gpio_get(_int_pin)) {
@@ -73,6 +75,7 @@ bool mcp25625_t::send_can_message(const struct can_frame_t* frame) {
 
         tight_loop_contents();  // 必要に応じて調整（100usなど）
         if (i == max_wait - 1) {
+            spi_set_baudrate(_spi, 1'875'000);
             return false;  // タイムアウト
         }
     }
@@ -100,20 +103,28 @@ bool mcp25625_t::send_can_message(const struct can_frame_t* frame) {
     sleep_us(1);
     gpio_put(_tx0rts_pin, 1);  // 送信要求後の安定化時間
 
+    spi_set_baudrate(_spi, 1'875'000);
     return true;
 }
 
 // 受信メッセージがあるか確認
 bool mcp25625_t::check_receive() {
+    spi_set_baudrate(_spi, 10000000);
+
     uint8_t status = _read_register(MCP_CANINTF);
-    // // 取得したバッファ内容をダンプ
-    // printf("CANINTF: 0x%02X\n", status);
+
+    spi_set_baudrate(_spi, 1'875'000);
+    //  // 取得したバッファ内容をダンプ
+    //  printf("CANINTF: 0x%02X\n", status);
     return (status & (MCP_RX0IF | MCP_RX1IF)) != 0;
 }
 
 // 受信バッファからCANメッセージを読み出す
 bool mcp25625_t::read_can_message(struct can_frame_t* frame) {
+    spi_set_baudrate(_spi, 4000000);
+
     if (!check_receive()) {
+        spi_set_baudrate(_spi, 1'875'000);
         return false;
     }
     uint8_t status = _read_register(MCP_CANINTF);
@@ -129,6 +140,7 @@ bool mcp25625_t::read_can_message(struct can_frame_t* frame) {
         }
         // RX0IFフラグをクリア
         _modify_register(MCP_CANINTF, MCP_RX0IF, 0x00);
+        spi_set_baudrate(_spi, 1'875'000);
         return true;
     } else if (status & MCP_RX1IF) {
         // RXB1にメッセージあり
@@ -142,8 +154,10 @@ bool mcp25625_t::read_can_message(struct can_frame_t* frame) {
         }
         // RX1IFフラグをクリア
         _modify_register(MCP_CANINTF, MCP_RX1IF, 0x00);
+        spi_set_baudrate(_spi, 1'875'000);
         return true;
     }
+    spi_set_baudrate(_spi, 1'875'000);
     return false;
 }
 
