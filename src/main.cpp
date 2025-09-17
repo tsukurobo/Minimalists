@@ -205,9 +205,17 @@ bool calculate_trajectory_core0(
     if (has_inter1) sections[section_count++] = {current_position, intermediate_pos1};
     if (has_inter2) sections[section_count++] = {intermediate_pos1, intermediate_pos2};
     if (has_inter3) sections[section_count++] = {intermediate_pos2, intermediate_pos3};
-    sections[section_count++] = {
-        has_inter3 ? intermediate_pos3 : (has_inter2 ? intermediate_pos2 : (has_inter1 ? intermediate_pos1 : current_position)),
-        target_position};
+    const float* final_section_start_pos;
+    if (has_inter3) {
+        final_section_start_pos = intermediate_pos3;
+    } else if (has_inter2) {
+        final_section_start_pos = intermediate_pos2;
+    } else if (has_inter1) {
+        final_section_start_pos = intermediate_pos1;
+    } else {
+        final_section_start_pos = current_position;
+    }
+    sections[section_count++] = {final_section_start_pos, target_position};
 
     int current_section = 0;
     float section_start_time = 0.0f;
