@@ -446,7 +446,7 @@ void handle_disturbance_trigger() {
     last_button_press_time = now;
 
     // 妨害レベルを変化させる
-    g_disturbance_level = (g_disturbance_level) % 2 + 1;  // 1→2→1→2...
+    g_disturbance_level = (g_disturbance_level) % 2 + 1;  // 0→1→2→1→2...
 }
 
 // ボタンを押したときのコールバック関数
