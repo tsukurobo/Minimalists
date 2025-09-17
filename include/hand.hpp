@@ -16,7 +16,7 @@ typedef enum {
 
 typedef enum {
     HAND_STANDBY,
-    CATCHING_POSITON,
+    CATCHING_POSITION,
     HAND_DROPPING,
     CATCHING_WAIT,
     HAND_LIFTING,

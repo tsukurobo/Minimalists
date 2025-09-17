@@ -264,24 +264,24 @@ namespace QuickArmConfig {
 // 手先角度
 constexpr int32_t START_HAND_ANGLE = 3060;  // 手先の初期角度
 constexpr int32_t CATCH_ANGLE = 3770;
-constexpr int32_t SHOOTING_ANGLE = 2650;
+constexpr int32_t SHOOTING_ANGLE = 2590;
 constexpr int32_t INTER_POINT = 3900;
 constexpr int32_t FOLD_ANGLE = 4751;
 
 // 昇降機構用角度
-constexpr int32_t START_UP_ANGLE = 1617;
+constexpr int32_t START_UP_ANGLE = 1300;
 constexpr int32_t UPPER_ANGLE = -410;
 constexpr int32_t LOWER_ANGLE = 5961;
 
 // PIDゲイン
-constexpr uint16_t ROTATE_POSITION_P_GAIN = 80;
+constexpr uint16_t ROTATE_POSITION_P_GAIN = 100;
 constexpr uint16_t ROTATE_POSITION_I_GAIN = 0;  // 使ってない
 constexpr uint16_t ROTATE_POSITION_D_GAIN = 1000;
 constexpr uint16_t LIFT_POSITION_P_GAIN = 1000;
-constexpr uint16_t LIFT_POSITION_I_GAIN = 100;
+constexpr uint16_t LIFT_POSITION_I_GAIN = 0;
 constexpr uint16_t LIFT_POSITION_D_GAIN = 500;
 // 電流制限
-constexpr uint32_t ROTATE_CURRENT_LIMIT = 350;  // 電流制限 [mA]
+constexpr uint32_t ROTATE_CURRENT_LIMIT = 300;  // 電流制限 [mA]
 constexpr uint32_t LIFT_CURRENT_LIMIT = 1400;   // 電流制限 [mA]
 // ピン設定
 constexpr uint8_t SOLENOID_PIN = 17;

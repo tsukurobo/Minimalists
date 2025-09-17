@@ -393,39 +393,40 @@ void init_hand_dist() {
 }
 
 // 　最速アーム実行
-void exe_QuickArm(QuickArm_state_t* quick_arm_state, absolute_time_t* state_start_time) {
-    uint32_t elapsed_ms = absolute_time_diff_us(*state_start_time, get_absolute_time()) / 1000;
+void exe_QuickArm(QuickArm_state_t* quick_arm_state) {
+    static absolute_time_t state_start_time = get_absolute_time();
+    uint32_t elapsed_ms = absolute_time_diff_us(state_start_time, get_absolute_time()) / 1000;
     switch (*quick_arm_state) {
         case HAND_STANDBY:
             g_debug_manager->debug("hand requested\n");
-            *quick_arm_state = CATCHING_POSITON;
-            *state_start_time = get_absolute_time();
+            *quick_arm_state = CATCHING_POSITION;
+            state_start_time = get_absolute_time();
             gpio_put(QuickArmConfig::PUMP_PIN, 1);
             control_position_multiturn(&UART0, QuickArmConfig::DXL_ID_ROTATE, QuickArmConfig::CATCH_ANGLE);
             g_debug_manager->debug("Hand catching position %d\n");
 
             break;
 
-        case CATCHING_POSITON:
+        case CATCHING_POSITION:
             if (elapsed_ms >= 500) {  // 500
                 *quick_arm_state = HAND_DROPPING;
-                *state_start_time = get_absolute_time();
+                state_start_time = get_absolute_time();
                 g_debug_manager->debug("Hand dropping...\n");
                 control_position_multiturn(&UART0, QuickArmConfig::DXL_ID_LIFT, QuickArmConfig::LOWER_ANGLE);
             }
             break;
 
         case HAND_DROPPING:
-            if (elapsed_ms >= 300) {
+            if (elapsed_ms >= 600) {
                 *quick_arm_state = CATCHING_WAIT;
-                *state_start_time = get_absolute_time();
+                state_start_time = get_absolute_time();
             }
             break;
 
         case CATCHING_WAIT:
             if (elapsed_ms >= 150) {
                 *quick_arm_state = HAND_LIFTING;
-                *state_start_time = get_absolute_time();
+                state_start_time = get_absolute_time();
                 control_position_multiturn(&UART0, QuickArmConfig::DXL_ID_LIFT, QuickArmConfig::UPPER_ANGLE);
                 g_debug_manager->debug("Hand raising...\n");
             }
@@ -435,15 +436,15 @@ void exe_QuickArm(QuickArm_state_t* quick_arm_state, absolute_time_t* state_star
             if (elapsed_ms >= 500) {
                 control_position_multiturn(&UART0, QuickArmConfig::DXL_ID_ROTATE, QuickArmConfig::SHOOTING_ANGLE);
                 g_debug_manager->debug("Hand raised, work done.\n");
-                *state_start_time = get_absolute_time();
+                state_start_time = get_absolute_time();
                 *quick_arm_state = SHOOTING_POSITION;
             }
             break;
 
         case SHOOTING_POSITION:
-            if (elapsed_ms >= 500) {
+            if (elapsed_ms >= 700) {
                 *quick_arm_state = HAND_FOLD;
-                *state_start_time = get_absolute_time();
+                state_start_time = get_absolute_time();
                 gpio_put(QuickArmConfig::PUMP_PIN, 0);      // ポンプ停止
                 gpio_put(QuickArmConfig::SOLENOID_PIN, 1);  // ソレノイドを非吸着状態にする
                 g_debug_manager->debug("Hand in shooting position, pump off.\n");
@@ -452,7 +453,7 @@ void exe_QuickArm(QuickArm_state_t* quick_arm_state, absolute_time_t* state_star
 
         case HAND_FOLD:
             if (elapsed_ms >= 100) {
-                *state_start_time = get_absolute_time();
+                state_start_time = get_absolute_time();
                 control_position_multiturn(&UART0, QuickArmConfig::DXL_ID_ROTATE, QuickArmConfig::INTER_POINT);
                 g_debug_manager->debug("Hand folding...\n");
                 *quick_arm_state = HAND_FINISH;
@@ -550,7 +551,7 @@ void hand_tick(hand_state_t* hand_state, bool* has_work, absolute_time_t* state_
 
 // 妨害展開・最速アームの割り込みハンドラ
 void handle_disturbance_trigger() {
-    if (g_moving_quick_arm) {
+    if (g_moving_quick_arm && (g_quickarm_state != HAND_END)) {
         return;  // 高速アーム動作中は無視
     }
 
@@ -1129,7 +1130,6 @@ int main(void) {
     absolute_time_t hand_timer = get_absolute_time();
 
     int prev_disturbance_level = -1;  // 前回の妨害レベルを保持
-    absolute_time_t quick_arm_timer = get_absolute_time();
 
     while (1) {
         // 妨害の展開
@@ -1142,16 +1142,16 @@ int main(void) {
                     g_debug_manager->info("Disturbance deploying to 1st stage.");
                     g_moving_quick_arm = true;  // 高速アーム動作中フラグを立てる
                     control_position_multiturn(&UART1, Dist::DXL_ID_LEFT, Dist::LEFT_DEPLOY_1ST);
-                    sleep_ms(100);
+                    sleep_ms(1);
                     control_position_multiturn(&UART1, Dist::DXL_ID_RIGHT, Dist::RIGHT_DEPLOY_1ST);
-                    sleep_ms(100);
+                    sleep_ms(1);
                     break;
                 case 2:  // 2段階目
                     g_debug_manager->info("Disturbance deploying to 2nd stage.");
                     control_position_multiturn(&UART1, Dist::DXL_ID_LEFT, Dist::LEFT_DEPLOY_2ND);
-                    sleep_ms(100);
+                    sleep_ms(1);
                     control_position_multiturn(&UART1, Dist::DXL_ID_RIGHT, Dist::RIGHT_DEPLOY_2ND);
-                    sleep_ms(100);
+                    sleep_ms(1);
                     break;
             }
             prev_disturbance_level = g_disturbance_level;  // 状態を更新
@@ -1159,7 +1159,7 @@ int main(void) {
 
         // 高速アーム処理
         if (g_moving_quick_arm && (g_quickarm_state != QuickArm_state_t::HAND_END)) {
-            exe_QuickArm(&g_quickarm_state, &quick_arm_timer);
+            exe_QuickArm(&g_quickarm_state);
             sleep_us(10);
             continue;
         }
