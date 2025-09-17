@@ -181,7 +181,7 @@ bool calculate_trajectory_core0(
     // R軸のみ軌道を計算
     trajectory_R_core0.calculate_s_curve_trajectory_params();
     float total_time_R = trajectory_R_core0.get_total_time();  // R軸の総移動時間[s]
-    int point_count = static_cast<int>(total_time_R / Traj::TRAJECTORY_CONTROL_PERIOD) + 1;
+    int point_count = static_cast<int>(total_time_R / Traj::TRAJECTORY_CONTROL_PERIOD) + 100;
     if (point_count > Traj::MAX_TRAJECTORY_POINTS) {
         g_debug_manager->error("Calculated R trajectory points %d exceed maximum limit!\n", point_count);
         return false;
@@ -240,6 +240,19 @@ bool calculate_trajectory_core0(
             trajectory_P_core0.set_start_pos(sections[current_section].start_pos[1]);
             trajectory_P_core0.set_end_pos(sections[current_section].end_pos[1]);
             trajectory_P_core0.calculate_s_curve_trajectory_params();
+
+            // 最後の区間に入る場合
+            if (current_section + 1 == section_count) {
+                float remaining_time = total_time_R - time;
+                float new_total_time_P = trajectory_P_core0.get_total_time();
+                if (new_total_time_P > remaining_time) {
+                    point_count = i + static_cast<int>(new_total_time_P / Traj::TRAJECTORY_CONTROL_PERIOD) + 1;
+                    if (point_count > Traj::MAX_TRAJECTORY_POINTS) {
+                        g_debug_manager->error("Adjusted trajectory points %d exceed maximum limit!\n", point_count);
+                        return false;
+                    }
+                }
+            }
         }
 
         trajectory_points[i] = {pos_R, vel_R, acc_R, pos_P, vel_P, acc_P};
