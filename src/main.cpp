@@ -181,7 +181,7 @@ bool calculate_trajectory_core0(
     // R軸のみ軌道を計算
     trajectory_R_core0.calculate_s_curve_trajectory_params();
     float total_time_R = trajectory_R_core0.get_total_time();  // R軸の総移動時間[s]
-    int point_count = static_cast<int>(total_time_R / Traj::TRAJECTORY_CONTROL_PERIOD) + 100;
+    int point_count = static_cast<int>(total_time_R / Traj::TRAJECTORY_CONTROL_PERIOD) + 1;
     if (point_count > Traj::MAX_TRAJECTORY_POINTS) {
         g_debug_manager->error("Calculated R trajectory points %d exceed maximum limit!\n", point_count);
         return false;
