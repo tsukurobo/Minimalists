@@ -308,6 +308,10 @@ void init_hand_dist() {
     gpio_set_dir(Hand::PUMP_PIN, GPIO_OUT);
     gpio_init(Hand::SOLENOID_PIN);
     gpio_set_dir(Hand::SOLENOID_PIN, GPIO_OUT);
+    gpio_init(QuickArmConfig::PUMP_PIN);
+    gpio_set_dir(QuickArmConfig::PUMP_PIN, GPIO_OUT);
+    gpio_init(QuickArmConfig::SOLENOID_PIN);
+    gpio_set_dir(QuickArmConfig::SOLENOID_PIN, GPIO_OUT);
 
     sleep_ms(1000);  // GPIO初期化後の安定化待ち
 
