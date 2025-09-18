@@ -47,6 +47,15 @@ float clampTorque(float torque, float max_torque) {
     return torque;
 }
 
+float clamp(float value, float min_value, float max_value) {
+    if (value < min_value) {
+        return min_value;
+    } else if (value > max_value) {
+        return max_value;
+    }
+    return value;
+}
+
 // 共有データ構造体
 typedef struct
 {
@@ -684,11 +693,16 @@ void core1_entry(void) {
             }
         }
 
+        // R軸の慣性を更新
+        float updated_inertia_R = Mech::R_EQ_INERTIA + Mech::P_MASS * (motor_position_P * Mech::gear_radius_P - Mech::P_CENTER_OF_MASS) * (motor_position_P * Mech::gear_radius_P - Mech::P_CENTER_OF_MASS);
+        updated_inertia_R = clamp(updated_inertia_R, Mech::R_INERTIA_MIN, Mech::R_INERTIA_MAX);  // 慣性の下限・上限を設定
+        dob_R.set_inertia(updated_inertia_R);
+
         // --- 制御計算 ---
         // R軸の制御計算
-        error_position_R = Mech::R_EQ_INERTIA * Ctrl::R_POSITION_GAIN * (trajectory_target_pos_R - motor_position_R);
-        error_velocity_R = Mech::R_EQ_INERTIA * Ctrl::R_VELOCITY_GAIN * (trajectory_target_vel_R - motor_velocity_R);
-        acceleration_feedforward_R = Mech::R_EQ_INERTIA * trajectory_target_accel_R;
+        error_position_R = updated_inertia_R * Ctrl::R_POSITION_GAIN * (trajectory_target_pos_R - motor_position_R);
+        error_velocity_R = updated_inertia_R * Ctrl::R_VELOCITY_GAIN * (trajectory_target_vel_R - motor_velocity_R);
+        acceleration_feedforward_R = updated_inertia_R * trajectory_target_accel_R;
         control_torque_R = error_position_R + error_velocity_R + disturbance_torque_R + acceleration_feedforward_R;  // 制御トルク計算
         target_torque_R = clampTorque(control_torque_R, Mech::R_MAX_TORQUE);                                         // 制御トルク制限
         control_torque_R = target_torque_R;                                                                          // 制御トルクを目標トルクに設定

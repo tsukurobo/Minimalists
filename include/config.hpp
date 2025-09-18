@@ -100,19 +100,25 @@ constexpr float gear_ratio_R = 3.0f;     // M3508出力軸からベース根本(
 constexpr float gear_ratio_P = 1.0f;     // M2006 P36出力軸からラックまで(ギアなし)
 constexpr float gear_radius_P = 0.025f;  // ギアの半径 (m) - M2006の出力軸からラックまでの距離が25mm
 
-// R軸（ベース回転）の動力学パラメータ（定数で表現）
-constexpr float R_EQ_INERTIA = 0.3279f;                   // 等価慣性モーメント (kg·m^2)
+// R軸（ベース回転）の動力学パラメータ
+constexpr float R_EQ_INERTIA = 0.2660f;                   // 等価慣性モーメント (kg·m^2)
 constexpr float R_EQ_DAMPING = 0.4084f;                   // 等価粘性摩擦係数 (N·m·s/rad)
 constexpr float R_TORQUE_CONSTANT = 0.3f * gear_ratio_R;  // 等価トルク定数（M3508のトルク定数xギア比） (Nm/A)
+constexpr float R_INERTIA_MAX = 0.600f;                   // R軸慣性の上限値 (kg·m^2)
+constexpr float R_INERTIA_MIN = R_EQ_INERTIA;             // R軸慣性の下限値 (kg·m^2)
 
-// P軸（アーム直動）の動力学パラメータ（定数で表現）
+// P軸（アーム直動）の動力学パラメータ
 constexpr float P_EQ_INERTIA = 0.00448f;                   // 等価慣性モーメント (kg·m^2)
 constexpr float P_EQ_DAMPING = 0.00785f;                   // 粘性摩擦係数 (N·m·s/rad)
 constexpr float P_TORQUE_CONSTANT = 0.18f * gear_ratio_P;  // 等価トルク定数（M2006のトルク定数xギア比） (Nm/A)
 
+// P軸のパラメータだが，R軸の慣性計算に使用
+constexpr float P_MASS = 1.0f;              // アームの質量 (kg)
+constexpr float P_CENTER_OF_MASS = 0.175f;  // P軸の重心位置 (m) - ベース回転軸からアームの重心までの距離
+
 constexpr float R_MAX_TORQUE = /*3.0f*/ 1.0f * gear_ratio_R;                // R軸最大トルク制限 [Nm] (M3508最大連続トルク 3.0Nm)
 constexpr float P_MAX_TORQUE = 1.0f * gear_ratio_P;                         // P軸最大トルク制限 [Nm] (M2006最大連続トルク 1.0Nm)
-constexpr float R_MAX_ACCELERATION = R_MAX_TORQUE / R_EQ_INERTIA;           // R軸最大角加速度 [rad/s^2]
+constexpr float R_MAX_ACCELERATION = R_MAX_TORQUE / R_INERTIA_MAX;          // R軸最大角加速度 [rad/s^2] 最大慣性で計算
 constexpr float P_MAX_ACCELERATION = P_MAX_TORQUE / P_EQ_INERTIA;           // P軸最大角加速度 [rad/s^2]
 constexpr float R_MAX_VELOCITY = 469.0 / 60.0 * 2.0 * PI_F / gear_ratio_R;  // R軸最大速度制限 [rad/s] Maximum speed at 3N•m: 469rpm
 constexpr float P_MAX_VELOCITY = 416.0 / 60.0 * 2.0 * PI_F / gear_ratio_P;  // P軸最大速度制限 [rad/s] Maximum speed at 1N•m: 416 rpm
