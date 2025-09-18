@@ -40,7 +40,14 @@ AMT223V_Manager encoder_manager(SPI1_CONFIG.spi_port, SPI1_CONFIG.pin_miso, SPI1
 robomaster_motor_t motor1(&can, 1, Mech::gear_ratio_R);  // motor_id=1
 robomaster_motor_t motor2(&can, 2, Mech::gear_ratio_P);  // motor_id=2
 
+// シューティングエリアのサーボ
 Servo shooting_servo(ShootingConfig::SERVO_PIN);
+bool is_moving_shooting_servo = false;
+absolute_time_t g_last_shoot_servo_time = {0};
+void move_shooting_servo() {
+    is_moving_shooting_servo = true;
+    g_last_shoot_servo_time = get_absolute_time();
+}
 
 float clampTorque(float torque, float max_torque) {
     if (torque > max_torque) {
@@ -1168,17 +1175,20 @@ int main(void) {
             continue;
         }
 
-        // シューティングエリアのサーボを3秒に1回動かす
-        static absolute_time_t last_shoot_servo_time = get_absolute_time();
-        absolute_time_t now = get_absolute_time();
-        if (absolute_time_diff_us(last_shoot_servo_time, now) >= 3'000'000 &&
-            absolute_time_diff_us(last_shoot_servo_time, now) < 6'000'000) {
-            g_debug_manager->debug("Set shooting servo angle to correction angle.");
-            shooting_servo.set_angle(ShootingConfig::CORRECTION_ANGLE);
-        } else if (absolute_time_diff_us(last_shoot_servo_time, now) >= 6'000'000) {
-            g_debug_manager->debug("Set shooting servo angle to idle angle.");
-            shooting_servo.set_angle(ShootingConfig::IDLE_ANGLE);
-            last_shoot_servo_time = now;
+        // シューティングエリアのサーボを動かす指示が来てから1秒後に1秒間動かして戻す
+        if (is_moving_shooting_servo) {
+            absolute_time_t now = get_absolute_time();
+            if (absolute_time_diff_us(g_last_shoot_servo_time, now) >= 1'000'000 &&
+                absolute_time_diff_us(g_last_shoot_servo_time, now) < 2'000'000) {
+                g_debug_manager->debug("Set shooting servo angle to correction angle.");
+                printf("Set shooting servo angle to correction angle.\n");
+                shooting_servo.set_angle(ShootingConfig::CORRECTION_ANGLE);
+            } else if (absolute_time_diff_us(g_last_shoot_servo_time, now) >= 2'000'000) {
+                g_debug_manager->debug("Set shooting servo angle to idle angle.");
+                printf("Set shooting servo angle to idle angle.\n");
+                shooting_servo.set_angle(ShootingConfig::IDLE_ANGLE);
+                is_moving_shooting_servo = false;
+            }
         }
 
         // FIFOから同期信号を待機（ブロッキング）
@@ -1344,6 +1354,7 @@ int main(void) {
                     hand_tick(&hand_state, &has_work, &hand_timer, all_waypoints[seq_index].end_effector_angle, all_waypoints[seq_index].end_effector_height);
                     if (hand_state == HAND_IDLE) {
                         try_start_next_trajectory();
+                        move_shooting_servo();  // シューティングエリア用サーボを動かす
                     }
                     break;
             }
