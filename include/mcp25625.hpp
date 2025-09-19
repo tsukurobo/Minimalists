@@ -65,6 +65,9 @@ constexpr uint8_t MCP_B2RTSM = 0x04;
 constexpr uint8_t _int_pin = 9;
 constexpr uint8_t _tx0rts_pin = 14;
 
+uint8_t cpsr_fast, scr_fast, cpsr_slow, scr_slow;
+float real_fast, real_slow;
+
 /**
  * @enum CAN_SPEED
  * @brief CAN通信のボーレート設定

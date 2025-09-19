@@ -5,6 +5,8 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "config.hpp"
+
 // #include "hardware/spi.h"
 #include "hardware/clocks.h"
 #include "hardware/regs/spi.h"     // レジスタビット定義
@@ -113,7 +115,9 @@ bool mcp25625_t::init(CAN_SPEED speed) {
 
 // CANメッセージを送信バッファにロードして送信要求
 bool mcp25625_t::send_can_message(const struct can_frame_t* frame) {
-    spi_set_baudrate(_spi, 10000000);
+    uint32_t clk_peri_hz = clock_get_hz(clk_peri);
+    pick_dividers(clk_peri_hz, SPI::BBAUDRATE_MAX, &cpsr_fast, &scr_fast, &real_fast);
+    spi_set_div_fast(spi, cpsr, scr);
 
     constexpr int max_wait = 200;  // 最大リトライ数（タイムアウト防止）
     for (int i = 0; i < max_wait; ++i) {
@@ -124,7 +128,7 @@ bool mcp25625_t::send_can_message(const struct can_frame_t* frame) {
 
         tight_loop_contents();
         if (i == max_wait - 1) {
-            spi_set_baudrate(_spi, 1'875'000);
+            pick_dividers(clk_peri_hz, SPI::BAUDRATE_DEFAULT, &cpsr_fast, &scr_fast, &real_fast);
             return false;  // タイムアウト
         }
     }
@@ -151,13 +155,16 @@ bool mcp25625_t::send_can_message(const struct can_frame_t* frame) {
     sleep_us(1);
     gpio_put(_tx0rts_pin, 1);  // 送信要求後の安定化時間
 
-    spi_set_baudrate(_spi, 1'875'000);
+    pick_dividers(clk_peri_hz, SPI::BBAUDRATE_DEFAULT, &cpsr_fast, &scr_fast, &real_fast);
+    spi_set_div_fast(spi, cpsr, scr);
     return true;
 }
 
 // 受信メッセージがあるか確認
 bool mcp25625_t::check_receive() {
-    spi_set_baudrate(_spi, 10000000);
+    uint32_t clk_peri_hz = clock_get_hz(clk_peri);
+    pick_dividers(clk_peri_hz, SPI::BBAUDRATE_MAX, &cpsr_fast, &scr_fast, &real_fast);
+    spi_set_div_fast(spi, cpsr, scr);
 
     uint8_t status = _read_register(MCP_CANINTF);
 
