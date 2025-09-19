@@ -65,9 +65,6 @@ constexpr uint8_t MCP_B2RTSM = 0x04;
 constexpr uint8_t _int_pin = 9;
 constexpr uint8_t _tx0rts_pin = 14;
 
-uint8_t cpsr_fast, scr_fast, cpsr_slow, scr_slow;
-float real_fast, real_slow;
-
 /**
  * @enum CAN_SPEED
  * @brief CAN通信のボーレート設定
@@ -158,4 +155,8 @@ class mcp25625_t {
     spi_inst_t* _spi;  ///< SPIインスタンス
     uint8_t _cs_pin;   ///< チップセレクトピン
     uint8_t _rst_pin;  ///< リセットピン
+
+    // SPIのクロック分周設定（高速・低速）
+    uint8_t cpsr_fast, scr_fast, cpsr_slow, scr_slow;
+    float real_fast, real_slow;
 };
