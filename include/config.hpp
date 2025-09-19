@@ -103,19 +103,25 @@ constexpr float gear_ratio_R = 3.0f;     // M3508出力軸からベース根本(
 constexpr float gear_ratio_P = 1.0f;     // M2006 P36出力軸からラックまで(ギアなし)
 constexpr float gear_radius_P = 0.025f;  // ギアの半径 (m) - M2006の出力軸からラックまでの距離が25mm
 
-// R軸（ベース回転）の動力学パラメータ（定数で表現）
-constexpr float R_EQ_INERTIA = 0.3279f;                   // 等価慣性モーメント (kg·m^2)
+// R軸（ベース回転）の動力学パラメータ
+constexpr float R_EQ_INERTIA = 0.2830f;                   // 等価慣性モーメント (kg·m^2)
 constexpr float R_EQ_DAMPING = 0.4084f;                   // 等価粘性摩擦係数 (N·m·s/rad)
 constexpr float R_TORQUE_CONSTANT = 0.3f * gear_ratio_R;  // 等価トルク定数（M3508のトルク定数xギア比） (Nm/A)
+constexpr float R_INERTIA_MAX = 0.600f;                   // R軸慣性の上限値 (kg·m^2)
+constexpr float R_INERTIA_MIN = R_EQ_INERTIA;             // R軸慣性の下限値 (kg·m^2)
 
-// P軸（アーム直動）の動力学パラメータ（定数で表現）
+// P軸（アーム直動）の動力学パラメータ
 constexpr float P_EQ_INERTIA = 0.00448f;                   // 等価慣性モーメント (kg·m^2)
 constexpr float P_EQ_DAMPING = 0.00785f;                   // 粘性摩擦係数 (N·m·s/rad)
 constexpr float P_TORQUE_CONSTANT = 0.18f * gear_ratio_P;  // 等価トルク定数（M2006のトルク定数xギア比） (Nm/A)
 
+// P軸のパラメータだが，R軸の慣性計算に使用
+constexpr float P_MASS = 2.280f;             // アームの質量 (kg)
+constexpr float P_CENTER_OF_MASS = 0.1880f;  // P軸の重心位置 (m) - ベース回転軸からアームの重心までの距離
+
 constexpr float R_MAX_TORQUE = /*3.0f*/ 1.0f * gear_ratio_R;                // R軸最大トルク制限 [Nm] (M3508最大連続トルク 3.0Nm)
 constexpr float P_MAX_TORQUE = 1.0f * gear_ratio_P;                         // P軸最大トルク制限 [Nm] (M2006最大連続トルク 1.0Nm)
-constexpr float R_MAX_ACCELERATION = R_MAX_TORQUE / R_EQ_INERTIA;           // R軸最大角加速度 [rad/s^2]
+constexpr float R_MAX_ACCELERATION = R_MAX_TORQUE / R_INERTIA_MAX;          // R軸最大角加速度 [rad/s^2] 最大慣性で計算
 constexpr float P_MAX_ACCELERATION = P_MAX_TORQUE / P_EQ_INERTIA;           // P軸最大角加速度 [rad/s^2]
 constexpr float R_MAX_VELOCITY = 469.0 / 60.0 * 2.0 * PI_F / gear_ratio_R;  // R軸最大速度制限 [rad/s] Maximum speed at 3N•m: 469rpm
 constexpr float P_MAX_VELOCITY = 416.0 / 60.0 * 2.0 * PI_F / gear_ratio_P;  // P軸最大速度制限 [rad/s] Maximum speed at 1N•m: 416 rpm
@@ -243,18 +249,18 @@ constexpr float START = 224.615f;
 }  // namespace HandAngle
 
 // dynamixelのID
-constexpr short DXL_ID1 = 0x01;  // 手先
-constexpr short DXL_ID2 = 0x02;  // 昇降
+constexpr uint8_t DXL_ID_HAND = 0x01;  // 手先
+constexpr uint8_t DXL_ID_LIFT = 0x02;  // 昇降
 }  // namespace HandConfig
 
 // ======= 妨害設定 ========
 namespace DisturbanceConfig {
-constexpr int32_t LEFT_DEPLOY_PRE = 1117;     // 左展開前
-constexpr int32_t LEFT_DEPLOY_1ST = 19872;    // 左展開1段階
-constexpr int32_t LEFT_DEPLOY_2ND = 30246;    // 左展開2段階(最奥)
-constexpr int32_t RIGHT_DEPLOY_PRE = 2085;    // 右展開前
-constexpr int32_t RIGHT_DEPLOY_1ST = -16852;  // 右展開1段階
-constexpr int32_t RIGHT_DEPLOY_2ND = -27046;  // 右展開2段階(最奥)
+constexpr int32_t LEFT_DEPLOY_PRE = 66;       // 左展開前
+constexpr int32_t LEFT_DEPLOY_1ST = 19862;    // 左展開1段階
+constexpr int32_t LEFT_DEPLOY_2ND = 29230;    // 左展開2段階(最奥)
+constexpr int32_t RIGHT_DEPLOY_PRE = 688;     // 右展開前
+constexpr int32_t RIGHT_DEPLOY_1ST = -19277;  // 右展開1段階
+constexpr int32_t RIGHT_DEPLOY_2ND = -28472;  // 右展開2段階(最奥)
 
 // dynamixelのID
 constexpr short DXL_ID_LEFT = 0x03;   // 左展開
@@ -263,8 +269,32 @@ constexpr short DXL_ID_RIGHT = 0x04;  // 右展開
 constexpr uint16_t DISTURBANCE_CURRENT_LIMIT = 500;  // 妨害機構の電流制限 [mA]
 }  // namespace DisturbanceConfig
 
-namespace FastArmConfig {
+namespace QuickArmConfig {
+// 手先角度
+constexpr int32_t START_HAND_ANGLE = 2010;  // 手先の初期角度
+constexpr int32_t CATCH_ANGLE = 2741;
+constexpr int32_t SHOOTING_ANGLE = 1539;
+constexpr int32_t INTER_POINT = 2900;
+constexpr int32_t FOLD_ANGLE = 3751;
+
+// 昇降機構用角度
+constexpr int32_t START_UP_ANGLE = 2603;
+constexpr int32_t UPPER_ANGLE = 1566;
+constexpr int32_t LOWER_ANGLE = 7868;
+
+// PIDゲイン
+constexpr uint16_t ROTATE_POSITION_P_GAIN = 100;
+constexpr uint16_t ROTATE_POSITION_I_GAIN = 0;  // 使ってない
+constexpr uint16_t ROTATE_POSITION_D_GAIN = 1000;
+constexpr uint16_t LIFT_POSITION_P_GAIN = 1000;
+constexpr uint16_t LIFT_POSITION_I_GAIN = 0;
+constexpr uint16_t LIFT_POSITION_D_GAIN = 500;
+// 電流制限
+constexpr uint32_t ROTATE_CURRENT_LIMIT = 400;  // 電流制限 [mA]
+constexpr uint32_t LIFT_CURRENT_LIMIT = 1400;   // 電流制限 [mA]
 // ピン設定
 constexpr uint8_t SOLENOID_PIN = 17;
 constexpr uint8_t PUMP_PIN = 3;
-}  // namespace FastArmConfig
+constexpr uint8_t DXL_ID_ROTATE = 5;
+constexpr uint8_t DXL_ID_LIFT = 6;
+}  // namespace QuickArmConfig
