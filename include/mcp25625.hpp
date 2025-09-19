@@ -157,6 +157,5 @@ class mcp25625_t {
     uint8_t _rst_pin;  ///< リセットピン
 
     // SPIのクロック分周設定（高速・低速）
-    uint8_t cpsr_fast, scr_fast, cpsr_slow, scr_slow;
-    float real_fast, real_slow;
+    uint8_t _cpsr_fast, _scr_fast, _cpsr_slow, _scr_slow;
 };

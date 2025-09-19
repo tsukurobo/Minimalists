@@ -82,8 +82,8 @@ mcp25625_t::mcp25625_t(spi_inst_t* spi, uint8_t cs_pin, uint8_t rst_pin)
     gpio_pull_up(_int_pin);
 
     uint32_t clk_peri_hz = clock_get_hz(clk_peri);
-    pick_dividers_le_u32(clk_peri_hz, SPI1::BAUDRATE_MAX, &cpsr_fast, &scr_fast);
-    pick_dividers_le_u32(clk_peri_hz, SPI1::BAUDRATE_DEFAULT, &cpsr_slow, &scr_slow);
+    pick_dividers_le_u32(clk_peri_hz, SPI1::BAUDRATE_MAX, &_cpsr_fast, &_scr_fast);
+    pick_dividers_le_u32(clk_peri_hz, SPI1::BAUDRATE_DEFAULT, &_cpsr_slow, &_scr_slow);
 }
 
 // 初期化: リセット、ビットタイミング設定、通常モードへの移行
@@ -121,16 +121,16 @@ bool mcp25625_t::init(CAN_SPEED speed) {
 
 // CANメッセージを送信バッファにロードして送信要求
 bool mcp25625_t::send_can_message(const struct can_frame_t* frame) {
-    spi_set_div_fast(_spi, cpsr_fast, scr_fast);
+    spi_set_div_fast(_spi, _cpsr_fast, _scr_fast);
 
-    absolute_time_t timeout = make_timeout_time_us(1000);  // 1000usタイムアウト
+    absolute_time_t timeout = make_timeout_time_us(400);  // 400usタイムアウト
     while (true) {
         uint8_t status = _read_register(MCP_TXB0CTRL);
         if ((status & 0x08) == 0) {
             break;  // 空きが確認できたら送信準備へ
         }
         if (time_reached(timeout)) {
-            spi_set_div_fast(_spi, cpsr_slow, scr_slow);
+            spi_set_div_fast(_spi, _cpsr_slow, _scr_slow);
             return false;  // タイムアウト
         }
     }
@@ -157,17 +157,17 @@ bool mcp25625_t::send_can_message(const struct can_frame_t* frame) {
     sleep_us(1);
     gpio_put(_tx0rts_pin, 1);  // 送信要求後の安定化時間
 
-    spi_set_div_fast(_spi, cpsr_slow, scr_slow);
+    spi_set_div_fast(_spi, _cpsr_slow, _scr_slow);
     return true;
 }
 
 // 受信メッセージがあるか確認
 bool mcp25625_t::check_receive() {
-    spi_set_div_fast(_spi, cpsr_fast, scr_fast);
+    spi_set_div_fast(_spi, _cpsr_fast, _scr_fast);
 
     uint8_t status = _read_register(MCP_CANINTF);
 
-    spi_set_div_fast(_spi, cpsr_slow, scr_slow);
+    spi_set_div_fast(_spi, _cpsr_slow, _scr_slow);
 
     //  // 取得したバッファ内容をダンプ
     //  printf("CANINTF: 0x%02X\n", status);
@@ -176,10 +176,10 @@ bool mcp25625_t::check_receive() {
 
 // 受信バッファからCANメッセージを読み出す
 bool mcp25625_t::read_can_message(struct can_frame_t* frame) {
-    spi_set_div_fast(_spi, cpsr_fast, scr_fast);
+    spi_set_div_fast(_spi, _cpsr_fast, _scr_fast);
 
     if (!check_receive()) {
-        spi_set_div_fast(_spi, cpsr_slow, scr_slow);
+        spi_set_div_fast(_spi, _cpsr_slow, _scr_slow);
         return false;
     }
     uint8_t status = _read_register(MCP_CANINTF);
@@ -195,7 +195,7 @@ bool mcp25625_t::read_can_message(struct can_frame_t* frame) {
         }
         // RX0IFフラグをクリア
         _modify_register(MCP_CANINTF, MCP_RX0IF, 0x00);
-        spi_set_div_fast(_spi, cpsr_slow, scr_slow);
+        spi_set_div_fast(_spi, _cpsr_slow, _scr_slow);
         return true;
     } else if (status & MCP_RX1IF) {
         // RXB1にメッセージあり
@@ -209,10 +209,10 @@ bool mcp25625_t::read_can_message(struct can_frame_t* frame) {
         }
         // RX1IFフラグをクリア
         _modify_register(MCP_CANINTF, MCP_RX1IF, 0x00);
-        spi_set_div_fast(_spi, cpsr_slow, scr_slow);
+        spi_set_div_fast(_spi, _cpsr_slow, _scr_slow);
         return true;
     }
-    spi_set_div_fast(_spi, cpsr_slow, scr_slow);
+    spi_set_div_fast(_spi, _cpsr_slow, _scr_slow);
     return false;
 }
 
