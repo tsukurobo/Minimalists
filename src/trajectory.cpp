@@ -36,7 +36,7 @@ void trajectory_t::calculate_s_curve_trajectory_params() {
         accel_time_ = max_vel_ / max_accel_;
         decel_time_ = max_vel_ * (1 - s_curve_ratio_) / max_decel_;
         s_curve_time_ = 2.0f * max_vel_ * s_curve_ratio_ / max_decel_;
-        total_time_ = accel_time_ + decel_time_;
+        total_time_ = accel_time_ + decel_time_ + s_curve_time_;
     } else {
         const_vel_time_ = (total_dist_ - accel_dist_0 - decel_dist_0 - s_curve_dist_0) / max_vel_;
         total_time_ = accel_time_ + const_vel_time_ + decel_time_ + s_curve_time_;
