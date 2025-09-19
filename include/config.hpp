@@ -138,11 +138,11 @@ constexpr float TRAJECTORY_COMPLETION_TOLERANCE_P = 0.1f;          // P軸完了
 constexpr float TRAJECTORY_COMPLETION_VELOCITY_THRESHOLD = 0.01f;  // 完了判定時の速度閾値 [rad/s]
 
 // 中継点座標（R軸 [rad]、P軸 [rad]）
-constexpr float INTERMEDIATE_POS_1[2] = {3.179f, -0.076f / MechanismConfig::gear_radius_P};
-constexpr float INTERMEDIATE_POS_2[2] = {3.571f, -0.215f / MechanismConfig::gear_radius_P};        // フィールド上の中継点
-constexpr float INTERMEDIATE_POS_UNDER_1[2] = {2.739f, -0.219f / MechanismConfig::gear_radius_P};  // 下1
-constexpr float INTERMEDIATE_POS_UNDER_2[2] = {2.343f, -0.232f / MechanismConfig::gear_radius_P};  // 下2
-constexpr float INTERMEDIATE_POS_UNDER_3[2] = {1.989f, -0.328f / MechanismConfig::gear_radius_P};  // 下3
+constexpr float INTERMEDIATE_POS_1[2] = {3.179f, 0.008f / MechanismConfig::gear_radius_P};
+constexpr float INTERMEDIATE_POS_2[2] = {3.961f, -0.0605f / MechanismConfig::gear_radius_P};       // フィールド上の中継点
+constexpr float INTERMEDIATE_POS_UNDER_1[2] = {2.508f, -0.097f / MechanismConfig::gear_radius_P};  // 下1
+constexpr float INTERMEDIATE_POS_UNDER_2[2] = {2.339f, -0.114f / MechanismConfig::gear_radius_P};  // 下2
+constexpr float INTERMEDIATE_POS_UNDER_3[2] = {1.997f, -0.225f / MechanismConfig::gear_radius_P};  // 下3
 
 // 中継点の通過パターン
 enum class PassThroughMode : uint8_t {
@@ -240,7 +240,7 @@ constexpr int32_t SHOOT_LOW = -2300;         // シューティングエリア�
 constexpr int32_t PRE_CATCH = 4600;          // ワークをつかむ前の高さ
 constexpr int32_t FRONT_CATCH = 5100;        // 前側のワークをつかむときの高さ
 constexpr int32_t BACK_CATCH = 5600;         // 後ろ側のワークをつかむときの高さ
-constexpr int32_t ENTER_COMMON_AREA = 2000;  // 共通エリアに入るときの高さ
+constexpr int32_t ENTER_COMMON_AREA = -2000;  // 共通エリアに入るときの高さ
 }  // namespace LiftAngle
 
 // 手先角度
