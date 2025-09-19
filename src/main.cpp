@@ -500,7 +500,7 @@ void hand_tick(hand_state_t* hand_state, bool* has_work, absolute_time_t* state_
     switch (*hand_state) {
         case HAND_IDLE:
             g_debug_manager->debug("hand requested\n");
-            if (*going_common_area) {  // 共通エリアへの向かうまでの高さ調整
+            if (*going_common_area) {  // 共通エリアへ向かう際の高さ調整
                 gpio_set_irq_enabled(BUTTON_PIN, GPIO_IRQ_EDGE_FALL, false);
                 *hand_state = HAND_WAITING;
                 *state_start_time = get_absolute_time();
