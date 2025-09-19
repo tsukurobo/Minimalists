@@ -1,5 +1,6 @@
 #include "config.hpp"
 #include "dynamixel.hpp"
+#include "hardware/watchdog.h"
 #include "servo.hpp"
 #include "trajectory.hpp"
 #include "trajectory_sequence_manager.hpp"
@@ -65,6 +66,15 @@ float clamp(float value, float min_value, float max_value) {
         return max_value;
     }
     return value;
+}
+
+void polling_default_LED_flashing() {
+    while (true) {
+        gpio_put(PICO_DEFAULT_LED_PIN, 1);
+        sleep_ms(200);
+        gpio_put(PICO_DEFAULT_LED_PIN, 0);
+        sleep_ms(200);
+    }
 }
 
 // 共有データ構造体
@@ -901,10 +911,28 @@ bool initialize_system() {
     gpio_set_dir(Mc::SHUTDOWN_PIN, GPIO_OUT);
     gpio_put(Mc::SHUTDOWN_PIN, 0);  // HIGHにしておくとPicoが動かないのでLOWに設定
 
-    sleep_ms(2000);  // 少し待機して安定化
+    sleep_ms(100);  // 少し待機して安定化
+
+    // LEDのGPIO初期化
+    gpio_init(PICO_DEFAULT_LED_PIN);
+    gpio_set_dir(PICO_DEFAULT_LED_PIN, GPIO_OUT);
+    gpio_init(LED::ALIVE_PIN);
+    gpio_set_dir(LED::ALIVE_PIN, GPIO_OUT);
+    gpio_init(LED::ERROR_PIN);
+    gpio_set_dir(LED::ERROR_PIN, GPIO_OUT);
 
     gpio_init(Mc::PWR_ON_DETECT_PIN);
     gpio_set_dir(Mc::PWR_ON_DETECT_PIN, GPIO_IN);
+    // 緊急停止スイッチが押されていないことを確認
+    if (gpio_get(Mc::PWR_ON_DETECT_PIN) == 0) {
+        // 押されている場合はエラー表示して終了
+        printf("Error: Emergency stop switch is pressed. Please release it and restart the system.\n");
+        watchdog_reboot(0, 0, 1000);  // システムリセット
+        // 以下の処理は実行されるが1秒後にはリセットされる
+        polling_default_LED_flashing();  // コードはここで停止
+        return false;                    // 初期化失敗
+    }
+
     gpio_init(SPI1::Encoder::ON_PIN);
     gpio_set_dir(SPI1::Encoder::ON_PIN, GPIO_OUT);
     gpio_put(SPI1::Encoder::ON_PIN, 1);  // ON状態に設定
@@ -934,15 +962,7 @@ bool initialize_system() {
     // 立ち下がりエッジ（ボタンが押されたとき）で割り込み発生
     gpio_set_irq_enabled_with_callback(BUTTON_PIN, GPIO_IRQ_EDGE_FALL, true, button_cb);
 
-    sleep_ms(2000);  // シリアル接続待ち
-
-    // LEDのGPIO初期化
-    gpio_init(PICO_DEFAULT_LED_PIN);
-    gpio_set_dir(PICO_DEFAULT_LED_PIN, GPIO_OUT);
-    gpio_init(LED::ALIVE_PIN);
-    gpio_set_dir(LED::ALIVE_PIN, GPIO_OUT);
-    gpio_init(LED::ERROR_PIN);
-    gpio_set_dir(LED::ERROR_PIN, GPIO_OUT);
+    sleep_ms(100);  // シリアル接続待ち
 
     // ミューテックス初期化
     mutex_init(&g_state_mutex);
@@ -1115,6 +1135,15 @@ int main(void) {
     int prev_disturbance_level = -1;  // 前回の妨害レベルを保持
 
     while (1) {
+        // 緊急停止中（PWR_ON_DETECT_PINがLOW）なら再起動
+        if (!gpio_get(MicrocontrollerConfig::PWR_ON_DETECT_PIN)) {
+            printf("emergency stop detected! Rebooting...\n");
+            watchdog_reboot(0, 0, 1000);  // システムリセット printfが確実に実行されるために1秒待機
+            // 以下の処理は実行されるが1秒後にはリセットされる
+            polling_default_LED_flashing();  // コードはここで停止
+            break;
+        }
+
         // 妨害の展開
         if (prev_disturbance_level != g_disturbance_level) {
             switch (g_disturbance_level) {

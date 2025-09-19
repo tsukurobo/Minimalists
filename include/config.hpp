@@ -11,6 +11,7 @@
 #include "debug_manager.hpp"
 #include "disturbance_observer.hpp"
 #include "hand.hpp"
+#include "hardware/watchdog.h"
 #include "mcp25625.hpp"
 #include "pico/multicore.h"
 #include "pico/mutex.h"
