@@ -160,6 +160,8 @@ enum class PassThroughMode : uint8_t {
     INTERMEDIATE_U121,  // 中継点下1→中継点2→中継点1
     INTERMEDIATE_U221,  // 中継点下2→中継点2→中継点1
     INTERMEDIATE_U321,  // 中継点下3→中継点2→中継点1
+
+    COMMON_DIRECT,  // 共通エリアの高さ調整用点に行くときに設定する。中継点なし
 };
 
 // 軌道生成の最大速度
@@ -176,7 +178,7 @@ constexpr float R_S_CURVE_RATIO = 0.4f;  // R軸S字曲線の割合
 constexpr float P_S_CURVE_RATIO = 0.4f;  // P軸S字曲線の割合
 
 // 軌道データ配列設定
-constexpr uint16_t MAX_TRAJECTORY_POINTS = 1500;  // 最大軌道点数
+constexpr uint16_t MAX_TRAJECTORY_POINTS = 6000;  // 最大軌道点数
 }  // namespace TrajectoryConfig
 // 軌道データ管理構造体
 typedef struct {
@@ -227,11 +229,12 @@ constexpr uint16_t HAND_CURRENT_LIMIT = 1000;  // 電流制限 [mA]
 
 // 昇降機構用角度
 namespace LiftAngle {
-constexpr int32_t SHOOT_UP = -4500;    // シューティングエリア上段 -6480
-constexpr int32_t SHOOT_LOW = -2300;   // シューティングエリア下段
-constexpr int32_t PRE_CATCH = 4600;    // ワークをつかむ前の高さ
-constexpr int32_t FRONT_CATCH = 5100;  // 前側のワークをつかむときの高さ
-constexpr int32_t BACK_CATCH = 5600;   // 後ろ側のワークをつかむときの高さ
+constexpr int32_t SHOOT_UP = -4500;          // シューティングエリア上段 -6480
+constexpr int32_t SHOOT_LOW = -2300;         // シューティングエリア下段
+constexpr int32_t PRE_CATCH = 4600;          // ワークをつかむ前の高さ
+constexpr int32_t FRONT_CATCH = 5100;        // 前側のワークをつかむときの高さ
+constexpr int32_t BACK_CATCH = 5600;         // 後ろ側のワークをつかむときの高さ
+constexpr int32_t ENTER_COMMON_AREA = 2000;  // 共通エリアに入るときの高さ
 }  // namespace LiftAngle
 
 // 手先角度

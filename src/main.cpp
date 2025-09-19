@@ -486,24 +486,34 @@ void exe_QuickArm(QuickArm_state_t* quick_arm_state) {
 }
 
 // 　ハンドの動作実行
-void hand_tick(hand_state_t* hand_state, bool* has_work, absolute_time_t* state_start_time, float hand_angle, int32_t lift_angle) {
+void hand_tick(hand_state_t* hand_state, bool* has_work, absolute_time_t* state_start_time, float hand_angle, int32_t lift_angle, bool* going_common_area) {
     uint32_t elapsed_ms = absolute_time_diff_us(*state_start_time, get_absolute_time()) / 1000;
     switch (*hand_state) {
         case HAND_IDLE:
             g_debug_manager->debug("hand requested\n");
-            if (!*has_work) {
+            if (*going_common_area) {  // 共通エリアへの向かうまでの高さ調整
                 gpio_set_irq_enabled(BUTTON_PIN, GPIO_IRQ_EDGE_FALL, false);
-                *hand_state = HAND_LOWERING;
+                *hand_state = HAND_WAITING;
                 *state_start_time = get_absolute_time();
-                gpio_put(Hand::PUMP_PIN, 1);
-                g_debug_manager->debug("Hand lowering...");
-                control_position_multiturn(&UART1, Hand::DXL_ID_LIFT, Hand::LiftAngle::FRONT_CATCH);
+                *going_common_area = false;
+                control_position_multiturn(&UART1, Hand::DXL_ID_LIFT, has_work ? Hand::LiftAngle::SHOOT_LOW : Hand::LiftAngle::ENTER_COMMON_AREA);
+                g_debug_manager->debug("Going to common area, wait...\n");
                 gpio_set_irq_enabled(BUTTON_PIN, GPIO_IRQ_EDGE_FALL, true);
             } else {
-                *hand_state = HAND_RELEASE;
-                *state_start_time = get_absolute_time();
-                gpio_put(Hand::SOLENOID_PIN, 1);
-                gpio_put(Hand::PUMP_PIN, 0);
+                if (!*has_work) {
+                    gpio_set_irq_enabled(BUTTON_PIN, GPIO_IRQ_EDGE_FALL, false);
+                    *hand_state = HAND_LOWERING;
+                    *state_start_time = get_absolute_time();
+                    gpio_put(Hand::PUMP_PIN, 1);
+                    g_debug_manager->debug("Hand lowering...");
+                    control_position_multiturn(&UART1, Hand::DXL_ID_LIFT, Hand::LiftAngle::FRONT_CATCH);
+                    gpio_set_irq_enabled(BUTTON_PIN, GPIO_IRQ_EDGE_FALL, true);
+                } else {
+                    *hand_state = HAND_RELEASE;
+                    *state_start_time = get_absolute_time();
+                    gpio_put(Hand::SOLENOID_PIN, 1);
+                    gpio_put(Hand::PUMP_PIN, 0);
+                }
             }
             break;
 
@@ -1005,7 +1015,7 @@ int main(void) {
     };
     trajectory_state_t traj_state = TRAJECTORY_IDLE;
     // 軌道シーケンス管理
-    constexpr int WAYPOINT_NUM = 80;  // 軌道点数
+    constexpr int WAYPOINT_NUM = 84;  // 軌道点数
 
     static const trajectory_waypoint_t all_waypoints[WAYPOINT_NUM] = {
         trajectory_waypoint_t(3.501f, -0.535f / Mech::gear_radius_P, 403.780f, Hand::LiftAngle::FRONT_CATCH, Traj::PassThroughMode::DIRECT),           // ID: 1-1
@@ -1089,6 +1099,10 @@ int main(void) {
         trajectory_waypoint_t(5.431f, -0.370f / Mech::gear_radius_P, 293.275f, Hand::LiftAngle::FRONT_CATCH, Traj::PassThroughMode::INTERMEDIATE_2),   // ID: 4-10
         trajectory_waypoint_t(1.793f, -0.479f / Mech::gear_radius_P, 235.692f, Hand::LiftAngle::SHOOT_UP, Traj::PassThroughMode::INTERMEDIATE_1),      // ID: o-10
 
+        trajectory_waypoint_t(Traj::INTERMEDIATE_POS_1[0], Traj::INTERMEDIATE_POS_1[1], 293.275f, Hand::LiftAngle::ENTER_COMMON_AREA, Traj::PassThroughMode::COMMON_DIRECT),
+        trajectory_waypoint_t(999, 999, 999, Hand::LiftAngle::FRONT_CATCH, Traj::PassThroughMode::DIRECT),  // 共通エリアでワークを取る
+        trajectory_waypoint_t(Traj::INTERMEDIATE_POS_1[0], Traj::INTERMEDIATE_POS_1[1], 293.275f, Hand::LiftAngle::SHOOT_LOW, Traj::PassThroughMode::COMMON_DIRECT),
+        trajectory_waypoint_t(999, 999, 999, Hand::LiftAngle::SHOOT_LOW, Traj::PassThroughMode::DIRECT),  // 共通エリアでワークを取る
     };
     TrajectorySequenceManager* seq_manager = new TrajectorySequenceManager(g_debug_manager);
     seq_manager->setup_sequence(all_waypoints, WAYPOINT_NUM);
@@ -1097,6 +1111,7 @@ int main(void) {
     hand_state_t hand_state = HAND_IDLE;
     bool has_work = false;
     absolute_time_t hand_timer = get_absolute_time();
+    bool is_going_common_area = false;  // 共通エリアのワークをとりに行く途中かどうか
 
     int prev_disturbance_level = -1;  // 前回の妨害レベルを保持
 
@@ -1274,6 +1289,8 @@ int main(void) {
                             intermediate_pos2[1] = TrajectoryConfig::INTERMEDIATE_POS_2[1];
                             intermediate_pos3[0] = TrajectoryConfig::INTERMEDIATE_POS_1[0];
                             intermediate_pos3[1] = TrajectoryConfig::INTERMEDIATE_POS_1[1];
+                        } else if (pass_through_mode == TrajectoryConfig::PassThroughMode::COMMON_DIRECT) {
+                            is_going_common_area = true;
                         } else if (pass_through_mode == TrajectoryConfig::PassThroughMode::DIRECT) {
                             // DIRECTの場合は中間点なし
                         } else {
@@ -1309,7 +1326,7 @@ int main(void) {
                 case TRAJECTORY_HANDLING:
                     // ハンド動作中
                     int seq_index = seq_manager->get_current_waypoint_index();
-                    hand_tick(&hand_state, &has_work, &hand_timer, all_waypoints[seq_index].end_effector_angle, all_waypoints[seq_index].end_effector_height);
+                    hand_tick(&hand_state, &has_work, &hand_timer, all_waypoints[seq_index].end_effector_angle, all_waypoints[seq_index].end_effector_height, &is_going_common_area);
                     if (hand_state == HAND_IDLE) {
                         try_start_next_trajectory();
                         move_shooting_servo();  // シューティングエリア用サーボを動かす
