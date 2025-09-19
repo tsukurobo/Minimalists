@@ -246,12 +246,12 @@ constexpr short DXL_ID_LIFT = 0x02;  // 昇降
 
 // ======= 妨害設定 ========
 namespace DisturbanceConfig {
-constexpr int32_t LEFT_DEPLOY_PRE = 2996;     // 左展開前
-constexpr int32_t LEFT_DEPLOY_1ST = 22856;    // 左展開1段階
-constexpr int32_t LEFT_DEPLOY_2ND = 32103;    // 左展開2段階(最奥)
-constexpr int32_t RIGHT_DEPLOY_PRE = 2085;    // 右展開前
-constexpr int32_t RIGHT_DEPLOY_1ST = -16852;  // 右展開1段階
-constexpr int32_t RIGHT_DEPLOY_2ND = -27046;  // 右展開2段階(最奥)
+constexpr int32_t LEFT_DEPLOY_PRE = 66;       // 左展開前
+constexpr int32_t LEFT_DEPLOY_1ST = 19862;    // 左展開1段階
+constexpr int32_t LEFT_DEPLOY_2ND = 29230;    // 左展開2段階(最奥)
+constexpr int32_t RIGHT_DEPLOY_PRE = 688;     // 右展開前
+constexpr int32_t RIGHT_DEPLOY_1ST = -19277;  // 右展開1段階
+constexpr int32_t RIGHT_DEPLOY_2ND = -28472;  // 右展開2段階(最奥)
 
 // dynamixelのID
 constexpr short DXL_ID_LEFT = 0x03;   // 左展開
@@ -262,16 +262,16 @@ constexpr uint16_t DISTURBANCE_CURRENT_LIMIT = 500;  // 電流制限 [mA]
 
 namespace QuickArmConfig {
 // 手先角度
-constexpr int32_t START_HAND_ANGLE = 3060;  // 手先の初期角度
-constexpr int32_t CATCH_ANGLE = 3780;
-constexpr int32_t SHOOTING_ANGLE = 2590;
-constexpr int32_t INTER_POINT = 3900;
-constexpr int32_t FOLD_ANGLE = 4751;
+constexpr int32_t START_HAND_ANGLE = 2010;  // 手先の初期角度
+constexpr int32_t CATCH_ANGLE = 2741;
+constexpr int32_t SHOOTING_ANGLE = 1539;
+constexpr int32_t INTER_POINT = 2900;
+constexpr int32_t FOLD_ANGLE = 3751;
 
 // 昇降機構用角度
-constexpr int32_t START_UP_ANGLE = 1300;
-constexpr int32_t UPPER_ANGLE = -410;
-constexpr int32_t LOWER_ANGLE = 6000;
+constexpr int32_t START_UP_ANGLE = 2603;
+constexpr int32_t UPPER_ANGLE = 1566;
+constexpr int32_t LOWER_ANGLE = 7868;
 
 // PIDゲイン
 constexpr uint16_t ROTATE_POSITION_P_GAIN = 100;
