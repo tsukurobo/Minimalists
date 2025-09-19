@@ -121,15 +121,13 @@ bool mcp25625_t::init(CAN_SPEED speed) {
 bool mcp25625_t::send_can_message(const struct can_frame_t* frame) {
     spi_set_div_fast(_spi, cpsr_fast, scr_fast);
 
-    constexpr int max_wait = 200;  // 最大リトライ数（タイムアウト防止）
-    for (int i = 0; i < max_wait; ++i) {
+    absolute_time_t timeout = make_timeout_time_us(1000);  // 1000usタイムアウト
+    while (true) {
         uint8_t status = _read_register(MCP_TXB0CTRL);
         if ((status & 0x08) == 0) {
             break;  // 空きが確認できたら送信準備へ
         }
-
-        tight_loop_contents();
-        if (i == max_wait - 1) {
+        if (time_reached(timeout)) {
             spi_set_div_fast(_spi, cpsr_slow, scr_slow);
             return false;  // タイムアウト
         }
