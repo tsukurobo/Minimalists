@@ -33,27 +33,29 @@ static inline void spi_set_div_fast(spi_inst_t* spi, uint8_t cpsr, uint8_t scr) 
     hw->cr1 |= SPI_SSPCR1_SSE_BITS;  // 再有効化
 }
 
-// 目標ボーレートに最も近い CPSR/SCR を探索（起動時に一度）
-static void pick_dividers(uint32_t clk_peri_hz, uint32_t baud, uint8_t* out_cpsr, uint8_t* out_scr, float* out_real_hz) {
-    double best_err = 1e99, best_real = 0.0;
-    uint8_t best_cpsr = 2, best_scr = 0;
+// クロック周波数clk_peri_hzに対し、baud以下で最も近い分周設定を探索
+static void pick_dividers_le_u32(uint32_t clk_peri_hz, uint32_t baud,
+                                 uint8_t* out_cpsr, uint8_t* out_scr) {
+    uint8_t best_cpsr = 254, best_scr = 255;
+    uint32_t best_real = clk_peri_hz / (best_cpsr * (1 + best_scr));
+
     for (uint32_t cpsr = 2; cpsr <= 254; cpsr += 2) {
-        double scr_f = ((double)clk_peri_hz / ((double)baud * (double)cpsr)) - 1.0;
-        int scr = (int)lround(scr_f);
-        if (scr < 0) scr = 0;
-        if (scr > 255) scr = 255;
-        double realized = (double)clk_peri_hz / ((double)cpsr * (1.0 + (double)scr));
-        double err = fabs(realized - (double)baud);
-        if (err < best_err) {
-            best_err = err;
+        // SCR >= ceil(clk_peri / (cpsr*baud) - 1)
+        uint32_t div = clk_peri_hz / (cpsr * baud);
+        uint32_t rem = clk_peri_hz % (cpsr * baud);
+        uint32_t scr = (div == 0) ? 0 : div - 1;
+        if (rem != 0) scr++;  // 端数があれば切り上げ
+        if (scr > 255) continue;
+
+        uint32_t realized = clk_peri_hz / (cpsr * (1 + scr));
+        if (realized <= baud && realized > best_real) {
+            best_real = realized;
             best_cpsr = (uint8_t)cpsr;
             best_scr = (uint8_t)scr;
-            best_real = realized;
         }
     }
     *out_cpsr = best_cpsr;
     *out_scr = best_scr;
-    *out_real_hz = best_real;
 }
 
 // コンストラクタ: SPIとGPIOピンを初期化
@@ -80,8 +82,8 @@ mcp25625_t::mcp25625_t(spi_inst_t* spi, uint8_t cs_pin, uint8_t rst_pin)
     gpio_pull_up(_int_pin);
 
     uint32_t clk_peri_hz = clock_get_hz(clk_peri);
-    pick_dividers(clk_peri_hz, SPI1::BAUDRATE_MAX, &cpsr_fast, &scr_fast, &real_fast);
-    pick_dividers(clk_peri_hz, SPI1::BAUDRATE_DEFAULT, &cpsr_slow, &scr_slow, &real_slow);
+    pick_dividers_le_u32(clk_peri_hz, SPI1::BAUDRATE_MAX, &cpsr_fast, &scr_fast);
+    pick_dividers_le_u32(clk_peri_hz, SPI1::BAUDRATE_DEFAULT, &cpsr_slow, &scr_slow);
 }
 
 // 初期化: リセット、ビットタイミング設定、通常モードへの移行
