@@ -34,7 +34,7 @@ static inline void spi_set_div_fast(spi_inst_t* spi, uint8_t cpsr, uint8_t scr) 
 }
 
 // 目標ボーレートに最も近い CPSR/SCR を探索（起動時に一度）
-static void pick_dividers(uint32_t clk_peri_hz, uint32_t baud, uint8_t* out_cpsr, uint8_t* out_scr, double* out_real_hz) {
+static void pick_dividers(uint32_t clk_peri_hz, uint32_t baud, uint8_t* out_cpsr, uint8_t* out_scr, float* out_real_hz) {
     double best_err = 1e99, best_real = 0.0;
     uint8_t best_cpsr = 2, best_scr = 0;
     for (uint32_t cpsr = 2; cpsr <= 254; cpsr += 2) {
@@ -78,6 +78,10 @@ mcp25625_t::mcp25625_t(spi_inst_t* spi, uint8_t cs_pin, uint8_t rst_pin)
     gpio_init(_int_pin);
     gpio_set_dir(_int_pin, GPIO_IN);
     gpio_pull_up(_int_pin);
+
+    uint32_t clk_peri_hz = clock_get_hz(clk_peri);
+    pick_dividers(clk_peri_hz, SPI1::BAUDRATE_MAX, &cpsr_fast, &scr_fast, &real_fast);
+    pick_dividers(clk_peri_hz, SPI1::BAUDRATE_DEFAULT, &cpsr_slow, &scr_slow, &real_slow);
 }
 
 // 初期化: リセット、ビットタイミング設定、通常モードへの移行
@@ -115,20 +119,18 @@ bool mcp25625_t::init(CAN_SPEED speed) {
 
 // CANメッセージを送信バッファにロードして送信要求
 bool mcp25625_t::send_can_message(const struct can_frame_t* frame) {
-    uint32_t clk_peri_hz = clock_get_hz(clk_peri);
-    pick_dividers(clk_peri_hz, SPI::BBAUDRATE_MAX, &cpsr_fast, &scr_fast, &real_fast);
-    spi_set_div_fast(spi, cpsr, scr);
+    spi_set_div_fast(_spi, cpsr_fast, scr_fast);
 
     constexpr int max_wait = 200;  // 最大リトライ数（タイムアウト防止）
     for (int i = 0; i < max_wait; ++i) {
-        int8_t status = _read_register(MCP_TXB0CTRL);
+        uint8_t status = _read_register(MCP_TXB0CTRL);
         if ((status & 0x08) == 0) {
             break;  // 空きが確認できたら送信準備へ
         }
 
         tight_loop_contents();
         if (i == max_wait - 1) {
-            pick_dividers(clk_peri_hz, SPI::BAUDRATE_DEFAULT, &cpsr_fast, &scr_fast, &real_fast);
+            spi_set_div_fast(_spi, cpsr_slow, scr_slow);
             return false;  // タイムアウト
         }
     }
@@ -155,20 +157,18 @@ bool mcp25625_t::send_can_message(const struct can_frame_t* frame) {
     sleep_us(1);
     gpio_put(_tx0rts_pin, 1);  // 送信要求後の安定化時間
 
-    pick_dividers(clk_peri_hz, SPI::BBAUDRATE_DEFAULT, &cpsr_fast, &scr_fast, &real_fast);
-    spi_set_div_fast(spi, cpsr, scr);
+    spi_set_div_fast(_spi, cpsr_slow, scr_slow);
     return true;
 }
 
 // 受信メッセージがあるか確認
 bool mcp25625_t::check_receive() {
-    uint32_t clk_peri_hz = clock_get_hz(clk_peri);
-    pick_dividers(clk_peri_hz, SPI::BBAUDRATE_MAX, &cpsr_fast, &scr_fast, &real_fast);
-    spi_set_div_fast(spi, cpsr, scr);
+    spi_set_div_fast(_spi, cpsr_fast, scr_fast);
 
     uint8_t status = _read_register(MCP_CANINTF);
 
-    spi_set_baudrate(_spi, 1'875'000);
+    spi_set_div_fast(_spi, cpsr_slow, scr_slow);
+
     //  // 取得したバッファ内容をダンプ
     //  printf("CANINTF: 0x%02X\n", status);
     return (status & (MCP_RX0IF | MCP_RX1IF)) != 0;
@@ -176,10 +176,10 @@ bool mcp25625_t::check_receive() {
 
 // 受信バッファからCANメッセージを読み出す
 bool mcp25625_t::read_can_message(struct can_frame_t* frame) {
-    spi_set_baudrate(_spi, 4000000);
+    spi_set_div_fast(_spi, cpsr_fast, scr_fast);
 
     if (!check_receive()) {
-        spi_set_baudrate(_spi, 1'875'000);
+        spi_set_div_fast(_spi, cpsr_slow, scr_slow);
         return false;
     }
     uint8_t status = _read_register(MCP_CANINTF);
@@ -195,7 +195,7 @@ bool mcp25625_t::read_can_message(struct can_frame_t* frame) {
         }
         // RX0IFフラグをクリア
         _modify_register(MCP_CANINTF, MCP_RX0IF, 0x00);
-        spi_set_baudrate(_spi, 1'875'000);
+        spi_set_div_fast(_spi, cpsr_slow, scr_slow);
         return true;
     } else if (status & MCP_RX1IF) {
         // RXB1にメッセージあり
@@ -209,10 +209,10 @@ bool mcp25625_t::read_can_message(struct can_frame_t* frame) {
         }
         // RX1IFフラグをクリア
         _modify_register(MCP_CANINTF, MCP_RX1IF, 0x00);
-        spi_set_baudrate(_spi, 1'875'000);
+        spi_set_div_fast(_spi, cpsr_slow, scr_slow);
         return true;
     }
-    spi_set_baudrate(_spi, 1'875'000);
+    spi_set_div_fast(_spi, cpsr_slow, scr_slow);
     return false;
 }
 
