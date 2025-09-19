@@ -1,5 +1,7 @@
 #pragma once
 
+#define LEFT_SHOOTING_AREA 1
+
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -138,11 +140,19 @@ constexpr float TRAJECTORY_COMPLETION_TOLERANCE_P = 0.1f;          // P軸完了
 constexpr float TRAJECTORY_COMPLETION_VELOCITY_THRESHOLD = 0.01f;  // 完了判定時の速度閾値 [rad/s]
 
 // 中継点座標（R軸 [rad]、P軸 [rad]）
-constexpr float INTERMEDIATE_POS_1[2] = {3.179f, -0.076f / MechanismConfig::gear_radius_P};
-constexpr float INTERMEDIATE_POS_2[2] = {3.571f, -0.215f / MechanismConfig::gear_radius_P};        // フィールド上の中継点
-constexpr float INTERMEDIATE_POS_UNDER_1[2] = {2.739f, -0.219f / MechanismConfig::gear_radius_P};  // 下1
-constexpr float INTERMEDIATE_POS_UNDER_2[2] = {2.343f, -0.232f / MechanismConfig::gear_radius_P};  // 下2
-constexpr float INTERMEDIATE_POS_UNDER_3[2] = {1.989f, -0.328f / MechanismConfig::gear_radius_P};  // 下3
+#if LEFT_SHOOTING_AREA == 1
+constexpr float INTERMEDIATE_POS_1[2] = {2.991f, -0.127f / MechanismConfig::gear_radius_P};
+constexpr float INTERMEDIATE_POS_2[2] = {4.082f, -0.065f / MechanismConfig::gear_radius_P};        // フィールド上の中継点
+constexpr float INTERMEDIATE_POS_UNDER_1[2] = {2.564f, -0.193f / MechanismConfig::gear_radius_P};  // 下1
+constexpr float INTERMEDIATE_POS_UNDER_2[2] = {2.350f, -0.205f / MechanismConfig::gear_radius_P};  // 下2
+constexpr float INTERMEDIATE_POS_UNDER_3[2] = {2.024f, -0.298f / MechanismConfig::gear_radius_P};  // 下3
+#elif
+constexpr float INTERMEDIATE_POS_1[2] = {2.991f, -0.127f / MechanismConfig::gear_radius_P};
+constexpr float INTERMEDIATE_POS_2[2] = {4.082f, -0.065f / MechanismConfig::gear_radius_P};        // フィールド上の中継点
+constexpr float INTERMEDIATE_POS_UNDER_1[2] = {2.564f, -0.193f / MechanismConfig::gear_radius_P};  // 下1
+constexpr float INTERMEDIATE_POS_UNDER_2[2] = {2.350f, -0.205f / MechanismConfig::gear_radius_P};  // 下2
+constexpr float INTERMEDIATE_POS_UNDER_3[2] = {2.024f, -0.298f / MechanismConfig::gear_radius_P};  // 下3
+#endif
 
 // 中継点の通過パターン
 enum class PassThroughMode : uint8_t {
@@ -268,11 +278,19 @@ constexpr uint16_t DISTURBANCE_CURRENT_LIMIT = 500;  // 電流制限 [mA]
 
 namespace QuickArmConfig {
 // 手先角度
+#if LEFT_SHOOTING_AREA == 1
 constexpr int32_t START_HAND_ANGLE = 2010;  // 手先の初期角度
 constexpr int32_t CATCH_ANGLE = 2741;
-constexpr int32_t SHOOTING_ANGLE = 1539;
+constexpr int32_t SHOOTING_ANGLE = 1339;
 constexpr int32_t INTER_POINT = 2900;
 constexpr int32_t FOLD_ANGLE = 3751;
+#elif
+constexpr int32_t START_HAND_ANGLE = 2010;  // 手先の初期角度
+constexpr int32_t CATCH_ANGLE = 2741;
+constexpr int32_t SHOOTING_ANGLE = 1339;
+constexpr int32_t INTER_POINT = 2900;
+constexpr int32_t FOLD_ANGLE = 3751;
+#endif
 
 // 昇降機構用角度
 constexpr int32_t START_UP_ANGLE = 2603;
