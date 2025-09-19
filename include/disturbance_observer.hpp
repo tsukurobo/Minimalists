@@ -7,6 +7,7 @@ class disturbance_observer_t {
     disturbance_observer_t(float inertia, float velocity_cutoff_freq, float dob_cutoff_freq);
     void reset();
     float update(float control_torque, float motor_velocity);
+    void set_inertia(float inertia) { inertia_ = inertia; }
 
    private:
     float inertia_;
