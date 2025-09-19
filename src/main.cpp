@@ -505,7 +505,7 @@ void hand_tick(hand_state_t* hand_state, bool* has_work, absolute_time_t* state_
                 *hand_state = HAND_WAITING;
                 *state_start_time = get_absolute_time();
                 *going_common_area = false;
-                control_position_multiturn(&UART1, Hand::DXL_ID_LIFT, has_work ? Hand::LiftAngle::SHOOT_LOW : Hand::LiftAngle::ENTER_COMMON_AREA);
+                control_position_multiturn(&UART1, Hand::DXL_ID_LIFT, has_work ? Hand::LiftAngle::SHOOT_LOW : Hand::LiftAngle::CATCH_ENTER_COMMON_AREA);
                 g_debug_manager->debug("Going to common area, wait...\n");
                 gpio_set_irq_enabled(BUTTON_PIN, GPIO_IRQ_EDGE_FALL, true);
             } else {
@@ -1115,8 +1115,8 @@ int main(void) {
         trajectory_waypoint_t(5.392f, -0.225f / Mech::gear_radius_P, 113.846f, 5460, Traj::PassThroughMode::INTERMEDIATE_2),                          // ID: 4-10
         trajectory_waypoint_t(1.852f, -0.283f / Mech::gear_radius_P, 194.022f, Hand::LiftAngle::SHOOT_UP, Traj::PassThroughMode::INTERMEDIATE_1),     // ID: o-10
 
-        trajectory_waypoint_t(common_intermediate_pos[0], common_intermediate_pos[1], 293.275f, Hand::LiftAngle::ENTER_COMMON_AREA, Traj::PassThroughMode::COMMON_DIRECT),
-        trajectory_waypoint_t(4.395f, -0.410f / Mech::gear_radius_P, 194.0f, Hand::LiftAngle::ENTER_COMMON_AREA, Traj::PassThroughMode::DIRECT),  // 共通エリアでワークを取る
+        trajectory_waypoint_t(common_intermediate_pos[0], common_intermediate_pos[1], 293.275f, Hand::LiftAngle::CATCH_ENTER_COMMON_AREA, Traj::PassThroughMode::COMMON_DIRECT),
+        trajectory_waypoint_t(4.395f, -0.410f / Mech::gear_radius_P, 194.0f, Hand::LiftAngle::CATCH_ENTER_COMMON_AREA, Traj::PassThroughMode::DIRECT),  // 共通エリアでワークを取る
         trajectory_waypoint_t(common_intermediate_pos[0], common_intermediate_pos[1], 293.275f, Hand::LiftAngle::SHOOT_LOW, Traj::PassThroughMode::COMMON_DIRECT),
         trajectory_waypoint_t(3.024f, -0.032f / Mech::gear_radius_P, 194.0f, Hand::LiftAngle::SHOOT_LOW, Traj::PassThroughMode::DIRECT),  // 共通エリアでワークを取る
     };

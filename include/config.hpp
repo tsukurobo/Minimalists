@@ -240,7 +240,7 @@ constexpr int32_t SHOOT_LOW = -2300;         // シューティングエリア�
 constexpr int32_t PRE_CATCH = 4600;          // ワークをつかむ前の高さ
 constexpr int32_t FRONT_CATCH = 5100;        // 前側のワークをつかむときの高さ
 constexpr int32_t BACK_CATCH = 5600;         // 後ろ側のワークをつかむときの高さ
-constexpr int32_t ENTER_COMMON_AREA = -2000;  // 共通エリアに入るときの高さ
+constexpr int32_t CATCH_ENTER_COMMON_AREA = -2000;  // 共通エリアに入るときの高さ
 }  // namespace LiftAngle
 
 // 手先角度
