@@ -249,8 +249,8 @@ constexpr float START = 224.615f;
 }  // namespace HandAngle
 
 // dynamixelのID
-constexpr short DXL_ID_HAND = 0x01;  // 手先
-constexpr short DXL_ID_LIFT = 0x02;  // 昇降
+constexpr uint8_t DXL_ID_HAND = 0x01;  // 手先
+constexpr uint8_t DXL_ID_LIFT = 0x02;  // 昇降
 }  // namespace HandConfig
 
 // ======= 妨害設定 ========
