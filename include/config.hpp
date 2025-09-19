@@ -101,7 +101,7 @@ constexpr float gear_ratio_P = 1.0f;     // M2006 P36出力軸からラックま
 constexpr float gear_radius_P = 0.025f;  // ギアの半径 (m) - M2006の出力軸からラックまでの距離が25mm
 
 // R軸（ベース回転）の動力学パラメータ
-constexpr float R_EQ_INERTIA = 0.2660f;                   // 等価慣性モーメント (kg·m^2)
+constexpr float R_EQ_INERTIA = 0.2830f;                   // 等価慣性モーメント (kg·m^2)
 constexpr float R_EQ_DAMPING = 0.4084f;                   // 等価粘性摩擦係数 (N·m·s/rad)
 constexpr float R_TORQUE_CONSTANT = 0.3f * gear_ratio_R;  // 等価トルク定数（M3508のトルク定数xギア比） (Nm/A)
 constexpr float R_INERTIA_MAX = 0.600f;                   // R軸慣性の上限値 (kg·m^2)
@@ -113,8 +113,8 @@ constexpr float P_EQ_DAMPING = 0.00785f;                   // 粘性摩擦係数
 constexpr float P_TORQUE_CONSTANT = 0.18f * gear_ratio_P;  // 等価トルク定数（M2006のトルク定数xギア比） (Nm/A)
 
 // P軸のパラメータだが，R軸の慣性計算に使用
-constexpr float P_MASS = 1.0f;              // アームの質量 (kg)
-constexpr float P_CENTER_OF_MASS = 0.175f;  // P軸の重心位置 (m) - ベース回転軸からアームの重心までの距離
+constexpr float P_MASS = 2.280f;             // アームの質量 (kg)
+constexpr float P_CENTER_OF_MASS = 0.1880f;  // P軸の重心位置 (m) - ベース回転軸からアームの重心までの距離
 
 constexpr float R_MAX_TORQUE = /*3.0f*/ 1.0f * gear_ratio_R;                // R軸最大トルク制限 [Nm] (M3508最大連続トルク 3.0Nm)
 constexpr float P_MAX_TORQUE = 1.0f * gear_ratio_P;                         // P軸最大トルク制限 [Nm] (M2006最大連続トルク 1.0Nm)
