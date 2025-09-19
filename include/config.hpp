@@ -63,6 +63,8 @@ namespace SPI1 {
 constexpr uint8_t MISO_PIN = 8;
 constexpr uint8_t SCK_PIN = 10;
 constexpr uint8_t MOSI_PIN = 11;
+constexpr uint32_t BAUDRATE_DEFAULT = 2'000'000;  // エンコーダ規定値 2MHz
+constexpr uint32_t BAUDRATE_MAX = 10'000'000;     // 最大10MHz
 namespace MCP25625 {
 constexpr uint8_t CS_PIN = 13;
 constexpr uint8_t INT_PIN = 9;

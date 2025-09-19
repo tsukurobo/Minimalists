@@ -13,8 +13,8 @@ namespace Dist = DisturbanceConfig;
 
 // CAN IC用SPI設定
 const spi_config_t SPI1_CONFIG = {
-    .spi_port = spi1,       // SPI1を使用
-    .baudrate = 1'875'000,  // エンコーダ規定値 2MHz 整数分数でベスト:1.875MHz
+    .spi_port = spi1,                    // SPI1を使用
+    .baudrate = SPI1::BAUDRATE_DEFAULT,  // 初期値 2MHz（後で変更する）
     .pin_miso = SPI1::MISO_PIN,
     .pin_cs = {SPI1::MCP25625::CS_PIN, SPI1::Encoder::R_PIN, SPI1::Encoder::P_PIN},  // CSピン3つ（CAN、回転エンコーダ、直動エンコーダ）
     .num_cs_pins = 3,                                                                // CSピン数

@@ -5,25 +5,11 @@
 #include <stdlib.h>
 #include <string.h>
 
+// #include "hardware/spi.h"
 #include "hardware/clocks.h"
-#include "hardware/regs/spi.h"  // レジスタビット定義
-#include "hardware/spi.h"
+#include "hardware/regs/spi.h"     // レジスタビット定義
 #include "hardware/structs/spi.h"  // spi_hw_t / spi_get_hw
 #include "pico/stdlib.h"
-
-// ===== パラメータ =====
-#define N_TOTAL 600  // 1速度あたりの総試行回数
-#define N_SKIP 20    // 先頭は捨てる
-#define N_VALID (N_TOTAL - N_SKIP)
-#define TX_LEN 256                     // 1回の送信バイト数（適宜変更）
-#define BAUD_FAST (10 * 1000 * 1000u)  // 高速側 10 MHz
-#define BAUD_SLOW (1 * 1000 * 1000u)   // 低速側  1 MHz
-
-// ===== ユーティリティ =====
-static int cmp_u32(const void* a, const void* b) {
-    uint32_t x = *(const uint32_t*)a, y = *(const uint32_t*)b;
-    return (x > y) - (x < y);
-}
 
 static inline void spi_wait_idle(spi_inst_t* spi) {
     spi_hw_t* hw = spi_get_hw(spi);
