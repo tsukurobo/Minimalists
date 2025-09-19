@@ -86,7 +86,7 @@ constexpr uint8_t VATT_VOLTAGE_PIN = 28;   // VATT電圧測定用ピン
 constexpr uint8_t PWR_ON_DETECT_PIN = 26;  // PWR_ON信号検出用ピン
 
 // 制御周期定数
-constexpr float CONTROL_PERIOD_MS = 0.3f;                        // 制御周期 [ms]
+constexpr float CONTROL_PERIOD_MS = 0.20f;                       // 制御周期 [ms]
 constexpr float CONTROL_PERIOD_S = CONTROL_PERIOD_MS / 1000.0f;  // 制御周期 [s]
 
 // Core間同期設定
@@ -179,7 +179,7 @@ constexpr float R_S_CURVE_RATIO = 0.4f;  // R軸S字曲線の割合
 constexpr float P_S_CURVE_RATIO = 0.4f;  // P軸S字曲線の割合
 
 // 軌道データ配列設定
-constexpr uint16_t MAX_TRAJECTORY_POINTS = 1500;  // 最大軌道点数
+constexpr uint16_t MAX_TRAJECTORY_POINTS = 2500;  // 最大軌道点数
 }  // namespace TrajectoryConfig
 // 軌道データ管理構造体
 typedef struct {
@@ -260,7 +260,7 @@ constexpr int32_t RIGHT_DEPLOY_2ND = -27046;  // 右展開2段階(最奥)
 constexpr short DXL_ID_LEFT = 0x03;   // 左展開
 constexpr short DXL_ID_RIGHT = 0x04;  // 右展開
 // 電流制限
-constexpr uint16_t DISTURBANCE_CURRENT_LIMIT = 500;  // 電流制限 [mA]
+constexpr uint16_t DISTURBANCE_CURRENT_LIMIT = 500;  // 妨害機構の電流制限 [mA]
 }  // namespace DisturbanceConfig
 
 namespace FastArmConfig {
