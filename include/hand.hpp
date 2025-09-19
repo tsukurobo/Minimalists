@@ -14,6 +14,18 @@ typedef enum {
     HAND_WAITING,
 } hand_state_t;
 
+typedef enum {
+    HAND_STANDBY,
+    CATCHING_POSITION,
+    HAND_DROPPING,
+    CATCHING_WAIT,
+    HAND_LIFTING,
+    SHOOTING_POSITION,
+    HAND_FOLD,
+    HAND_FINISH,
+    HAND_END
+} QuickArm_state_t;
+
 // ---- ポンプ制御 ----
 void pump_init(uint pump_pin);
 void pump_set_speed(uint pump_pin, float duty);  // PWM デューティ設定（0〜255)
