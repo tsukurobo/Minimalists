@@ -1,6 +1,72 @@
 #include "mcp25625.hpp"
 
+#include <math.h>
 #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+#include "hardware/clocks.h"
+#include "hardware/regs/spi.h"  // レジスタビット定義
+#include "hardware/spi.h"
+#include "hardware/structs/spi.h"  // spi_hw_t / spi_get_hw
+#include "pico/stdlib.h"
+
+// ===== パラメータ =====
+#define N_TOTAL 600  // 1速度あたりの総試行回数
+#define N_SKIP 20    // 先頭は捨てる
+#define N_VALID (N_TOTAL - N_SKIP)
+#define TX_LEN 256                     // 1回の送信バイト数（適宜変更）
+#define BAUD_FAST (10 * 1000 * 1000u)  // 高速側 10 MHz
+#define BAUD_SLOW (1 * 1000 * 1000u)   // 低速側  1 MHz
+
+// ===== ユーティリティ =====
+static int cmp_u32(const void* a, const void* b) {
+    uint32_t x = *(const uint32_t*)a, y = *(const uint32_t*)b;
+    return (x > y) - (x < y);
+}
+
+static inline void spi_wait_idle(spi_inst_t* spi) {
+    spi_hw_t* hw = spi_get_hw(spi);
+    while (hw->sr & SPI_SSPSR_BSY_BITS) {
+        tight_loop_contents();
+    }
+}
+
+// SCR/CPSR を直接更新（最小オーバーヘッド切替）
+static inline void spi_set_div_fast(spi_inst_t* spi, uint8_t cpsr, uint8_t scr) {
+    spi_hw_t* hw = spi_get_hw(spi);
+    spi_wait_idle(spi);
+    hw->cr1 &= ~SPI_SSPCR1_SSE_BITS;  // 無効化
+    uint32_t cr0 = hw->cr0;
+    cr0 &= ~SPI_SSPCR0_SCR_BITS;
+    cr0 |= ((uint32_t)scr << SPI_SSPCR0_SCR_LSB) & SPI_SSPCR0_SCR_BITS;
+    hw->cr0 = cr0;
+    hw->cpsr = cpsr;                 // 偶数 2..254 を前提
+    hw->cr1 |= SPI_SSPCR1_SSE_BITS;  // 再有効化
+}
+
+// 目標ボーレートに最も近い CPSR/SCR を探索（起動時に一度）
+static void pick_dividers(uint32_t clk_peri_hz, uint32_t baud, uint8_t* out_cpsr, uint8_t* out_scr, double* out_real_hz) {
+    double best_err = 1e99, best_real = 0.0;
+    uint8_t best_cpsr = 2, best_scr = 0;
+    for (uint32_t cpsr = 2; cpsr <= 254; cpsr += 2) {
+        double scr_f = ((double)clk_peri_hz / ((double)baud * (double)cpsr)) - 1.0;
+        int scr = (int)lround(scr_f);
+        if (scr < 0) scr = 0;
+        if (scr > 255) scr = 255;
+        double realized = (double)clk_peri_hz / ((double)cpsr * (1.0 + (double)scr));
+        double err = fabs(realized - (double)baud);
+        if (err < best_err) {
+            best_err = err;
+            best_cpsr = (uint8_t)cpsr;
+            best_scr = (uint8_t)scr;
+            best_real = realized;
+        }
+    }
+    *out_cpsr = best_cpsr;
+    *out_scr = best_scr;
+    *out_real_hz = best_real;
+}
 
 // コンストラクタ: SPIとGPIOピンを初期化
 mcp25625_t::mcp25625_t(spi_inst_t* spi, uint8_t cs_pin, uint8_t rst_pin)
