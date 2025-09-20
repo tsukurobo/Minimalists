@@ -137,7 +137,7 @@ constexpr float TRAJECTORY_CONTROL_PERIOD = MicrocontrollerConfig::CONTROL_PERIO
 
 constexpr float TRAJECTORY_COMPLETION_TOLERANCE_R = 0.01f;         // R軸完了判定許容誤差 [rad](一番遠いワークまでの距離が790㎜、許容誤差を7.5㎜とした)
 constexpr float TRAJECTORY_COMPLETION_TOLERANCE_P = 0.1f;          // P軸完了判定許容誤差 [rad]
-constexpr float TRAJECTORY_COMPLETION_VELOCITY_THRESHOLD = 0.01f;  // 完了判定時の速度閾値 [rad/s]
+constexpr float TRAJECTORY_COMPLETION_VELOCITY_THRESHOLD = 0.01f;  // 完了判定時の速度閾値 [rad/s] (0.01rad/s = 0.57deg/s)
 
 constexpr float R_THRESHOLD_DIST = 0.001f;  // R軸の移動距離がこの値以下の場合、すべての時間を0に設定[rad]
 constexpr float P_THRESHOLD_DIST = PI_F;    // P軸の移動距離がこの値以下の場合、すべての時間を0に設定[rad]
