@@ -147,11 +147,11 @@ constexpr float INTERMEDIATE_POS_UNDER_1[2] = {2.564f, (-0.193f + 0.55f) / Mecha
 constexpr float INTERMEDIATE_POS_UNDER_2[2] = {2.350f, (-0.205f + 0.55f) / MechanismConfig::gear_radius_P};  // 下2
 constexpr float INTERMEDIATE_POS_UNDER_3[2] = {2.024f, (-0.298f + 0.55f) / MechanismConfig::gear_radius_P};  // 下3
 #else
-constexpr float INTERMEDIATE_POS_1[2] = {2.991f, -0.127f / MechanismConfig::gear_radius_P};
-constexpr float INTERMEDIATE_POS_2[2] = {4.082f, -0.065f / MechanismConfig::gear_radius_P};        // フィールド上の中継点
-constexpr float INTERMEDIATE_POS_UNDER_1[2] = {2.564f, -0.193f / MechanismConfig::gear_radius_P};  // 下1
-constexpr float INTERMEDIATE_POS_UNDER_2[2] = {2.350f, -0.205f / MechanismConfig::gear_radius_P};  // 下2
-constexpr float INTERMEDIATE_POS_UNDER_3[2] = {2.024f, -0.298f / MechanismConfig::gear_radius_P};  // 下3
+constexpr float INTERMEDIATE_POS_1[2] = {4.457f, -0.028f / MechanismConfig::gear_radius_P};
+constexpr float INTERMEDIATE_POS_2[2] = {2.857f, -0.026f / MechanismConfig::gear_radius_P};        // フィールド上の中継点
+constexpr float INTERMEDIATE_POS_UNDER_1[2] = {4.875f, -0.102f / MechanismConfig::gear_radius_P};  // 下1
+constexpr float INTERMEDIATE_POS_UNDER_2[2] = {5.037f, -0.133f / MechanismConfig::gear_radius_P};  // 下2
+constexpr float INTERMEDIATE_POS_UNDER_3[2] = {5.421f, -0.238f / MechanismConfig::gear_radius_P};  // 下3
 #endif
 
 // 中継点の通過パターン
@@ -243,8 +243,8 @@ constexpr uint16_t HAND_CURRENT_LIMIT = 1000;  // 電流制限 [mA]
 
 // 昇降機構用角度
 namespace LiftAngle {
-constexpr int32_t SHOOT_UP = -4500;    // シューティングエリア上段 -6480
-constexpr int32_t SHOOT_LOW = -2300;   // シューティングエリア下段
+constexpr int32_t SHOOT_UP = -9000;    // シューティングエリア上段 -6480
+constexpr int32_t SHOOT_LOW = -5800;   // シューティングエリア下段
 constexpr int32_t PRE_CATCH = 4600;    // ワークをつかむ前の高さ
 constexpr int32_t FRONT_CATCH = 5100;  // 前側のワークをつかむときの高さ
 constexpr int32_t BACK_CATCH = 5600;   // 後ろ側のワークをつかむときの高さ
