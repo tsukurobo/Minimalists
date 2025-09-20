@@ -19,8 +19,8 @@
 #include "pico/stdlib.h"
 #include "robomaster_motor.hpp"
 
-constexpr float R_offset = 0.0f;  // 右投げエリア用のR軸オフセット
-constexpr float P_offset = 0.0f;  // 右投げエリア用のP軸オフセット
+constexpr float R_offset = 0.0f;          // 右投げエリア用のR軸オフセット
+constexpr float P_offset = 0.0f / 0.025;  // 右投げエリア用のP軸オフセット(ギア比で割っている)
 
 constexpr float PI_F = 3.14159265358979323846f;
 
@@ -156,11 +156,13 @@ constexpr float INTERMEDIATE_POS_UNDER_1[2] = {2.564f, (-0.193f + 0.55f) / Mecha
 constexpr float INTERMEDIATE_POS_UNDER_2[2] = {2.350f, (-0.205f + 0.55f) / MechanismConfig::gear_radius_P};  // 下2
 constexpr float INTERMEDIATE_POS_UNDER_3[2] = {2.024f, (-0.298f + 0.55f) / MechanismConfig::gear_radius_P};  // 下3
 #else
-constexpr float INTERMEDIATE_POS_1[2] = {4.457f + R_offset, (-0.028f + P_offset) / MechanismConfig::gear_radius_P};
-constexpr float INTERMEDIATE_POS_2[2] = {2.857f + R_offset, (-0.026f + P_offset) / MechanismConfig::gear_radius_P};        // フィールド上の中継点
-constexpr float INTERMEDIATE_POS_UNDER_1[2] = {4.875f + R_offset, (-0.102f + P_offset) / MechanismConfig::gear_radius_P};  // 下1
-constexpr float INTERMEDIATE_POS_UNDER_2[2] = {5.037f + R_offset, (-0.133f + P_offset) / MechanismConfig::gear_radius_P};  // 下2
-constexpr float INTERMEDIATE_POS_UNDER_3[2] = {5.421f + R_offset, (-0.238f + P_offset) / MechanismConfig::gear_radius_P};  // 下3
+constexpr float INTERMEDIATE_POS_1[2] = {4.457f + R_offset, -0.028f + P_offset / MechanismConfig::gear_radius_P};
+constexpr float INTERMEDIATE_POS_2[2] = {2.857f + R_offset, -0.026f + P_offset / MechanismConfig::gear_radius_P};  // フィールド上の中継点
+// trajectory_waypoint_t(4.392, 0.004 / Mech::gear_radius_P, 190.242, 00003851), // 新しい中継点（元の中継点のままでも行けそうだったのでメモだけ）
+// trajectory_waypoint_t(2.749, 0.006 / Mech::gear_radius_P, 167.209, 00003262),
+constexpr float INTERMEDIATE_POS_UNDER_1[2] = {4.875f + R_offset, -0.102f + P_offset / MechanismConfig::gear_radius_P};  // 下1
+constexpr float INTERMEDIATE_POS_UNDER_2[2] = {5.037f + R_offset, -0.133f + P_offset / MechanismConfig::gear_radius_P};  // 下2
+constexpr float INTERMEDIATE_POS_UNDER_3[2] = {5.421f + R_offset, -0.238f + P_offset / MechanismConfig::gear_radius_P};  // 下3
 #endif
 
 // 中継点の通過パターン
