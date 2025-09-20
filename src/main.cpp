@@ -428,7 +428,7 @@ void exe_QuickArm(QuickArm_state_t* quick_arm_state) {
             break;
 
         case CATCHING_POSITION:
-            if (elapsed_ms >= 1000) {  // 500
+            if (elapsed_ms >= 800) {  // 500
                 *quick_arm_state = HAND_DROPPING;
                 state_start_time = get_absolute_time();
                 g_debug_manager->debug("Hand dropping...\n");
@@ -437,14 +437,14 @@ void exe_QuickArm(QuickArm_state_t* quick_arm_state) {
             break;
 
         case HAND_DROPPING:
-            if (elapsed_ms >= 1000) {
+            if (elapsed_ms >= 800) {
                 *quick_arm_state = CATCHING_WAIT;
                 state_start_time = get_absolute_time();
             }
             break;
 
         case CATCHING_WAIT:
-            if (elapsed_ms >= 500) {
+            if (elapsed_ms >= 300) {
                 *quick_arm_state = HAND_LIFTING;
                 state_start_time = get_absolute_time();
                 control_position_multiturn(&UART0, QuickArmConfig::DXL_ID_LIFT, QuickArmConfig::UPPER_ANGLE);
@@ -453,7 +453,7 @@ void exe_QuickArm(QuickArm_state_t* quick_arm_state) {
             break;
 
         case HAND_LIFTING:
-            if (elapsed_ms >= 1000) {
+            if (elapsed_ms >= 800) {
                 control_position_multiturn(&UART0, QuickArmConfig::DXL_ID_ROTATE, QuickArmConfig::SHOOTING_ANGLE);
                 g_debug_manager->debug("Hand raised, work done.\n");
                 state_start_time = get_absolute_time();
@@ -462,7 +462,7 @@ void exe_QuickArm(QuickArm_state_t* quick_arm_state) {
             break;
 
         case SHOOTING_POSITION:
-            if (elapsed_ms >= 1000) {
+            if (elapsed_ms >= 900) {
                 *quick_arm_state = HAND_FOLD;
                 state_start_time = get_absolute_time();
                 gpio_put(QuickArmConfig::PUMP_PIN, 0);      // ポンプ停止
@@ -1291,14 +1291,14 @@ int main(void) {
                     g_debug_manager->info("Disturbance deploying to 1st stage.");
                     g_moving_quick_arm = true;  // 高速アーム動作中フラグを立てる
                     control_position_multiturn(&UART1, Dist::DXL_ID_LEFT, Dist::LEFT_DEPLOY_1ST);
-                    sleep_ms(500);
+                    sleep_ms(100);
                     control_position_multiturn(&UART1, Dist::DXL_ID_RIGHT, Dist::RIGHT_DEPLOY_1ST);
                     sleep_ms(1);
                     break;
                 case 2:  // 2段階目
                     g_debug_manager->info("Disturbance deploying to 2nd stage.");
                     control_position_multiturn(&UART1, Dist::DXL_ID_LEFT, Dist::LEFT_DEPLOY_2ND);
-                    sleep_ms(500);
+                    sleep_ms(100);
                     control_position_multiturn(&UART1, Dist::DXL_ID_RIGHT, Dist::RIGHT_DEPLOY_2ND);
                     sleep_ms(1);
                     break;
