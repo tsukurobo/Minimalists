@@ -1275,18 +1275,16 @@ int main(void) {
         }
 
         // 割り込みの代替処理
-        static bool prev_button_state = true;              // 前回のボタン状態を保持
-        bool button_state = gpio_get(BUTTON_PIN);          // ボタンが押されているかどうか
-        static uint32_t last_button_press_time = 0;        // 最後にボタンが押された時間を保持
-        uint32_t now = time_us_32();                       // 現在の時間を取得
-        if (!gpio_get(BUTTON_PIN) && prev_button_state) {  // ボタンが立ち下がったら次のシーケンスに移行
-            if (g_moving_quick_arm && (g_quickarm_state != HAND_END)) {
-                continue;  // 高速アーム動作中は無視
-            } else if ((now - last_button_press_time) < 200'000U) {
-                continue;  // チャタリング対策
-            } else {
-                last_button_press_time = now;                         // 最後にボタンが押された時間を更新
-                g_disturbance_level = (g_disturbance_level) % 2 + 1;  // 0→1→2→1→2...
+        static bool prev_button_state = true;
+        bool button_state = gpio_get(BUTTON_PIN);
+        static uint32_t last_button_press_time = 0;
+        uint32_t button_timer = time_us_32();
+        if (!gpio_get(BUTTON_PIN) && prev_button_state) {                   // ボタンが立ち下がったら次のシーケンスに移行
+            if (!(g_moving_quick_arm && (g_quickarm_state != HAND_END))) {  // 高速アーム動作中でなければ
+                if (button_timer - last_button_press_time > 200'000U) {     // 200ms以上経過していれば
+                    last_button_press_time = button_timer;                  // 最後にボタンが押された時間を更新
+                    g_disturbance_level = (g_disturbance_level) % 2 + 1;    // 0→1→2→1→2...
+                }
             }
         }
         prev_button_state = button_state;  // 状態を更新
