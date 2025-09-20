@@ -1,6 +1,62 @@
 #include "mcp25625.hpp"
 
+#include <math.h>
 #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+#include "config.hpp"
+
+// #include "hardware/spi.h"
+#include "hardware/clocks.h"
+#include "hardware/regs/spi.h"     // レジスタビット定義
+#include "hardware/structs/spi.h"  // spi_hw_t / spi_get_hw
+#include "pico/stdlib.h"
+
+static inline void spi_wait_idle(spi_inst_t* spi) {
+    spi_hw_t* hw = spi_get_hw(spi);
+    while (hw->sr & SPI_SSPSR_BSY_BITS) {
+        tight_loop_contents();
+    }
+}
+
+// SCR/CPSR を直接更新（最小オーバーヘッド切替）
+static inline void spi_set_div_fast(spi_inst_t* spi, uint8_t cpsr, uint8_t scr) {
+    spi_hw_t* hw = spi_get_hw(spi);
+    spi_wait_idle(spi);
+    hw->cr1 &= ~SPI_SSPCR1_SSE_BITS;  // 無効化
+    uint32_t cr0 = hw->cr0;
+    cr0 &= ~SPI_SSPCR0_SCR_BITS;
+    cr0 |= ((uint32_t)scr << SPI_SSPCR0_SCR_LSB) & SPI_SSPCR0_SCR_BITS;
+    hw->cr0 = cr0;
+    hw->cpsr = cpsr;                 // 偶数 2..254 を前提
+    hw->cr1 |= SPI_SSPCR1_SSE_BITS;  // 再有効化
+}
+
+// クロック周波数clk_peri_hzに対し、baud以下で最も近い分周設定を探索
+static void pick_dividers_le_u32(uint32_t clk_peri_hz, uint32_t baud,
+                                 uint8_t* out_cpsr, uint8_t* out_scr) {
+    uint8_t best_cpsr = 254, best_scr = 255;
+    uint32_t best_real = clk_peri_hz / (best_cpsr * (1 + best_scr));
+
+    for (uint32_t cpsr = 2; cpsr <= 254; cpsr += 2) {
+        // SCR >= ceil(clk_peri / (cpsr*baud) - 1)
+        uint32_t div = clk_peri_hz / (cpsr * baud);
+        uint32_t rem = clk_peri_hz % (cpsr * baud);
+        uint32_t scr = (div == 0) ? 0 : div - 1;
+        if (rem != 0) scr++;  // 端数があれば切り上げ
+        if (scr > 255) continue;
+
+        uint32_t realized = clk_peri_hz / (cpsr * (1 + scr));
+        if (realized <= baud && realized > best_real) {
+            best_real = realized;
+            best_cpsr = (uint8_t)cpsr;
+            best_scr = (uint8_t)scr;
+        }
+    }
+    *out_cpsr = best_cpsr;
+    *out_scr = best_scr;
+}
 
 // コンストラクタ: SPIとGPIOピンを初期化
 mcp25625_t::mcp25625_t(spi_inst_t* spi, uint8_t cs_pin, uint8_t rst_pin)
@@ -14,6 +70,20 @@ mcp25625_t::mcp25625_t(spi_inst_t* spi, uint8_t cs_pin, uint8_t rst_pin)
     gpio_init(_cs_pin);
     gpio_set_dir(_cs_pin, GPIO_OUT);
     gpio_put(_cs_pin, 1);
+
+    // TX0RTSピンを初期化
+    gpio_init(_tx0rts_pin);
+    gpio_set_dir(_tx0rts_pin, GPIO_OUT);
+    gpio_put(_tx0rts_pin, 1);
+
+    // INTピンを初期化
+    gpio_init(_int_pin);
+    gpio_set_dir(_int_pin, GPIO_IN);
+    gpio_pull_up(_int_pin);
+
+    uint32_t clk_peri_hz = clock_get_hz(clk_peri);
+    pick_dividers_le_u32(clk_peri_hz, SPI1::BAUDRATE_MAX, &_cpsr_fast, &_scr_fast);
+    pick_dividers_le_u32(clk_peri_hz, SPI1::BAUDRATE_DEFAULT, &_cpsr_slow, &_scr_slow);
 }
 
 // 初期化: リセット、ビットタイミング設定、通常モードへの移行
@@ -35,6 +105,12 @@ bool mcp25625_t::init(CAN_SPEED speed) {
     _modify_register(MCP_RXB0CTRL, 0x60, 0x60);
     _modify_register(MCP_RXB1CTRL, 0x60, 0x60);  // RXB1: 全受信 ←追加
 
+    _modify_register(MCP_CANINTF, 0xFF, 0x00);  // CANINTF初期化
+
+    _modify_register(MCP_CANINTE, 0xFF, 0x04);  // CANINTFの送信フラグTX0IFのみ許可
+
+    _modify_register(MCP_TXRTSCTRL, 0x3F, 0x01);
+
     if (!_set_mode(MODE_NORMAL)) {  // 通常動作モードに設定 [cite: 300]
         printf("[ERROR] Failed to set normal mode.\n");
         return false;
@@ -45,14 +121,16 @@ bool mcp25625_t::init(CAN_SPEED speed) {
 
 // CANメッセージを送信バッファにロードして送信要求
 bool mcp25625_t::send_can_message(const struct can_frame_t* frame) {
-    constexpr int max_wait = 250;  // 最大リトライ数（タイムアウト防止）
-    for (int i = 0; i < max_wait; ++i) {
+    spi_set_div_fast(_spi, _cpsr_fast, _scr_fast);
+
+    absolute_time_t timeout = make_timeout_time_us(400);  // 400usタイムアウト
+    while (true) {
         uint8_t status = _read_register(MCP_TXB0CTRL);
         if ((status & 0x08) == 0) {
             break;  // 空きが確認できたら送信準備へ
         }
-        sleep_us(1);  // 必要に応じて調整（100usなど）
-        if (i == max_wait - 1) {
+        if (time_reached(timeout)) {
+            spi_set_div_fast(_spi, _cpsr_slow, _scr_slow);
             return false;  // タイムアウト
         }
     }
@@ -75,23 +153,33 @@ bool mcp25625_t::send_can_message(const struct can_frame_t* frame) {
     sleep_us(1);
 
     // 送信要求 (Request-to-Send) [cite: 496]
-    _request_to_send(MCP_RTS_TXB0);
-    sleep_us(1);  // 送信要求後の安定化時間
+    gpio_put(_tx0rts_pin, 0);
+    sleep_us(1);
+    gpio_put(_tx0rts_pin, 1);  // 送信要求後の安定化時間
 
+    spi_set_div_fast(_spi, _cpsr_slow, _scr_slow);
     return true;
 }
 
 // 受信メッセージがあるか確認
 bool mcp25625_t::check_receive() {
+    spi_set_div_fast(_spi, _cpsr_fast, _scr_fast);
+
     uint8_t status = _read_register(MCP_CANINTF);
-    // // 取得したバッファ内容をダンプ
-    // printf("CANINTF: 0x%02X\n", status);
+
+    spi_set_div_fast(_spi, _cpsr_slow, _scr_slow);
+
+    //  // 取得したバッファ内容をダンプ
+    //  printf("CANINTF: 0x%02X\n", status);
     return (status & (MCP_RX0IF | MCP_RX1IF)) != 0;
 }
 
 // 受信バッファからCANメッセージを読み出す
 bool mcp25625_t::read_can_message(struct can_frame_t* frame) {
+    spi_set_div_fast(_spi, _cpsr_fast, _scr_fast);
+
     if (!check_receive()) {
+        spi_set_div_fast(_spi, _cpsr_slow, _scr_slow);
         return false;
     }
     uint8_t status = _read_register(MCP_CANINTF);
@@ -107,6 +195,7 @@ bool mcp25625_t::read_can_message(struct can_frame_t* frame) {
         }
         // RX0IFフラグをクリア
         _modify_register(MCP_CANINTF, MCP_RX0IF, 0x00);
+        spi_set_div_fast(_spi, _cpsr_slow, _scr_slow);
         return true;
     } else if (status & MCP_RX1IF) {
         // RXB1にメッセージあり
@@ -120,8 +209,10 @@ bool mcp25625_t::read_can_message(struct can_frame_t* frame) {
         }
         // RX1IFフラグをクリア
         _modify_register(MCP_CANINTF, MCP_RX1IF, 0x00);
+        spi_set_div_fast(_spi, _cpsr_slow, _scr_slow);
         return true;
     }
+    spi_set_div_fast(_spi, _cpsr_slow, _scr_slow);
     return false;
 }
 
