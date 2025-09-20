@@ -16,6 +16,12 @@ void init_crc() {
     }
 }
 
+// UARTの送信完了待ち（最後の1文字が送信されるまで待つ）
+void uart_wait_last_byte_complete(uint32_t baudrate) {
+    uint32_t char_time_us = (1'000'000UL * 10) / baudrate;
+    sleep_us(char_time_us + 1);  // 1文字送信+1usの時間待つ
+}
+
 unsigned short update_crc(unsigned short crc_accum, unsigned char* data_blk_ptr, unsigned short data_blk_size) {
     unsigned short i, j;
     for (j = 0; j < data_blk_size; j++) {
@@ -41,7 +47,7 @@ void uart_clear_rx_buffer_safe(const uart_config_t* config) {
     const int max_clear = 64;
 
     while (uart_is_readable(config->uart_number) && count < max_clear) {
-        int c = uart_getc(config->uart_number);
+        uart_getc(config->uart_number);
         count++;
         // printf("int value: %d\n", c);
         tight_loop_contents();
@@ -62,12 +68,15 @@ void set_rx_mode(const uart_config_t* config) {
 
 void send_packet(const uart_config_t* config, const uint8_t* data, size_t length) {
     uart_clear_rx_buffer_safe(config);
-    set_tx_mode(config);
-    sleep_us(10);  // DEピン安定化待ち
+    set_tx_mode(config);                                  // 送信モード
+    uint32_t irq_status = save_and_disable_interrupts();  // 割り込み禁止
+    sleep_us(5);                                          // DEピンと割り込み禁止の安定化待ち
     uart_write_blocking(config->uart_number, data, length);
-    uart_tx_wait_blocking(config->uart_number);
-    sleep_us(1);
+    uart_tx_wait_blocking(config->uart_number);  // シフトレジスタに転送するまで待機
+    uart_wait_last_byte_complete(BAUD_RATE);     // 最後の1文字が送信されるまで待つ
     set_rx_mode(config);
+    sleep_us(1);
+    restore_interrupts(irq_status);  // 割り込み再開
     sleep_us(1);
 }
 

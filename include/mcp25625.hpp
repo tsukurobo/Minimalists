@@ -26,17 +26,19 @@ constexpr uint8_t MCP_LOAD_TXB0 = 0x40;    ///< SPIコマンド: 送信バッフ
 constexpr uint8_t MCP_RTS_TXB0 = 0x81;     ///< SPIコマンド: 送信要求（バッファ0）
 
 // データシート 4.0 レジスタマップ [cite: 1125]
-constexpr uint8_t MCP_CANSTAT = 0x0E;   ///< CANステータスレジスタ
-constexpr uint8_t MCP_CANCTRL = 0x0F;   ///< CAN制御レジスタ
-constexpr uint8_t MCP_CNF1 = 0x2A;      ///< コンフィグレーション1 レジスタ
-constexpr uint8_t MCP_CNF2 = 0x29;      ///< コンフィグレーション2 レジスタ
-constexpr uint8_t MCP_CNF3 = 0x28;      ///< コンフィグレーション3 レジスタ
-constexpr uint8_t MCP_CANINTF = 0x2C;   ///< 割り込みフラグレジスタ
-constexpr uint8_t MCP_TXB0CTRL = 0x30;  ///< 送信バッファ0制御レジスタ
-constexpr uint8_t MCP_RXB0CTRL = 0x60;  ///< 受信バッファ0制御レジスタ
-constexpr uint8_t MCP_RXB1CTRL = 0x70;  ///< 受信バッファ1制御レジスタ
-constexpr uint8_t MCP_RXB0SIDH = 0x61;  ///< 受信バッファ0標準ID上位レジスタ
-constexpr uint8_t MCP_RXB1SIDH = 0x71;  ///< 受信バッファ1標準ID上位レジスタ
+constexpr uint8_t MCP_TXRTSCTRL = 0x0D;  ///< TXnRTSピン制御/ステータスレジスタ
+constexpr uint8_t MCP_CANSTAT = 0x0E;    ///< CANステータスレジスタ
+constexpr uint8_t MCP_CANCTRL = 0x0F;    ///< CAN制御レジスタ
+constexpr uint8_t MCP_CNF1 = 0x2A;       ///< コンフィグレーション1 レジスタ
+constexpr uint8_t MCP_CNF2 = 0x29;       ///< コンフィグレーション2 レジスタ
+constexpr uint8_t MCP_CNF3 = 0x28;       ///< コンフィグレーション3 レジスタ
+constexpr uint8_t MCP_CANINTE = 0x2B;    ///< 割り込みフラグレジスタ
+constexpr uint8_t MCP_CANINTF = 0x2C;    ///< 割り込みフラグレジスタ
+constexpr uint8_t MCP_TXB0CTRL = 0x30;   ///< 送信バッファ0制御レジスタ
+constexpr uint8_t MCP_RXB0CTRL = 0x60;   ///< 受信バッファ0制御レジスタ
+constexpr uint8_t MCP_RXB1CTRL = 0x70;   ///< 受信バッファ1制御レジスタ
+constexpr uint8_t MCP_RXB0SIDH = 0x61;   ///< 受信バッファ0標準ID上位レジスタ
+constexpr uint8_t MCP_RXB1SIDH = 0x71;   ///< 受信バッファ1標準ID上位レジスタ
 
 // CANCTRLレジスタのモード定義 [cite: p51]
 constexpr uint8_t MODE_NORMAL = 0x00;      ///< 通常動作モード（000）
@@ -45,9 +47,23 @@ constexpr uint8_t MODE_LOOPBACK = 0x40;    ///< ループバックモード（01
 constexpr uint8_t MODE_LISTENONLY = 0x60;  ///< リッスンオンリーモード（011）
 constexpr uint8_t MODE_CONFIG = 0x80;      ///< コンフィグレーションモード（100）
 
+// CANINTE 割り込みイネーブル
+constexpr uint8_t MCP_TX0IE = 0x04;  ///< 送信バッファ1フル割り込みフラグ
+constexpr uint8_t MCP_TX1IE = 0x08;  ///< 送信バッファ1フル割り込みフラグ
+
 // CANINTFフラグ [cite: 1591]
 constexpr uint8_t MCP_RX0IF = 0x01;  ///< 受信バッファ0フル割り込みフラグ
 constexpr uint8_t MCP_RX1IF = 0x02;  ///< 受信バッファ1フル割り込みフラグ
+constexpr uint8_t MCP_TX0IF = 0x04;  ///< 送信バッファ1フル割り込みフラグ
+constexpr uint8_t MCP_TX1IF = 0x08;  ///< 送信バッファ1フル割り込みフラグ
+
+// TXRTSCTRLレジスタ
+constexpr uint8_t MCP_B0RTSM = 0x01;
+constexpr uint8_t MCP_B1RTSM = 0x02;
+constexpr uint8_t MCP_B2RTSM = 0x04;
+
+constexpr uint8_t _int_pin = 9;
+constexpr uint8_t _tx0rts_pin = 14;
 
 /**
  * @enum CAN_SPEED
@@ -139,4 +155,7 @@ class mcp25625_t {
     spi_inst_t* _spi;  ///< SPIインスタンス
     uint8_t _cs_pin;   ///< チップセレクトピン
     uint8_t _rst_pin;  ///< リセットピン
+
+    // SPIのクロック分周設定（高速・低速）
+    uint8_t _cpsr_fast, _scr_fast, _cpsr_slow, _scr_slow;
 };
