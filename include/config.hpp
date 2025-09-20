@@ -243,8 +243,8 @@ constexpr uint16_t HAND_CURRENT_LIMIT = 1000;  // 電流制限 [mA]
 
 // 昇降機構用角度
 namespace LiftAngle {
-constexpr int32_t SHOOT_UP = -9000;    // シューティングエリア上段 -6480
-constexpr int32_t SHOOT_LOW = -5800;   // シューティングエリア下段
+constexpr int32_t SHOOT_UP = -4900;    // シューティングエリア上段
+constexpr int32_t SHOOT_LOW = -2300;   // シューティングエリア下段
 constexpr int32_t PRE_CATCH = 4600;    // ワークをつかむ前の高さ
 constexpr int32_t FRONT_CATCH = 5100;  // 前側のワークをつかむときの高さ
 constexpr int32_t BACK_CATCH = 5600;   // 後ろ側のワークをつかむときの高さ
@@ -252,7 +252,11 @@ constexpr int32_t BACK_CATCH = 5600;   // 後ろ側のワークをつかむと�
 
 // 手先角度
 namespace HandAngle {
+#if LEFT_SHOOTING_AREA == 1
 constexpr float START = 224.615f;
+#else
+constexpr float START = 128.879f;
+#endif
 }  // namespace HandAngle
 
 // dynamixelのID
