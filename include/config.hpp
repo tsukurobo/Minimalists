@@ -1,5 +1,7 @@
 #pragma once
 
+#define LEFT_SHOOTING_AREA 0
+
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -33,8 +35,8 @@ constexpr uint8_t ERROR_PIN = 19;
 }  // namespace LED
 namespace ShootingConfig {
 constexpr uint8_t SERVO_PIN = 12;
-constexpr float IDLE_ANGLE = 30.0f;        // 待機時の角度
-constexpr float CORRECTION_ANGLE = 90.0f;  // ワークの姿勢を整えるときの角度
+constexpr float IDLE_ANGLE = 40.0f;         // 待機時の角度
+constexpr float CORRECTION_ANGLE = 125.0f;  // ワークの姿勢を整えるときの角度
 }  // namespace ShootingConfig
 
 // 軌道データ点の構造体（制御用の詳細軌道）
@@ -138,14 +140,25 @@ constexpr float TRAJECTORY_CONTROL_PERIOD = MicrocontrollerConfig::CONTROL_PERIO
 
 constexpr float TRAJECTORY_COMPLETION_TOLERANCE_R = 0.01f;         // R軸完了判定許容誤差 [rad](一番遠いワークまでの距離が790㎜、許容誤差を7.5㎜とした)
 constexpr float TRAJECTORY_COMPLETION_TOLERANCE_P = 0.1f;          // P軸完了判定許容誤差 [rad]
-constexpr float TRAJECTORY_COMPLETION_VELOCITY_THRESHOLD = 0.01f;  // 完了判定時の速度閾値 [rad/s]
+constexpr float TRAJECTORY_COMPLETION_VELOCITY_THRESHOLD = 0.01f;  // 完了判定時の速度閾値 [rad/s] (0.01rad/s = 0.57deg/s)
+
+constexpr float R_THRESHOLD_DIST = 0.001f;  // R軸の移動距離がこの値以下の場合、すべての時間を0に設定[rad]
+constexpr float P_THRESHOLD_DIST = PI_F;    // P軸の移動距離がこの値以下の場合、すべての時間を0に設定[rad]
 
 // 中継点座標（R軸 [rad]、P軸 [rad]）
-constexpr float INTERMEDIATE_POS_1[2] = {3.179f, -0.076f / MechanismConfig::gear_radius_P};
-constexpr float INTERMEDIATE_POS_2[2] = {3.571f, -0.215f / MechanismConfig::gear_radius_P};        // フィールド上の中継点
-constexpr float INTERMEDIATE_POS_UNDER_1[2] = {2.739f, -0.219f / MechanismConfig::gear_radius_P};  // 下1
-constexpr float INTERMEDIATE_POS_UNDER_2[2] = {2.343f, -0.232f / MechanismConfig::gear_radius_P};  // 下2
-constexpr float INTERMEDIATE_POS_UNDER_3[2] = {1.989f, -0.328f / MechanismConfig::gear_radius_P};  // 下3
+#if LEFT_SHOOTING_AREA == 1
+constexpr float INTERMEDIATE_POS_1[2] = {2.991f, (-0.127f + 0.55f) / MechanismConfig::gear_radius_P};
+constexpr float INTERMEDIATE_POS_2[2] = {4.082f, (-0.065f + 0.55f) / MechanismConfig::gear_radius_P};        // フィールド上の中継点
+constexpr float INTERMEDIATE_POS_UNDER_1[2] = {2.564f, (-0.193f + 0.55f) / MechanismConfig::gear_radius_P};  // 下1
+constexpr float INTERMEDIATE_POS_UNDER_2[2] = {2.350f, (-0.205f + 0.55f) / MechanismConfig::gear_radius_P};  // 下2
+constexpr float INTERMEDIATE_POS_UNDER_3[2] = {2.024f, (-0.298f + 0.55f) / MechanismConfig::gear_radius_P};  // 下3
+#else
+constexpr float INTERMEDIATE_POS_1[2] = {4.457f, -0.028f / MechanismConfig::gear_radius_P};
+constexpr float INTERMEDIATE_POS_2[2] = {2.857f, -0.026f / MechanismConfig::gear_radius_P};        // フィールド上の中継点
+constexpr float INTERMEDIATE_POS_UNDER_1[2] = {4.875f, -0.102f / MechanismConfig::gear_radius_P};  // 下1
+constexpr float INTERMEDIATE_POS_UNDER_2[2] = {5.037f, -0.133f / MechanismConfig::gear_radius_P};  // 下2
+constexpr float INTERMEDIATE_POS_UNDER_3[2] = {5.421f, -0.238f / MechanismConfig::gear_radius_P};  // 下3
+#endif
 
 // 中継点の通過パターン
 enum class PassThroughMode : uint8_t {
@@ -173,7 +186,7 @@ enum class PassThroughMode : uint8_t {
 
 // 軌道生成の最大速度
 constexpr float R_MAX_VELOCITY = 0.5 * MechanismConfig::R_MAX_VELOCITY;
-constexpr float P_MAX_VELOCITY = 0.7 * MechanismConfig::P_MAX_VELOCITY;
+constexpr float P_MAX_VELOCITY = 0.85 * MechanismConfig::P_MAX_VELOCITY;
 
 // 動き出しの加速は速く、止まるときの減速は遅く
 constexpr float R_ACCEL = 0.95 * MechanismConfig::R_MAX_ACCELERATION;
@@ -236,7 +249,7 @@ constexpr uint16_t HAND_CURRENT_LIMIT = 1000;  // 電流制限 [mA]
 
 // 昇降機構用角度
 namespace LiftAngle {
-constexpr int32_t SHOOT_UP = -4500;    // シューティングエリア上段 -6480
+constexpr int32_t SHOOT_UP = -4900;    // シューティングエリア上段
 constexpr int32_t SHOOT_LOW = -2300;   // シューティングエリア下段
 constexpr int32_t PRE_CATCH = 4600;    // ワークをつかむ前の高さ
 constexpr int32_t FRONT_CATCH = 5100;  // 前側のワークをつかむときの高さ
@@ -245,7 +258,11 @@ constexpr int32_t BACK_CATCH = 5600;   // 後ろ側のワークをつかむと�
 
 // 手先角度
 namespace HandAngle {
+#if LEFT_SHOOTING_AREA == 1
 constexpr float START = 224.615f;
+#else
+constexpr float START = 128.879f;
+#endif
 }  // namespace HandAngle
 
 // dynamixelのID
@@ -266,21 +283,29 @@ constexpr int32_t RIGHT_DEPLOY_2ND = -28472;  // 右展開2段階(最奥)
 constexpr short DXL_ID_LEFT = 0x03;   // 左展開
 constexpr short DXL_ID_RIGHT = 0x04;  // 右展開
 // 電流制限
-constexpr uint16_t DISTURBANCE_CURRENT_LIMIT = 500;  // 妨害機構の電流制限 [mA]
+constexpr uint16_t DISTURBANCE_CURRENT_LIMIT = 800;  // 電流制限 [mA]
 }  // namespace DisturbanceConfig
 
 namespace QuickArmConfig {
 // 手先角度
+#if LEFT_SHOOTING_AREA == 1
 constexpr int32_t START_HAND_ANGLE = 2010;  // 手先の初期角度
-constexpr int32_t CATCH_ANGLE = 2741;
-constexpr int32_t SHOOTING_ANGLE = 1539;
+constexpr int32_t CATCH_ANGLE = 2750;
+constexpr int32_t SHOOTING_ANGLE = 1339;
 constexpr int32_t INTER_POINT = 2900;
-constexpr int32_t FOLD_ANGLE = 3751;
+constexpr int32_t FOLD_ANGLE = 3600;
+#else
+constexpr int32_t START_HAND_ANGLE = 125;  // 手先の初期角度
+constexpr int32_t CATCH_ANGLE = -705;
+constexpr int32_t SHOOTING_ANGLE = 512;
+constexpr int32_t INTER_POINT = -700;
+constexpr int32_t FOLD_ANGLE = -1671;
+#endif
 
 // 昇降機構用角度
-constexpr int32_t START_UP_ANGLE = 2603;
-constexpr int32_t UPPER_ANGLE = 1566;
-constexpr int32_t LOWER_ANGLE = 7868;
+constexpr int32_t START_UP_ANGLE = 4100;
+constexpr int32_t UPPER_ANGLE = 3291;
+constexpr int32_t LOWER_ANGLE = 9900;
 
 // PIDゲイン
 constexpr uint16_t ROTATE_POSITION_P_GAIN = 100;
@@ -290,7 +315,7 @@ constexpr uint16_t LIFT_POSITION_P_GAIN = 1000;
 constexpr uint16_t LIFT_POSITION_I_GAIN = 0;
 constexpr uint16_t LIFT_POSITION_D_GAIN = 500;
 // 電流制限
-constexpr uint32_t ROTATE_CURRENT_LIMIT = 400;  // 電流制限 [mA]
+constexpr uint32_t ROTATE_CURRENT_LIMIT = 350;  // 電流制限 [mA]
 constexpr uint32_t LIFT_CURRENT_LIMIT = 1400;   // 電流制限 [mA]
 // ピン設定
 constexpr uint8_t SOLENOID_PIN = 17;
