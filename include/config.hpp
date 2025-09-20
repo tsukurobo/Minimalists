@@ -285,11 +285,11 @@ constexpr int32_t SHOOTING_ANGLE = 1339;
 constexpr int32_t INTER_POINT = 2900;
 constexpr int32_t FOLD_ANGLE = 3600;
 #else
-constexpr int32_t START_HAND_ANGLE = 2010;  // 手先の初期角度
-constexpr int32_t CATCH_ANGLE = 2741;
-constexpr int32_t SHOOTING_ANGLE = 1339;
-constexpr int32_t INTER_POINT = 2900;
-constexpr int32_t FOLD_ANGLE = 3751;
+constexpr int32_t START_HAND_ANGLE = 125;  // 手先の初期角度
+constexpr int32_t CATCH_ANGLE = -705;
+constexpr int32_t SHOOTING_ANGLE = 512;
+constexpr int32_t INTER_POINT = -700;
+constexpr int32_t FOLD_ANGLE = -1671;
 #endif
 
 // 昇降機構用角度
