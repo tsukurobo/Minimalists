@@ -88,7 +88,7 @@ constexpr uint8_t VATT_VOLTAGE_PIN = 28;   // VATT電圧測定用ピン
 constexpr uint8_t PWR_ON_DETECT_PIN = 26;  // PWR_ON信号検出用ピン
 
 // 制御周期定数
-constexpr float CONTROL_PERIOD_MS = 0.20f;                       // 制御周期 [ms]
+constexpr float CONTROL_PERIOD_MS = 0.25f;                       // 制御周期 [ms]
 constexpr float CONTROL_PERIOD_S = CONTROL_PERIOD_MS / 1000.0f;  // 制御周期 [s]
 
 // Core間同期設定

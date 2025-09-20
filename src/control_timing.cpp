@@ -29,8 +29,8 @@ void control_timing_end(control_timing_t* timing, float control_period_ms) {
     bool timing_violation = absolute_time_diff_us(timing->next_control_time, current_time) > 0;
 
     // // 処理時間を表示（デバッグ用）
-    int64_t processing_time_us = absolute_time_diff_us(timing->loop_start_time, current_time);
-    printf("PROCESSING TIME: %fms\n", processing_time_us / 1000.0);
+    // int64_t processing_time_us = absolute_time_diff_us(timing->loop_start_time, current_time);
+    // printf("PROCESSING TIME: %fms\n", processing_time_us / 1000.0);
 
     if (timing_violation) {
         // === 周期超過時の軽量処理 ===
