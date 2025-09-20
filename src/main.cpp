@@ -559,6 +559,7 @@ void hand_tick(hand_state_t* hand_state, bool* has_work, absolute_time_t* state_
                 g_debug_manager->debug("Hand released\n");
                 *hand_state = HAND_WAITING;  // HAND_IDLE前に1秒待機
                 *state_start_time = get_absolute_time();
+                move_shooting_servo();  // シューティングエリア用サーボを動かす
                 gpio_set_irq_enabled(BUTTON_PIN, GPIO_IRQ_EDGE_FALL, true);
             }
             break;
@@ -1351,12 +1352,12 @@ int main(void) {
         // シューティングエリアのサーボを動かす指示が来てから1秒後に1秒間動かして戻す
         if (is_moving_shooting_servo) {
             absolute_time_t now = get_absolute_time();
-            if (absolute_time_diff_us(g_last_shoot_servo_time, now) >= 1'000'000 &&
-                absolute_time_diff_us(g_last_shoot_servo_time, now) < 2'000'000) {
+            if (absolute_time_diff_us(g_last_shoot_servo_time, now) >= 2'000'000 &&
+                absolute_time_diff_us(g_last_shoot_servo_time, now) < 3'000'000) {
                 g_debug_manager->debug("Set shooting servo angle to correction angle.");
                 printf("Set shooting servo angle to correction angle.\n");
                 shooting_servo.set_angle(ShootingConfig::CORRECTION_ANGLE);
-            } else if (absolute_time_diff_us(g_last_shoot_servo_time, now) >= 2'000'000) {
+            } else if (absolute_time_diff_us(g_last_shoot_servo_time, now) >= 3'000'000) {
                 g_debug_manager->debug("Set shooting servo angle to idle angle.");
                 printf("Set shooting servo angle to idle angle.\n");
                 shooting_servo.set_angle(ShootingConfig::IDLE_ANGLE);
@@ -1527,7 +1528,6 @@ int main(void) {
                     hand_tick(&hand_state, &has_work, &hand_timer, all_waypoints[seq_index].end_effector_angle, all_waypoints[seq_index].end_effector_height);
                     if (hand_state == HAND_IDLE) {
                         try_start_next_trajectory();
-                        move_shooting_servo();  // シューティングエリア用サーボを動かす
                     }
                     break;
             }
