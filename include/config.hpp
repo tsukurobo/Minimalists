@@ -227,8 +227,8 @@ constexpr float P_VELOCITY_KP = 0.1;   // P軸速度I-Pの比例ゲイン
 constexpr float P_VELOCITY_KI = 1.0;   // P軸速度I-Pの積分ゲイン
 
 // 速度推定のパラメータ
-constexpr float R_VELOCITY_CUTOFF_FREQ = 50.0f;  // R軸 角速度のカットオフ周波数 [rad/s]
-constexpr float P_VELOCITY_CUTOFF_FREQ = 50.0f;  // P軸 角速度のカットオフ周波数 [rad/s]
+constexpr float R_VELOCITY_CUTOFF_FREQ = 3600.0f;  // R軸 角速度のカットオフ周波数 [rad/s]
+constexpr float P_VELOCITY_CUTOFF_FREQ = 3600.0f;  // P軸 角速度のカットオフ周波数 [rad/s]
 
 // 外乱オブザーバのパラメータ
 constexpr float R_DOB_CUTOFF_FREQ = 6.0f;                                         // R軸 外乱オブザーバのカットオフ周波数 [rad/s]
