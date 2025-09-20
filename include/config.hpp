@@ -139,6 +139,9 @@ constexpr float TRAJECTORY_COMPLETION_TOLERANCE_R = 0.01f;         // R軸完了
 constexpr float TRAJECTORY_COMPLETION_TOLERANCE_P = 0.1f;          // P軸完了判定許容誤差 [rad]
 constexpr float TRAJECTORY_COMPLETION_VELOCITY_THRESHOLD = 0.01f;  // 完了判定時の速度閾値 [rad/s]
 
+constexpr float R_THRESHOLD_DIST = 0.001f;  // R軸の移動距離がこの値以下の場合、すべての時間を0に設定[rad]
+constexpr float P_THRESHOLD_DIST = PI_F;    // P軸の移動距離がこの値以下の場合、すべての時間を0に設定[rad]
+
 // 中継点座標（R軸 [rad]、P軸 [rad]）
 #if LEFT_SHOOTING_AREA == 1
 constexpr float INTERMEDIATE_POS_1[2] = {2.991f, (-0.127f + 0.55f) / MechanismConfig::gear_radius_P};

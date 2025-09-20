@@ -196,7 +196,7 @@ bool calculate_trajectory_core0(
     bool has_inter3 = !std::isnan(intermediate_pos3[0]) && !std::isnan(intermediate_pos3[1]);
 
     // 軌道計算用入力構造体、まずはR軸のみ軌道を計算
-    trajectory_t trajectory_R_core0(Traj::R_MAX_VELOCITY, Traj::R_ACCEL, Traj::R_DECEL, Traj::R_S_CURVE_RATIO, current_position[0], target_position[0]);
+    trajectory_t trajectory_R_core0(Traj::R_MAX_VELOCITY, Traj::R_ACCEL, Traj::R_DECEL, Traj::R_S_CURVE_RATIO, current_position[0], target_position[0], Traj::R_THRESHOLD_DIST);
 
     // R軸のみ軌道を計算
     trajectory_R_core0.calculate_s_curve_trajectory_params();
@@ -242,7 +242,7 @@ bool calculate_trajectory_core0(
 
     // P軸軌道オブジェクト
     trajectory_t trajectory_P_core0(Traj::P_MAX_VELOCITY, Traj::P_ACCEL, Traj::P_DECEL, Traj::P_S_CURVE_RATIO,
-                                    sections[0].start_pos[1], sections[0].end_pos[1]);
+                                    sections[0].start_pos[1], sections[0].end_pos[1], Traj::P_THRESHOLD_DIST);
     trajectory_P_core0.calculate_s_curve_trajectory_params();
 
     for (int i = 0; i < point_count; i++) {
@@ -271,7 +271,7 @@ bool calculate_trajectory_core0(
 
             // 最後の区間に入る場合
             if (current_section + 1 == section_count) {
-                float remaining_time = total_time_R - time;
+                float remaining_time = std::max(0.0f, total_time_R - time);
                 float new_total_time_P = trajectory_P_core0.get_total_time();
                 if (new_total_time_P > remaining_time) {
                     point_count = i + static_cast<int>(new_total_time_P / Traj::TRAJECTORY_CONTROL_PERIOD) + 1;
