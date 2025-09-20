@@ -273,17 +273,17 @@ constexpr int32_t RIGHT_DEPLOY_2ND = -28472;  // 右展開2段階(最奥)
 constexpr short DXL_ID_LEFT = 0x03;   // 左展開
 constexpr short DXL_ID_RIGHT = 0x04;  // 右展開
 // 電流制限
-constexpr uint16_t DISTURBANCE_CURRENT_LIMIT = 500;  // 電流制限 [mA]
+constexpr uint16_t DISTURBANCE_CURRENT_LIMIT = 800;  // 電流制限 [mA]
 }  // namespace DisturbanceConfig
 
 namespace QuickArmConfig {
 // 手先角度
 #if LEFT_SHOOTING_AREA == 1
 constexpr int32_t START_HAND_ANGLE = 2010;  // 手先の初期角度
-constexpr int32_t CATCH_ANGLE = 2741;
+constexpr int32_t CATCH_ANGLE = 2750;
 constexpr int32_t SHOOTING_ANGLE = 1339;
 constexpr int32_t INTER_POINT = 2900;
-constexpr int32_t FOLD_ANGLE = 3751;
+constexpr int32_t FOLD_ANGLE = 3600;
 #elif
 constexpr int32_t START_HAND_ANGLE = 2010;  // 手先の初期角度
 constexpr int32_t CATCH_ANGLE = 2741;
@@ -293,9 +293,9 @@ constexpr int32_t FOLD_ANGLE = 3751;
 #endif
 
 // 昇降機構用角度
-constexpr int32_t START_UP_ANGLE = 2603;
-constexpr int32_t UPPER_ANGLE = 1566;
-constexpr int32_t LOWER_ANGLE = 7868;
+constexpr int32_t START_UP_ANGLE = 4100;
+constexpr int32_t UPPER_ANGLE = 3291;
+constexpr int32_t LOWER_ANGLE = 9900;
 
 // PIDゲイン
 constexpr uint16_t ROTATE_POSITION_P_GAIN = 100;
@@ -305,7 +305,7 @@ constexpr uint16_t LIFT_POSITION_P_GAIN = 1000;
 constexpr uint16_t LIFT_POSITION_I_GAIN = 0;
 constexpr uint16_t LIFT_POSITION_D_GAIN = 500;
 // 電流制限
-constexpr uint32_t ROTATE_CURRENT_LIMIT = 400;  // 電流制限 [mA]
+constexpr uint32_t ROTATE_CURRENT_LIMIT = 350;  // 電流制限 [mA]
 constexpr uint32_t LIFT_CURRENT_LIMIT = 1400;   // 電流制限 [mA]
 // ピン設定
 constexpr uint8_t SOLENOID_PIN = 17;
