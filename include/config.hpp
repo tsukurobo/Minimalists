@@ -124,7 +124,7 @@ constexpr float P_TORQUE_CONSTANT = 0.18f * gear_ratio_P;  // 等価トルク定
 constexpr float P_MASS = 2.280f;             // アームの質量 (kg)
 constexpr float P_CENTER_OF_MASS = 0.1880f;  // P軸の重心位置 (m) - ベース回転軸からアームの重心までの距離
 
-constexpr float R_MAX_TORQUE = /*3.0f*/ 1.5f * gear_ratio_R;                // R軸最大トルク制限 [Nm] (M3508最大連続トルク 3.0Nm)
+constexpr float R_MAX_TORQUE = /*3.0f*/ 2.0f * gear_ratio_R;                // R軸最大トルク制限 [Nm] (M3508最大連続トルク 3.0Nm)
 constexpr float P_MAX_TORQUE = 1.0f * gear_ratio_P;                         // P軸最大トルク制限 [Nm] (M2006最大連続トルク 1.0Nm)
 constexpr float R_MAX_ACCELERATION = R_MAX_TORQUE / R_INERTIA_MAX;          // R軸最大角加速度 [rad/s^2] 最大慣性で計算
 constexpr float P_MAX_ACCELERATION = P_MAX_TORQUE / P_EQ_INERTIA;           // P軸最大角加速度 [rad/s^2]
