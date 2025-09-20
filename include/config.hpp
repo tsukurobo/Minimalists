@@ -124,7 +124,7 @@ constexpr float P_TORQUE_CONSTANT = 0.18f * gear_ratio_P;  // 等価トルク定
 constexpr float P_MASS = 2.280f;             // アームの質量 (kg)
 constexpr float P_CENTER_OF_MASS = 0.1880f;  // P軸の重心位置 (m) - ベース回転軸からアームの重心までの距離
 
-constexpr float R_MAX_TORQUE = /*3.0f*/ 1.0f * gear_ratio_R;                // R軸最大トルク制限 [Nm] (M3508最大連続トルク 3.0Nm)
+constexpr float R_MAX_TORQUE = /*3.0f*/ 1.5f * gear_ratio_R;                // R軸最大トルク制限 [Nm] (M3508最大連続トルク 3.0Nm)
 constexpr float P_MAX_TORQUE = 1.0f * gear_ratio_P;                         // P軸最大トルク制限 [Nm] (M2006最大連続トルク 1.0Nm)
 constexpr float R_MAX_ACCELERATION = R_MAX_TORQUE / R_INERTIA_MAX;          // R軸最大角加速度 [rad/s^2] 最大慣性で計算
 constexpr float P_MAX_ACCELERATION = P_MAX_TORQUE / P_EQ_INERTIA;           // P軸最大角加速度 [rad/s^2]
@@ -188,14 +188,14 @@ enum class PassThroughMode : uint8_t {
 };
 
 // 軌道生成の最大速度
-constexpr float R_MAX_VELOCITY = 0.5 * MechanismConfig::R_MAX_VELOCITY;
+constexpr float R_MAX_VELOCITY = 0.85 * MechanismConfig::R_MAX_VELOCITY;
 constexpr float P_MAX_VELOCITY = 0.85 * MechanismConfig::P_MAX_VELOCITY;
 
 // 動き出しの加速は速く、止まるときの減速は遅く
 constexpr float R_ACCEL = 0.95 * MechanismConfig::R_MAX_ACCELERATION;
-constexpr float R_DECEL = 0.8 * MechanismConfig::R_MAX_ACCELERATION;
-constexpr float P_ACCEL = 0.9 * MechanismConfig::P_MAX_ACCELERATION;
-constexpr float P_DECEL = 0.8 * MechanismConfig::P_MAX_ACCELERATION;
+constexpr float R_DECEL = 0.95 * MechanismConfig::R_MAX_ACCELERATION;
+constexpr float P_ACCEL = 0.95 * MechanismConfig::P_MAX_ACCELERATION;
+constexpr float P_DECEL = 0.95 * MechanismConfig::P_MAX_ACCELERATION;
 
 constexpr float R_S_CURVE_RATIO = 0.4f;  // R軸S字曲線の割合
 constexpr float P_S_CURVE_RATIO = 0.4f;  // P軸S字曲線の割合
@@ -235,7 +235,7 @@ constexpr float R_DOB_CUTOFF_FREQ = 6.0f;                                       
 constexpr float sqrtf_R_POSITION_GAIN = 7.0f;                                     // R軸 外乱オブザーバの位置ゲインの平方根
 constexpr float R_POSITION_GAIN = sqrtf_R_POSITION_GAIN * sqrtf_R_POSITION_GAIN;  // R軸 外乱オブザーバの位置ゲイン
 constexpr float R_VELOCITY_GAIN = 2.0f * sqrtf_R_POSITION_GAIN;                   // R軸 外乱オブザーバの速度ゲイン
-constexpr float P_DOB_CUTOFF_FREQ = 4.0f;                                         // P軸 外乱オブザーバのカットオフ周波数 [rad/s]
+constexpr float P_DOB_CUTOFF_FREQ = 40.0f;                                        // P軸 外乱オブザーバのカットオフ周波数 [rad/s]
 constexpr float sqrtf_P_POSITION_GAIN = 7.0f;                                     // P軸 外乱オブザーバの位置ゲインの平方根
 constexpr float P_POSITION_GAIN = sqrtf_P_POSITION_GAIN * sqrtf_P_POSITION_GAIN;  // P軸 外乱オブザーバの位置ゲイン
 constexpr float P_VELOCITY_GAIN = 2.0f * sqrtf_P_POSITION_GAIN;                   // P軸 外乱オブザーバの速度ゲイン

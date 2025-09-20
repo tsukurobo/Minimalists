@@ -70,12 +70,13 @@ void send_packet(const uart_config_t* config, const uint8_t* data, size_t length
     uart_clear_rx_buffer_safe(config);
     set_tx_mode(config);                                  // 送信モード
     uint32_t irq_status = save_and_disable_interrupts();  // 割り込み禁止
-    sleep_us(1);                                          // DEピンと割り込み禁止の安定化待ち
+    sleep_us(5);                                          // DEピンと割り込み禁止の安定化待ち
     uart_write_blocking(config->uart_number, data, length);
     uart_tx_wait_blocking(config->uart_number);  // シフトレジスタに転送するまで待機
     uart_wait_last_byte_complete(BAUD_RATE);     // 最後の1文字が送信されるまで待つ
-    restore_interrupts(irq_status);              // 割り込み再開
     set_rx_mode(config);
+    sleep_us(1);
+    restore_interrupts(irq_status);  // 割り込み再開
     sleep_us(1);
 }
 
