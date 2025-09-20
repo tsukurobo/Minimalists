@@ -572,34 +572,6 @@ void hand_tick(hand_state_t* hand_state, bool* has_work, absolute_time_t* state_
     }
 }
 
-// 妨害展開・最速アームの割り込みハンドラ
-void handle_disturbance_trigger() {
-    if (g_moving_quick_arm && (g_quickarm_state != HAND_END)) {
-        return;  // 高速アーム動作中は無視
-    }
-
-    static uint32_t last_button_press_time = 0;
-    uint32_t now = time_us_32();
-    // 200ms以内の連続した割り込みはチャタリングとみなし無視する
-    if (now - last_button_press_time < 200 * 1000) {
-        return;
-    }
-    last_button_press_time = now;
-
-    // 妨害レベルを変化させる
-    g_disturbance_level = (g_disturbance_level) % 2 + 1;  // 0→1→2→1→2...
-}
-
-// ボタンを押したときのコールバック関数
-void button_cb(uint gpio, uint32_t events) {
-    if (gpio != BUTTON_PIN || !(events & GPIO_IRQ_EDGE_FALL)) {
-        return;  // 関係ないピンやイベントは無視
-    }
-    gpio_set_irq_enabled(BUTTON_PIN, GPIO_IRQ_EDGE_FALL, false);
-    handle_disturbance_trigger();
-    gpio_set_irq_enabled(BUTTON_PIN, GPIO_IRQ_EDGE_FALL, true);
-}
-
 // デバッグ用ユーティリティ関数: 軌道目標値を安全に取得する共通関数
 void get_safe_trajectory_targets(float current_pos_R, float current_pos_P,
                                  float* traj_pos_R, float* traj_pos_P,
@@ -952,8 +924,6 @@ bool initialize_system() {
     gpio_init(BUTTON_PIN);
     gpio_set_dir(BUTTON_PIN, GPIO_IN);
     gpio_pull_up(BUTTON_PIN);  // 内部プルアップを有効化
-    // 立ち下がりエッジ（ボタンが押されたとき）で割り込み発生
-    gpio_set_irq_enabled_with_callback(BUTTON_PIN, GPIO_IRQ_EDGE_FALL, true, button_cb);
 
     sleep_ms(100);  // シリアル接続待ち
 
@@ -1303,6 +1273,23 @@ int main(void) {
             polling_default_LED_flashing();  // コードはここで停止
             break;
         }
+
+        // 割り込みの代替処理
+        static bool prev_button_state = true;              // 前回のボタン状態を保持
+        bool button_state = gpio_get(BUTTON_PIN);          // ボタンが押されているかどうか
+        static uint32_t last_button_press_time = 0;        // 最後にボタンが押された時間を保持
+        uint32_t now = time_us_32();                       // 現在の時間を取得
+        if (!gpio_get(BUTTON_PIN) && prev_button_state) {  // ボタンが立ち下がったら次のシーケンスに移行
+            if (g_moving_quick_arm && (g_quickarm_state != HAND_END)) {
+                continue;  // 高速アーム動作中は無視
+            } else if ((now - last_button_press_time) < 200'000U) {
+                continue;  // チャタリング対策
+            } else {
+                last_button_press_time = now;                         // 最後にボタンが押された時間を更新
+                g_disturbance_level = (g_disturbance_level) % 2 + 1;  // 0→1→2→1→2...
+            }
+        }
+        prev_button_state = button_state;  // 状態を更新
 
         // 妨害の展開
         if (prev_disturbance_level != g_disturbance_level) {
