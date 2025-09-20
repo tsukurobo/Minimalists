@@ -1281,19 +1281,19 @@ int main(void) {
                     sleep_us(1);
                     continue;  // 何もしない
                 case 1:        // 1段階目
-                    g_debug_manager->info("Disturbance deploying to 1st stage.");
+                    // g_debug_manager->info("Disturbance deploying to 1st stage.");
                     g_moving_quick_arm = true;  // 高速アーム動作中フラグを立てる
-                    control_position_multiturn(&UART1, Dist::DXL_ID_LEFT, Dist::LEFT_DEPLOY_1ST);
-                    sleep_ms(100);
-                    control_position_multiturn(&UART1, Dist::DXL_ID_RIGHT, Dist::RIGHT_DEPLOY_1ST);
-                    sleep_ms(1);
+                    // control_position_multiturn(&UART1, Dist::DXL_ID_LEFT, Dist::LEFT_DEPLOY_1ST);
+                    // sleep_ms(100);
+                    // control_position_multiturn(&UART1, Dist::DXL_ID_RIGHT, Dist::RIGHT_DEPLOY_1ST);
+                    // sleep_ms(1);
                     break;
                 case 2:  // 2段階目
-                    g_debug_manager->info("Disturbance deploying to 2nd stage.");
-                    control_position_multiturn(&UART1, Dist::DXL_ID_LEFT, Dist::LEFT_DEPLOY_2ND);
-                    sleep_ms(100);
-                    control_position_multiturn(&UART1, Dist::DXL_ID_RIGHT, Dist::RIGHT_DEPLOY_2ND);
-                    sleep_ms(1);
+                    // g_debug_manager->info("Disturbance deploying to 2nd stage.");
+                    // control_position_multiturn(&UART1, Dist::DXL_ID_LEFT, Dist::LEFT_DEPLOY_2ND);
+                    // sleep_ms(100);
+                    // control_position_multiturn(&UART1, Dist::DXL_ID_RIGHT, Dist::RIGHT_DEPLOY_2ND);
+                    // sleep_ms(1);
                     break;
             }
             prev_disturbance_level = g_disturbance_level;  // 状態を更新
@@ -1305,6 +1305,19 @@ int main(void) {
             sleep_ms(100);
             continue;
         }
+
+        // // シューティングエリアのサーボを3秒に1回動かす
+        // static absolute_time_t last_shoot_servo_time = get_absolute_time();
+        // absolute_time_t now = get_absolute_time();
+        // if (absolute_time_diff_us(last_shoot_servo_time, now) >= 3'000'000 &&
+        //     absolute_time_diff_us(last_shoot_servo_time, now) < 6'000'000) {
+        //     printf("Set shooting servo angle to correction angle.");
+        //     shooting_servo.set_angle(ShootingConfig::CORRECTION_ANGLE);
+        // } else if (absolute_time_diff_us(last_shoot_servo_time, now) >= 6'000'000) {
+        //     printf("Set shooting servo angle to idle angle.");
+        //     shooting_servo.set_angle(ShootingConfig::IDLE_ANGLE);
+        //     last_shoot_servo_time = now;
+        // }
 
         // シューティングエリアのサーボを動かす指示が来てから1秒後に1秒間動かして戻す
         if (is_moving_shooting_servo) {
