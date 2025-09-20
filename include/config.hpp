@@ -183,7 +183,7 @@ enum class PassThroughMode : uint8_t {
 
 // 軌道生成の最大速度
 constexpr float R_MAX_VELOCITY = 0.5 * MechanismConfig::R_MAX_VELOCITY;
-constexpr float P_MAX_VELOCITY = 0.7 * MechanismConfig::P_MAX_VELOCITY;
+constexpr float P_MAX_VELOCITY = 0.85 * MechanismConfig::P_MAX_VELOCITY;
 
 // 動き出しの加速は速く、止まるときの減速は遅く
 constexpr float R_ACCEL = 0.95 * MechanismConfig::R_MAX_ACCELERATION;
