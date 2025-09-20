@@ -15,12 +15,12 @@ class trajectory_t {
     float s_curve_time_;    // S字軌道の時間 (単位: 秒)
     float start_pos_;       // 開始位置 (単位: mm または rad)
     float end_pos_;         // 目標位置 (単位: mm または rad)
+    float threshold_dist_;  // 移動距離がこの値以下の場合、すべての時間を0に設定
     float total_dist_;      // 総移動距離
     float accel_time_;      // 加速・減速にかかる時間
     float decel_time_;      // 減速にかかる時間
     float const_vel_time_;  // 定速期間の時間
     float total_time_;      // 移動にかかる総時間
-    float threshold_dist_;  // 移動距離がこの値以下の場合、すべての時間を0に設定
 
    public:
     /**
