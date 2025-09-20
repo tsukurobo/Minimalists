@@ -20,6 +20,7 @@ class trajectory_t {
     float decel_time_;      // 減速にかかる時間
     float const_vel_time_;  // 定速期間の時間
     float total_time_;      // 移動にかかる総時間
+    float threshold_dist_;  // 移動距離がこの値以下の場合、すべての時間を0に設定
 
    public:
     /**
@@ -31,7 +32,7 @@ class trajectory_t {
      * @param start_pos 開始位置
      * @param end_pos 目標位置
      */
-    trajectory_t(float max_vel, float max_accel, float max_decel, float s_curve_ratio, float start_pos, float end_pos);
+    trajectory_t(float max_vel, float max_accel, float max_decel, float s_curve_ratio, float start_pos, float end_pos, float threshold_dist);
 
     /**
      * R軸のS字軌道パラメータを計算する関数
