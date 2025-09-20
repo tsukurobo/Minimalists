@@ -19,6 +19,9 @@
 #include "pico/stdlib.h"
 #include "robomaster_motor.hpp"
 
+constexpr float R_offset = 0.0f;  // 右投げエリア用のR軸オフセット
+constexpr float P_offset = 0.0f;  // 右投げエリア用のP軸オフセット
+
 constexpr float PI_F = 3.14159265358979323846f;
 
 // pin
@@ -150,11 +153,11 @@ constexpr float INTERMEDIATE_POS_UNDER_1[2] = {2.564f, (-0.193f + 0.55f) / Mecha
 constexpr float INTERMEDIATE_POS_UNDER_2[2] = {2.350f, (-0.205f + 0.55f) / MechanismConfig::gear_radius_P};  // 下2
 constexpr float INTERMEDIATE_POS_UNDER_3[2] = {2.024f, (-0.298f + 0.55f) / MechanismConfig::gear_radius_P};  // 下3
 #else
-constexpr float INTERMEDIATE_POS_1[2] = {4.457f, -0.028f / MechanismConfig::gear_radius_P};
-constexpr float INTERMEDIATE_POS_2[2] = {2.857f, -0.026f / MechanismConfig::gear_radius_P};        // フィールド上の中継点
-constexpr float INTERMEDIATE_POS_UNDER_1[2] = {4.875f, -0.102f / MechanismConfig::gear_radius_P};  // 下1
-constexpr float INTERMEDIATE_POS_UNDER_2[2] = {5.037f, -0.133f / MechanismConfig::gear_radius_P};  // 下2
-constexpr float INTERMEDIATE_POS_UNDER_3[2] = {5.421f, -0.238f / MechanismConfig::gear_radius_P};  // 下3
+constexpr float INTERMEDIATE_POS_1[2] = {4.457f + R_offset, (-0.028f + P_offset) / MechanismConfig::gear_radius_P};
+constexpr float INTERMEDIATE_POS_2[2] = {2.857f + R_offset, (-0.026f + P_offset) / MechanismConfig::gear_radius_P};        // フィールド上の中継点
+constexpr float INTERMEDIATE_POS_UNDER_1[2] = {4.875f + R_offset, (-0.102f + P_offset) / MechanismConfig::gear_radius_P};  // 下1
+constexpr float INTERMEDIATE_POS_UNDER_2[2] = {5.037f + R_offset, (-0.133f + P_offset) / MechanismConfig::gear_radius_P};  // 下2
+constexpr float INTERMEDIATE_POS_UNDER_3[2] = {5.421f + R_offset, (-0.238f + P_offset) / MechanismConfig::gear_radius_P};  // 下3
 #endif
 
 // 中継点の通過パターン
