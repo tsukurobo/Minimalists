@@ -163,6 +163,9 @@ constexpr float INTERMEDIATE_POS_2[2] = {2.857f + R_offset, -0.026f + P_offset /
 constexpr float INTERMEDIATE_POS_UNDER_1[2] = {4.875f + R_offset, -0.102f + P_offset / MechanismConfig::gear_radius_P};  // 下1
 constexpr float INTERMEDIATE_POS_UNDER_2[2] = {5.037f + R_offset, -0.133f + P_offset / MechanismConfig::gear_radius_P};  // 下2
 constexpr float INTERMEDIATE_POS_UNDER_3[2] = {5.421f + R_offset, -0.238f + P_offset / MechanismConfig::gear_radius_P};  // 下3
+// trajectory_waypoint_t(4.844, -0.087 / Mech::gear_radius_P, 368.703, -0002003),
+// trajectory_waypoint_t(5.065, -0.113 / Mech::gear_radius_P, 354.198, -0001861),
+// trajectory_waypoint_t(5.394, -0.230 / Mech::gear_radius_P, 334.505, -0002058),
 #endif
 
 // 中継点の通過パターン
