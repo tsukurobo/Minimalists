@@ -68,6 +68,9 @@ namespace SPI1 {
 constexpr uint8_t MISO_PIN = 8;
 constexpr uint8_t SCK_PIN = 10;
 constexpr uint8_t MOSI_PIN = 11;
+constexpr uint32_t BAUDRATE_DEFAULT = 2'000'000;   // エンコーダ規定値 2MHz
+constexpr uint32_t BAUDRATE_CAN_READ = 4'000'000;  // can読み取り時
+constexpr uint32_t BAUDRATE_MAX = 10'000'000;      // 最大10MHz
 namespace MCP25625 {
 constexpr uint8_t CS_PIN = 13;
 constexpr uint8_t INT_PIN = 9;
@@ -88,7 +91,7 @@ constexpr uint8_t VATT_VOLTAGE_PIN = 28;   // VATT電圧測定用ピン
 constexpr uint8_t PWR_ON_DETECT_PIN = 26;  // PWR_ON信号検出用ピン
 
 // 制御周期定数
-constexpr float CONTROL_PERIOD_MS = 0.3f;                        // 制御周期 [ms]
+constexpr float CONTROL_PERIOD_MS = 0.25f;                       // 制御周期 [ms]
 constexpr float CONTROL_PERIOD_S = CONTROL_PERIOD_MS / 1000.0f;  // 制御周期 [s]
 
 // Core間同期設定
@@ -198,7 +201,7 @@ constexpr float R_S_CURVE_RATIO = 0.4f;  // R軸S字曲線の割合
 constexpr float P_S_CURVE_RATIO = 0.4f;  // P軸S字曲線の割合
 
 // 軌道データ配列設定
-constexpr uint16_t MAX_TRAJECTORY_POINTS = 1500;  // 最大軌道点数
+constexpr uint16_t MAX_TRAJECTORY_POINTS = 2500;  // 最大軌道点数
 }  // namespace TrajectoryConfig
 // 軌道データ管理構造体
 typedef struct {
