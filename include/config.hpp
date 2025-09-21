@@ -19,8 +19,8 @@
 #include "pico/stdlib.h"
 #include "robomaster_motor.hpp"
 
-constexpr float R_offset = 0.0f;  // 右投げエリア用のR軸オフセット
-constexpr float P_offset = 0.0f;  // 右投げエリア用のP軸オフセット
+constexpr float R_offset = -0.021f;       // 右投げエリア用のR軸オフセット
+constexpr float P_offset = 0.0f / 0.025;  // 右投げエリア用のP軸オフセット(ギア比で割っている)
 
 constexpr float PI_F = 3.14159265358979323846f;
 
@@ -68,6 +68,9 @@ namespace SPI1 {
 constexpr uint8_t MISO_PIN = 8;
 constexpr uint8_t SCK_PIN = 10;
 constexpr uint8_t MOSI_PIN = 11;
+constexpr uint32_t BAUDRATE_DEFAULT = 2'000'000;   // エンコーダ規定値 2MHz
+constexpr uint32_t BAUDRATE_CAN_READ = 4'000'000;  // can読み取り時
+constexpr uint32_t BAUDRATE_MAX = 10'000'000;      // 最大10MHz
 namespace MCP25625 {
 constexpr uint8_t CS_PIN = 13;
 constexpr uint8_t INT_PIN = 9;
@@ -88,7 +91,7 @@ constexpr uint8_t VATT_VOLTAGE_PIN = 28;   // VATT電圧測定用ピン
 constexpr uint8_t PWR_ON_DETECT_PIN = 26;  // PWR_ON信号検出用ピン
 
 // 制御周期定数
-constexpr float CONTROL_PERIOD_MS = 0.3f;                        // 制御周期 [ms]
+constexpr float CONTROL_PERIOD_MS = 0.25f;                       // 制御周期 [ms]
 constexpr float CONTROL_PERIOD_S = CONTROL_PERIOD_MS / 1000.0f;  // 制御周期 [s]
 
 // Core間同期設定
@@ -121,7 +124,7 @@ constexpr float P_TORQUE_CONSTANT = 0.18f * gear_ratio_P;  // 等価トルク定
 constexpr float P_MASS = 2.280f;             // アームの質量 (kg)
 constexpr float P_CENTER_OF_MASS = 0.1880f;  // P軸の重心位置 (m) - ベース回転軸からアームの重心までの距離
 
-constexpr float R_MAX_TORQUE = /*3.0f*/ 1.0f * gear_ratio_R;                // R軸最大トルク制限 [Nm] (M3508最大連続トルク 3.0Nm)
+constexpr float R_MAX_TORQUE = /*3.0f*/ 2.0f * gear_ratio_R;                // R軸最大トルク制限 [Nm] (M3508最大連続トルク 3.0Nm)
 constexpr float P_MAX_TORQUE = 1.0f * gear_ratio_P;                         // P軸最大トルク制限 [Nm] (M2006最大連続トルク 1.0Nm)
 constexpr float R_MAX_ACCELERATION = R_MAX_TORQUE / R_INERTIA_MAX;          // R軸最大角加速度 [rad/s^2] 最大慣性で計算
 constexpr float P_MAX_ACCELERATION = P_MAX_TORQUE / P_EQ_INERTIA;           // P軸最大角加速度 [rad/s^2]
@@ -147,17 +150,22 @@ constexpr float P_THRESHOLD_DIST = PI_F;    // P軸の移動距離がこの値�
 
 // 中継点座標（R軸 [rad]、P軸 [rad]）
 #if LEFT_SHOOTING_AREA == 1
-constexpr float INTERMEDIATE_POS_1[2] = {2.991f, (-0.127f + 0.55f) / MechanismConfig::gear_radius_P};
-constexpr float INTERMEDIATE_POS_2[2] = {4.082f, (-0.065f + 0.55f) / MechanismConfig::gear_radius_P};        // フィールド上の中継点
-constexpr float INTERMEDIATE_POS_UNDER_1[2] = {2.564f, (-0.193f + 0.55f) / MechanismConfig::gear_radius_P};  // 下1
-constexpr float INTERMEDIATE_POS_UNDER_2[2] = {2.350f, (-0.205f + 0.55f) / MechanismConfig::gear_radius_P};  // 下2
-constexpr float INTERMEDIATE_POS_UNDER_3[2] = {2.024f, (-0.298f + 0.55f) / MechanismConfig::gear_radius_P};  // 下3
+constexpr float INTERMEDIATE_POS_1[2] = {1.787, -0.047 / MechanismConfig::gear_radius_P};
+constexpr float INTERMEDIATE_POS_2[2] = {3.472, -0.007 / MechanismConfig::gear_radius_P};        // フィールド上の中継点
+constexpr float INTERMEDIATE_POS_UNDER_1[2] = {1.338, -0.083 / MechanismConfig::gear_radius_P};  // 下1
+constexpr float INTERMEDIATE_POS_UNDER_2[2] = {1.164, -0.106 / MechanismConfig::gear_radius_P};  // 下2
+constexpr float INTERMEDIATE_POS_UNDER_3[2] = {0.822, -0.218 / MechanismConfig::gear_radius_P};  // 下3
 #else
-constexpr float INTERMEDIATE_POS_1[2] = {4.457f + R_offset, (-0.028f + P_offset) / MechanismConfig::gear_radius_P};
-constexpr float INTERMEDIATE_POS_2[2] = {2.857f + R_offset, (-0.026f + P_offset) / MechanismConfig::gear_radius_P};        // フィールド上の中継点
-constexpr float INTERMEDIATE_POS_UNDER_1[2] = {4.875f + R_offset, (-0.102f + P_offset) / MechanismConfig::gear_radius_P};  // 下1
-constexpr float INTERMEDIATE_POS_UNDER_2[2] = {5.037f + R_offset, (-0.133f + P_offset) / MechanismConfig::gear_radius_P};  // 下2
-constexpr float INTERMEDIATE_POS_UNDER_3[2] = {5.421f + R_offset, (-0.238f + P_offset) / MechanismConfig::gear_radius_P};  // 下3
+constexpr float INTERMEDIATE_POS_1[2] = {4.457f + R_offset, P_offset - 0.028f / MechanismConfig::gear_radius_P};
+constexpr float INTERMEDIATE_POS_2[2] = {2.857f + R_offset, P_offset - 0.026f / MechanismConfig::gear_radius_P};  // フィールド上の中継点
+// trajectory_waypoint_t(4.392, 0.004 / Mech::gear_radius_P, 190.242, 00003851), // 新しい中継点（元の中継点のままでも行けそうだったのでメモだけ）
+// trajectory_waypoint_t(2.749, 0.006 / Mech::gear_radius_P, 167.209, 00003262),
+constexpr float INTERMEDIATE_POS_UNDER_1[2] = {4.875f + R_offset, P_offset - 0.102f / MechanismConfig::gear_radius_P};  // 下1
+constexpr float INTERMEDIATE_POS_UNDER_2[2] = {5.037f + R_offset, P_offset - 0.133f / MechanismConfig::gear_radius_P};  // 下2
+constexpr float INTERMEDIATE_POS_UNDER_3[2] = {5.421f + R_offset, P_offset - 0.238f / MechanismConfig::gear_radius_P};  // 下3
+// trajectory_waypoint_t(4.844, -0.087 / Mech::gear_radius_P, 368.703, -0002003),
+// trajectory_waypoint_t(5.065, -0.113 / Mech::gear_radius_P, 354.198, -0001861),
+// trajectory_waypoint_t(5.394, -0.230 / Mech::gear_radius_P, 334.505, -0002058),
 #endif
 
 // 中継点の通過パターン
@@ -185,20 +193,20 @@ enum class PassThroughMode : uint8_t {
 };
 
 // 軌道生成の最大速度
-constexpr float R_MAX_VELOCITY = 0.5 * MechanismConfig::R_MAX_VELOCITY;
+constexpr float R_MAX_VELOCITY = 0.85 * MechanismConfig::R_MAX_VELOCITY;
 constexpr float P_MAX_VELOCITY = 0.85 * MechanismConfig::P_MAX_VELOCITY;
 
 // 動き出しの加速は速く、止まるときの減速は遅く
 constexpr float R_ACCEL = 0.95 * MechanismConfig::R_MAX_ACCELERATION;
-constexpr float R_DECEL = 0.8 * MechanismConfig::R_MAX_ACCELERATION;
-constexpr float P_ACCEL = 0.9 * MechanismConfig::P_MAX_ACCELERATION;
-constexpr float P_DECEL = 0.8 * MechanismConfig::P_MAX_ACCELERATION;
+constexpr float R_DECEL = 0.95 * MechanismConfig::R_MAX_ACCELERATION;
+constexpr float P_ACCEL = 0.95 * MechanismConfig::P_MAX_ACCELERATION;
+constexpr float P_DECEL = 0.95 * MechanismConfig::P_MAX_ACCELERATION;
 
 constexpr float R_S_CURVE_RATIO = 0.4f;  // R軸S字曲線の割合
 constexpr float P_S_CURVE_RATIO = 0.4f;  // P軸S字曲線の割合
 
 // 軌道データ配列設定
-constexpr uint16_t MAX_TRAJECTORY_POINTS = 1500;  // 最大軌道点数
+constexpr uint16_t MAX_TRAJECTORY_POINTS = 2500;  // 最大軌道点数
 }  // namespace TrajectoryConfig
 // 軌道データ管理構造体
 typedef struct {
@@ -224,15 +232,15 @@ constexpr float P_VELOCITY_KP = 0.1;   // P軸速度I-Pの比例ゲイン
 constexpr float P_VELOCITY_KI = 1.0;   // P軸速度I-Pの積分ゲイン
 
 // 速度推定のパラメータ
-constexpr float R_VELOCITY_CUTOFF_FREQ = 50.0f;  // R軸 角速度のカットオフ周波数 [rad/s]
-constexpr float P_VELOCITY_CUTOFF_FREQ = 50.0f;  // P軸 角速度のカットオフ周波数 [rad/s]
+constexpr float R_VELOCITY_CUTOFF_FREQ = 3600.0f;  // R軸 角速度のカットオフ周波数 [rad/s]
+constexpr float P_VELOCITY_CUTOFF_FREQ = 3600.0f;  // P軸 角速度のカットオフ周波数 [rad/s]
 
 // 外乱オブザーバのパラメータ
 constexpr float R_DOB_CUTOFF_FREQ = 6.0f;                                         // R軸 外乱オブザーバのカットオフ周波数 [rad/s]
 constexpr float sqrtf_R_POSITION_GAIN = 7.0f;                                     // R軸 外乱オブザーバの位置ゲインの平方根
 constexpr float R_POSITION_GAIN = sqrtf_R_POSITION_GAIN * sqrtf_R_POSITION_GAIN;  // R軸 外乱オブザーバの位置ゲイン
 constexpr float R_VELOCITY_GAIN = 2.0f * sqrtf_R_POSITION_GAIN;                   // R軸 外乱オブザーバの速度ゲイン
-constexpr float P_DOB_CUTOFF_FREQ = 4.0f;                                         // P軸 外乱オブザーバのカットオフ周波数 [rad/s]
+constexpr float P_DOB_CUTOFF_FREQ = 40.0f;                                        // P軸 外乱オブザーバのカットオフ周波数 [rad/s]
 constexpr float sqrtf_P_POSITION_GAIN = 7.0f;                                     // P軸 外乱オブザーバの位置ゲインの平方根
 constexpr float P_POSITION_GAIN = sqrtf_P_POSITION_GAIN * sqrtf_P_POSITION_GAIN;  // P軸 外乱オブザーバの位置ゲイン
 constexpr float P_VELOCITY_GAIN = 2.0f * sqrtf_P_POSITION_GAIN;                   // P軸 外乱オブザーバの速度ゲイン
@@ -272,12 +280,12 @@ constexpr uint8_t DXL_ID_LIFT = 0x02;  // 昇降
 
 // ======= 妨害設定 ========
 namespace DisturbanceConfig {
-constexpr int32_t LEFT_DEPLOY_PRE = 66;       // 左展開前
-constexpr int32_t LEFT_DEPLOY_1ST = 19862;    // 左展開1段階
-constexpr int32_t LEFT_DEPLOY_2ND = 29230;    // 左展開2段階(最奥)
-constexpr int32_t RIGHT_DEPLOY_PRE = 688;     // 右展開前
-constexpr int32_t RIGHT_DEPLOY_1ST = -19277;  // 右展開1段階
-constexpr int32_t RIGHT_DEPLOY_2ND = -28472;  // 右展開2段階(最奥)
+constexpr int32_t LEFT_DEPLOY_PRE = 1350;     // 左展開前
+constexpr int32_t LEFT_DEPLOY_1ST = 20392;    // 左展開1段階
+constexpr int32_t LEFT_DEPLOY_2ND = 30514;    // 左展開2段階(最奥)
+constexpr int32_t RIGHT_DEPLOY_PRE = 3598;    // 右展開前
+constexpr int32_t RIGHT_DEPLOY_1ST = -15732;  // 右展開1段階
+constexpr int32_t RIGHT_DEPLOY_2ND = -25544;  // 右展開2段階(最奥)
 
 // dynamixelのID
 constexpr short DXL_ID_LEFT = 0x03;   // 左展開
@@ -290,7 +298,7 @@ namespace QuickArmConfig {
 // 手先角度
 #if LEFT_SHOOTING_AREA == 1
 constexpr int32_t START_HAND_ANGLE = 2010;  // 手先の初期角度
-constexpr int32_t CATCH_ANGLE = 2750;
+constexpr int32_t CATCH_ANGLE = 2749;
 constexpr int32_t SHOOTING_ANGLE = 1339;
 constexpr int32_t INTER_POINT = 2900;
 constexpr int32_t FOLD_ANGLE = 3600;
