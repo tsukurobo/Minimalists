@@ -19,7 +19,7 @@
 #include "pico/stdlib.h"
 #include "robomaster_motor.hpp"
 
-constexpr float R_offset = 0.0f;          // 右投げエリア用のR軸オフセット
+constexpr float R_offset = -0.021f;       // 右投げエリア用のR軸オフセット
 constexpr float P_offset = 0.0f / 0.025;  // 右投げエリア用のP軸オフセット(ギア比で割っている)
 
 constexpr float PI_F = 3.14159265358979323846f;
@@ -280,12 +280,12 @@ constexpr uint8_t DXL_ID_LIFT = 0x02;  // 昇降
 
 // ======= 妨害設定 ========
 namespace DisturbanceConfig {
-constexpr int32_t LEFT_DEPLOY_PRE = 66;       // 左展開前
-constexpr int32_t LEFT_DEPLOY_1ST = 19862;    // 左展開1段階
-constexpr int32_t LEFT_DEPLOY_2ND = 29230;    // 左展開2段階(最奥)
-constexpr int32_t RIGHT_DEPLOY_PRE = 688;     // 右展開前
-constexpr int32_t RIGHT_DEPLOY_1ST = -19277;  // 右展開1段階
-constexpr int32_t RIGHT_DEPLOY_2ND = -28472;  // 右展開2段階(最奥)
+constexpr int32_t LEFT_DEPLOY_PRE = 1350;     // 左展開前
+constexpr int32_t LEFT_DEPLOY_1ST = 20392;    // 左展開1段階
+constexpr int32_t LEFT_DEPLOY_2ND = 30514;    // 左展開2段階(最奥)
+constexpr int32_t RIGHT_DEPLOY_PRE = 3598;    // 右展開前
+constexpr int32_t RIGHT_DEPLOY_1ST = -15732;  // 右展開1段階
+constexpr int32_t RIGHT_DEPLOY_2ND = -25544;  // 右展開2段階(最奥)
 
 // dynamixelのID
 constexpr short DXL_ID_LEFT = 0x03;   // 左展開

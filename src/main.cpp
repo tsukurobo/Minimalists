@@ -1080,10 +1080,12 @@ int main(void) {
         trajectory_waypoint_t(R_offset + 0.945f, P_offset + -0.156f / Mech::gear_radius_P, 350.857f, Hand::LiftAngle::SHOOT_UP, Traj::PassThroughMode::INTERMEDIATE_1),     // ID: o-10
     };
 #else
+    // trajectory_waypoint_t(3.879, -0.409 / Mech::gear_radius_P, 135.560, 00005375),
+    // trajectory_waypoint_t(3.778, -0.340 / Mech::gear_radius_P, 140.571, 00005452),
     static const trajectory_waypoint_t all_waypoints[WAYPOINT_NUM] = {
-        trajectory_waypoint_t(R_offset + 3.901f, P_offset + -0.408f / Mech::gear_radius_P, 134.857f, 5382, Traj::PassThroughMode::DIRECT),                                  // ID: 1-10
+        trajectory_waypoint_t(3.879f, -0.409f / Mech::gear_radius_P, 134.857f, 5382, Traj::PassThroughMode::DIRECT),                                                        // ID: 1-10
         trajectory_waypoint_t(R_offset + 4.728f, P_offset + -0.231f / Mech::gear_radius_P, 373.451f, Hand::LiftAngle::SHOOT_UP, Traj::PassThroughMode::INTERMEDIATE_1),     // ID: h-1
-        trajectory_waypoint_t(R_offset + 3.802f, P_offset + -0.344f / Mech::gear_radius_P, 140.923f, 5427, Traj::PassThroughMode::INTERMEDIATE_1),                          // ID: 1-9
+        trajectory_waypoint_t(3.778f, -0.340f / Mech::gear_radius_P, 140.923f, 5427, Traj::PassThroughMode::INTERMEDIATE_1),                                                // ID: 1-9
         trajectory_waypoint_t(R_offset + 4.695f, P_offset + -0.158f / Mech::gear_radius_P, 374.857f, Hand::LiftAngle::SHOOT_LOW, Traj::PassThroughMode::INTERMEDIATE_1U1),  // ID: l-1
         trajectory_waypoint_t(R_offset + 3.613f, P_offset + -0.259f / Mech::gear_radius_P, 152.879f, 5539, Traj::PassThroughMode::INTERMEDIATE_1),                          // ID: 1-8
         trajectory_waypoint_t(R_offset + 4.781f, P_offset + -0.238f / Mech::gear_radius_P, 365.187f, Hand::LiftAngle::SHOOT_UP, Traj::PassThroughMode::INTERMEDIATE_1),     // ID: h-2
