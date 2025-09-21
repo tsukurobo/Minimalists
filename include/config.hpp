@@ -156,13 +156,13 @@ constexpr float INTERMEDIATE_POS_UNDER_1[2] = {2.564f, (-0.193f + 0.55f) / Mecha
 constexpr float INTERMEDIATE_POS_UNDER_2[2] = {2.350f, (-0.205f + 0.55f) / MechanismConfig::gear_radius_P};  // 下2
 constexpr float INTERMEDIATE_POS_UNDER_3[2] = {2.024f, (-0.298f + 0.55f) / MechanismConfig::gear_radius_P};  // 下3
 #else
-constexpr float INTERMEDIATE_POS_1[2] = {4.457f + R_offset, -0.028f + P_offset / MechanismConfig::gear_radius_P};
-constexpr float INTERMEDIATE_POS_2[2] = {2.857f + R_offset, -0.026f + P_offset / MechanismConfig::gear_radius_P};  // フィールド上の中継点
+constexpr float INTERMEDIATE_POS_1[2] = {4.457f + R_offset, P_offset - 0.028f / MechanismConfig::gear_radius_P};
+constexpr float INTERMEDIATE_POS_2[2] = {2.857f + R_offset, P_offset - 0.026f / MechanismConfig::gear_radius_P};  // フィールド上の中継点
 // trajectory_waypoint_t(4.392, 0.004 / Mech::gear_radius_P, 190.242, 00003851), // 新しい中継点（元の中継点のままでも行けそうだったのでメモだけ）
 // trajectory_waypoint_t(2.749, 0.006 / Mech::gear_radius_P, 167.209, 00003262),
-constexpr float INTERMEDIATE_POS_UNDER_1[2] = {4.875f + R_offset, -0.102f + P_offset / MechanismConfig::gear_radius_P};  // 下1
-constexpr float INTERMEDIATE_POS_UNDER_2[2] = {5.037f + R_offset, -0.133f + P_offset / MechanismConfig::gear_radius_P};  // 下2
-constexpr float INTERMEDIATE_POS_UNDER_3[2] = {5.421f + R_offset, -0.238f + P_offset / MechanismConfig::gear_radius_P};  // 下3
+constexpr float INTERMEDIATE_POS_UNDER_1[2] = {4.875f + R_offset, P_offset - 0.102f / MechanismConfig::gear_radius_P};  // 下1
+constexpr float INTERMEDIATE_POS_UNDER_2[2] = {5.037f + R_offset, P_offset - 0.133f / MechanismConfig::gear_radius_P};  // 下2
+constexpr float INTERMEDIATE_POS_UNDER_3[2] = {5.421f + R_offset, P_offset - 0.238f / MechanismConfig::gear_radius_P};  // 下3
 // trajectory_waypoint_t(4.844, -0.087 / Mech::gear_radius_P, 368.703, -0002003),
 // trajectory_waypoint_t(5.065, -0.113 / Mech::gear_radius_P, 354.198, -0001861),
 // trajectory_waypoint_t(5.394, -0.230 / Mech::gear_radius_P, 334.505, -0002058),
