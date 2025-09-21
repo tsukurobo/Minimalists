@@ -503,13 +503,11 @@ void hand_tick(hand_state_t* hand_state, bool* has_work, absolute_time_t* state_
         case HAND_IDLE:
             g_debug_manager->debug("hand requested\n");
             if (!*has_work) {
-                gpio_set_irq_enabled(BUTTON_PIN, GPIO_IRQ_EDGE_FALL, false);
                 *hand_state = HAND_LOWERING;
                 *state_start_time = get_absolute_time();
                 gpio_put(Hand::PUMP_PIN, 1);
                 g_debug_manager->debug("Hand lowering...");
                 control_position_multiturn(&UART1, Hand::DXL_ID_LIFT, Hand::LiftAngle::FRONT_CATCH);
-                gpio_set_irq_enabled(BUTTON_PIN, GPIO_IRQ_EDGE_FALL, true);
             } else {
                 *hand_state = HAND_RELEASE;
                 *state_start_time = get_absolute_time();
@@ -528,30 +526,25 @@ void hand_tick(hand_state_t* hand_state, bool* has_work, absolute_time_t* state_
 
         case HAND_SUCTION_WAIT:
             if (elapsed_ms >= 100) {
-                gpio_set_irq_enabled(BUTTON_PIN, GPIO_IRQ_EDGE_FALL, false);
                 *hand_state = HAND_RAISING;
                 *state_start_time = get_absolute_time();
                 control_position_multiturn(&UART1, Hand::DXL_ID_LIFT, lift_angle);
                 g_debug_manager->debug("Hand raising...\n");
-                gpio_set_irq_enabled(BUTTON_PIN, GPIO_IRQ_EDGE_FALL, true);
             }
             break;
 
         case HAND_RAISING:
             if (elapsed_ms >= 200) {
-                gpio_set_irq_enabled(BUTTON_PIN, GPIO_IRQ_EDGE_FALL, false);
                 *has_work = true;
                 control_position(&UART1, Hand::DXL_ID_HAND, hand_angle);
                 g_debug_manager->debug("Hand raised, work done.\n");
                 *hand_state = HAND_WAITING;  // HAND_IDLE前に1秒待機
                 *state_start_time = get_absolute_time();
-                gpio_set_irq_enabled(BUTTON_PIN, GPIO_IRQ_EDGE_FALL, true);
             }
             break;
 
         case HAND_RELEASE:
             if (elapsed_ms >= 150) {
-                gpio_set_irq_enabled(BUTTON_PIN, GPIO_IRQ_EDGE_FALL, false);
                 *has_work = false;
                 gpio_put(Hand::SOLENOID_PIN, 0);
                 gpio_put(Hand::PUMP_PIN, 1);
@@ -560,7 +553,6 @@ void hand_tick(hand_state_t* hand_state, bool* has_work, absolute_time_t* state_
                 *hand_state = HAND_WAITING;  // HAND_IDLE前に1秒待機
                 *state_start_time = get_absolute_time();
                 move_shooting_servo();  // シューティングエリア用サーボを動かす
-                gpio_set_irq_enabled(BUTTON_PIN, GPIO_IRQ_EDGE_FALL, true);
             }
             break;
 
@@ -853,7 +845,7 @@ void core1_entry(void) {
             // FIFOに同期信号を送信（ノンブロッキング）
             if (!multicore_fifo_push_timeout_us(Mc::SYNC_SIGNAL, 0)) {
                 // FIFO満杯の場合は何もしない（次回再試行）
-                printf("Core1: Failed to push sync signal to Core0 FIFO\n");
+                // printf("Core1: Failed to push sync signal to Core0 FIFO\n");
             }
         }
 
@@ -903,7 +895,7 @@ bool initialize_system() {
     gpio_put(SPI1::Encoder::ON_PIN, 1);  // ON状態に設定
 
     // デバッグマネージャの初期化
-    g_debug_manager = new DebugManager(DebugLevel::ERROR, 0.1f);
+    g_debug_manager = new DebugManager(DebugLevel::OFF, 0.1f);
 
     // 全SPIデバイスの初期化
     while (!init_all_spi_devices()) {
@@ -1340,11 +1332,9 @@ int main(void) {
             if (absolute_time_diff_us(g_last_shoot_servo_time, now) >= 2'000'000 &&
                 absolute_time_diff_us(g_last_shoot_servo_time, now) < 3'000'000) {
                 g_debug_manager->debug("Set shooting servo angle to correction angle.");
-                printf("Set shooting servo angle to correction angle.\n");
                 shooting_servo.set_angle(ShootingConfig::CORRECTION_ANGLE);
             } else if (absolute_time_diff_us(g_last_shoot_servo_time, now) >= 3'000'000) {
                 g_debug_manager->debug("Set shooting servo angle to idle angle.");
-                printf("Set shooting servo angle to idle angle.\n");
                 shooting_servo.set_angle(ShootingConfig::IDLE_ANGLE);
                 is_moving_shooting_servo = false;
             }

@@ -234,11 +234,11 @@ void mcp25625_t::_reset() {
 bool mcp25625_t::_set_mode(uint8_t mode) {
     // CANCTRLレジスタの上位3ビットを設定
     _modify_register(MCP_CANCTRL, 0xE0, mode);
-    printf("[DEBUG] Setting mode to 0x%02X\n", mode);
+    // printf("[DEBUG] Setting mode to 0x%02X\n", mode);
 
     // モードが正しく設定されたか確認 [cite: 286]
     uint8_t status = _read_register(MCP_CANSTAT);
-    printf("[DEBUG] Current CANSTAT: 0x%02X\n", status);
+    // printf("[DEBUG] Current CANSTAT: 0x%02X\n", status);
     return (status & 0xE0) == mode;
 }
 
