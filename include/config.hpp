@@ -150,11 +150,11 @@ constexpr float P_THRESHOLD_DIST = PI_F;    // P軸の移動距離がこの値�
 
 // 中継点座標（R軸 [rad]、P軸 [rad]）
 #if LEFT_SHOOTING_AREA == 1
-constexpr float INTERMEDIATE_POS_1[2] = {2.991f, (-0.127f + 0.55f) / MechanismConfig::gear_radius_P};
-constexpr float INTERMEDIATE_POS_2[2] = {4.082f, (-0.065f + 0.55f) / MechanismConfig::gear_radius_P};        // フィールド上の中継点
-constexpr float INTERMEDIATE_POS_UNDER_1[2] = {2.564f, (-0.193f + 0.55f) / MechanismConfig::gear_radius_P};  // 下1
-constexpr float INTERMEDIATE_POS_UNDER_2[2] = {2.350f, (-0.205f + 0.55f) / MechanismConfig::gear_radius_P};  // 下2
-constexpr float INTERMEDIATE_POS_UNDER_3[2] = {2.024f, (-0.298f + 0.55f) / MechanismConfig::gear_radius_P};  // 下3
+constexpr float INTERMEDIATE_POS_1[2] = {1.787, -0.047 / MechanismConfig::gear_radius_P};
+constexpr float INTERMEDIATE_POS_2[2] = {3.472, -0.007 / MechanismConfig::gear_radius_P};        // フィールド上の中継点
+constexpr float INTERMEDIATE_POS_UNDER_1[2] = {1.338, -0.083 / MechanismConfig::gear_radius_P};  // 下1
+constexpr float INTERMEDIATE_POS_UNDER_2[2] = {1.164, -0.106 / MechanismConfig::gear_radius_P};  // 下2
+constexpr float INTERMEDIATE_POS_UNDER_3[2] = {0.822, -0.218 / MechanismConfig::gear_radius_P};  // 下3
 #else
 constexpr float INTERMEDIATE_POS_1[2] = {4.457f + R_offset, P_offset - 0.028f / MechanismConfig::gear_radius_P};
 constexpr float INTERMEDIATE_POS_2[2] = {2.857f + R_offset, P_offset - 0.026f / MechanismConfig::gear_radius_P};  // フィールド上の中継点
@@ -298,7 +298,7 @@ namespace QuickArmConfig {
 // 手先角度
 #if LEFT_SHOOTING_AREA == 1
 constexpr int32_t START_HAND_ANGLE = 2010;  // 手先の初期角度
-constexpr int32_t CATCH_ANGLE = 2750;
+constexpr int32_t CATCH_ANGLE = 2749;
 constexpr int32_t SHOOTING_ANGLE = 1339;
 constexpr int32_t INTER_POINT = 2900;
 constexpr int32_t FOLD_ANGLE = 3600;
