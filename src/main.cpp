@@ -845,7 +845,7 @@ void core1_entry(void) {
             // FIFOに同期信号を送信（ノンブロッキング）
             if (!multicore_fifo_push_timeout_us(Mc::SYNC_SIGNAL, 0)) {
                 // FIFO満杯の場合は何もしない（次回再試行）
-                printf("Core1: Failed to push sync signal to Core0 FIFO\n");
+                // printf("Core1: Failed to push sync signal to Core0 FIFO\n");
             }
         }
 
@@ -895,7 +895,7 @@ bool initialize_system() {
     gpio_put(SPI1::Encoder::ON_PIN, 1);  // ON状態に設定
 
     // デバッグマネージャの初期化
-    g_debug_manager = new DebugManager(DebugLevel::ERROR, 0.1f);
+    g_debug_manager = new DebugManager(DebugLevel::OFF, 0.1f);
 
     // 全SPIデバイスの初期化
     while (!init_all_spi_devices()) {
@@ -1332,11 +1332,9 @@ int main(void) {
             if (absolute_time_diff_us(g_last_shoot_servo_time, now) >= 2'000'000 &&
                 absolute_time_diff_us(g_last_shoot_servo_time, now) < 3'000'000) {
                 g_debug_manager->debug("Set shooting servo angle to correction angle.");
-                printf("Set shooting servo angle to correction angle.\n");
                 shooting_servo.set_angle(ShootingConfig::CORRECTION_ANGLE);
             } else if (absolute_time_diff_us(g_last_shoot_servo_time, now) >= 3'000'000) {
                 g_debug_manager->debug("Set shooting servo angle to idle angle.");
-                printf("Set shooting servo angle to idle angle.\n");
                 shooting_servo.set_angle(ShootingConfig::IDLE_ANGLE);
                 is_moving_shooting_servo = false;
             }
