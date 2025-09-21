@@ -430,7 +430,7 @@ void exe_QuickArm(QuickArm_state_t* quick_arm_state) {
             break;
 
         case CATCHING_POSITION:
-            if (elapsed_ms >= 800) {  // 500
+            if (elapsed_ms >= 750) {  // 800
                 *quick_arm_state = HAND_DROPPING;
                 state_start_time = get_absolute_time();
                 g_debug_manager->debug("Hand dropping...\n");
@@ -439,14 +439,14 @@ void exe_QuickArm(QuickArm_state_t* quick_arm_state) {
             break;
 
         case HAND_DROPPING:
-            if (elapsed_ms >= 800) {
+            if (elapsed_ms >= 750) {  // 800
                 *quick_arm_state = CATCHING_WAIT;
                 state_start_time = get_absolute_time();
             }
             break;
 
         case CATCHING_WAIT:
-            if (elapsed_ms >= 300) {
+            if (elapsed_ms >= 280) {  // 300
                 *quick_arm_state = HAND_LIFTING;
                 state_start_time = get_absolute_time();
                 control_position_multiturn(&UART0, QuickArmConfig::DXL_ID_LIFT, QuickArmConfig::UPPER_ANGLE);
@@ -455,7 +455,7 @@ void exe_QuickArm(QuickArm_state_t* quick_arm_state) {
             break;
 
         case HAND_LIFTING:
-            if (elapsed_ms >= 800) {
+            if (elapsed_ms >= 770) {
                 control_position_multiturn(&UART0, QuickArmConfig::DXL_ID_ROTATE, QuickArmConfig::SHOOTING_ANGLE);
                 g_debug_manager->debug("Hand raised, work done.\n");
                 state_start_time = get_absolute_time();
@@ -464,7 +464,7 @@ void exe_QuickArm(QuickArm_state_t* quick_arm_state) {
             break;
 
         case SHOOTING_POSITION:
-            if (elapsed_ms >= 900) {
+            if (elapsed_ms >= 870) {
                 *quick_arm_state = HAND_FOLD;
                 state_start_time = get_absolute_time();
                 gpio_put(QuickArmConfig::PUMP_PIN, 0);      // ポンプ停止
