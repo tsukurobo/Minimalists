@@ -67,10 +67,14 @@ void set_rx_mode(const uart_config_t* config) {
 }
 
 void send_packet(const uart_config_t* config, const uint8_t* data, size_t length) {
+    // 送信準備 送信バッファが空になるまで待つ
+    uart_tx_wait_blocking(config->uart_number);  // バッファが空か確認
+    sleep_last_byte_complete(BAUD_RATE);         // 最後の1文字分余裕をもって待つ
     uart_clear_rx_buffer_safe(config);
     set_tx_mode(config);  // 送信モード
     sleep_us(10);         // DEピンと割り込み禁止の安定化待ち
     uart_write_blocking(config->uart_number, data, length);
+    sleep_us(10);                                // バッファにデータを送信するまで少し待つ
     uart_tx_wait_blocking(config->uart_number);  // シフトレジスタに転送するまで待機
     sleep_last_byte_complete(BAUD_RATE);         // 最後の1文字が送信されるまで待つ
     set_rx_mode(config);
