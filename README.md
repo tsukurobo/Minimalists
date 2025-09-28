@@ -5,11 +5,6 @@
 
 1. vscode に `Raspberry Pi Pico Project` 拡張機能をインストールしてください
 2. 新たに増えた`Raspberry Pi Pico Project`拡張機能メニューから`Project -> Configure CMake`を選択するとbuildディレクトリが生成されます
-3. 軌道生成ライブラリである`Ruckig`をサブモジュールとして追加します  
-
-```bash
-git submodule update --init --recursive
-```
 
 ## 機能説明
 ### 動作フローチャート
