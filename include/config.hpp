@@ -32,7 +32,18 @@ constexpr int32_t START_UP_ANGLE = 1617;
 constexpr int32_t UPPER_ANGLE = -410;
 constexpr int32_t LOWER_ANGLE = 5961;
 
+constexpr int32_t SHOOT_UP = 507;
+constexpr int32_t SHOOT_LOW = 5342;
+constexpr int32_t CATCH = 8063;
+
+constexpr int32_t SHOOT_YAW = 2052;
+constexpr int32_t CATCH_YAW = 1093;
+
 // dynamixelのID
+
+constexpr short DXL_ID2 = 0x02;
+constexpr short DXL_ID4 = 0x04;
+
 constexpr short DXL_ID5 = 0x05;  // 根元
 constexpr short DXL_ID6 = 0x06;  // 昇降
 

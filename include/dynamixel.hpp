@@ -43,7 +43,7 @@ const uart_config_t UART1 = {
     .uart_number = uart1,
     .tx_pin = 4,
     .rx_pin = 5,
-    .de_pin = 6};
+    .de_pin = 20};
 
 void init_crc();
 

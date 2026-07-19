@@ -31,42 +31,42 @@ void init() {
     gpio_set_dir(SOLENOID_PIN_SUB, GPIO_OUT);
     sleep_ms(1000);  // GPIO初期化後の安定化待ち
     // Dynamixelの設定
-    printf("Initializing Dynamixels (Daisy Chain on UART0)...\n");
+    printf("Initializing Dynamixels (Daisy Chain on UART1)...\n");
     init_crc();
-    configure_uart(&UART0, BAUD_RATE);
+    configure_uart(&UART1, BAUD_RATE);
     sleep_ms(100);
-    write_statusReturnLevel(&UART0, DXL_ID5, 0x00);
-    write_statusReturnLevel(&UART0, DXL_ID6, 0x00);
+    write_statusReturnLevel(&UART1, DXL_ID2, 0x00);
+    write_statusReturnLevel(&UART1, DXL_ID4, 0x00);
     sleep_ms(100);
-    write_dxl_led(&UART0, DXL_ID5, true);
-    write_dxl_led(&UART0, DXL_ID6, true);
+    write_dxl_led(&UART1, DXL_ID2, true);
+    write_dxl_led(&UART1, DXL_ID4, true);
     sleep_ms(100);
-    write_dxl_led(&UART0, DXL_ID5, false);
-    write_dxl_led(&UART0, DXL_ID6, false);
+    write_dxl_led(&UART1, DXL_ID2, false);
+    write_dxl_led(&UART1, DXL_ID4, false);
     sleep_ms(100);
-    write_torqueEnable(&UART0, DXL_ID5, false);
-    write_torqueEnable(&UART0, DXL_ID6, false);
+    write_torqueEnable(&UART1, DXL_ID2, false);
+    write_torqueEnable(&UART1, DXL_ID4, false);
     sleep_ms(100);
-    write_position_Dgain(&UART0, DXL_ID5, 1000);
-    write_position_Dgain(&UART0, DXL_ID6, 500);
+    // write_position_Dgain(&UART1, DXL_ID2, 1000);
+    // write_position_Dgain(&UART1, DXL_ID4, 500);
+    // sleep_ms(100);
+    // write_position_Pgain(&UART1, DXL_ID2, 80);
+    // write_position_Pgain(&UART1, DXL_ID4, 1000);
+    // sleep_ms(100);
+    // write_position_Igain(&UART1, DXL_ID4, 100);
     sleep_ms(100);
-    write_position_Pgain(&UART0, DXL_ID5, 80);
-    write_position_Pgain(&UART0, DXL_ID6, 1000);
+    write_dxl_current_limit(&UART1, DXL_ID2, 1400);  // ID=1, 電流制限=100mA
+    write_dxl_current_limit(&UART1, DXL_ID4, 1400);  // ID=2, 電流制限=100mA
     sleep_ms(100);
-    write_position_Igain(&UART0, DXL_ID6, 100);
+    write_operatingMode(&UART1, DXL_ID2, true);
+    write_operatingMode(&UART1, DXL_ID4, true);
     sleep_ms(100);
-    write_dxl_current_limit(&UART0, DXL_ID5, 350);   // ID=1, 電流制限=100mA
-    write_dxl_current_limit(&UART0, DXL_ID6, 1400);  // ID=2, 電流制限=100mA
-    sleep_ms(100);
-    write_operatingMode(&UART0, DXL_ID5, false);
-    write_operatingMode(&UART0, DXL_ID6, false);
-    sleep_ms(100);
-    write_torqueEnable(&UART0, DXL_ID5, true);
-    write_torqueEnable(&UART0, DXL_ID6, true);
+    write_torqueEnable(&UART1, DXL_ID2, true);
+    write_torqueEnable(&UART1, DXL_ID4, true);
     sleep_ms(500);
-    control_position_multiturn(&UART0, DXL_ID5, START_HAND_ANGLE);
+    // control_position_multiturn(&UART1, DXL_ID2, START_HAND_ANGLE);
     sleep_ms(500);
-    control_position_multiturn(&UART0, DXL_ID6, START_UP_ANGLE);
+    control_position_multiturn(&UART1, DXL_ID4, START_UP_ANGLE);
     sleep_ms(100);
     gpio_put(SOLENOID_PIN_SUB, 0);  // ソレノイドを吸着状態にする
     gpio_put(PUMP_PIN_SUB, 1);
@@ -74,79 +74,92 @@ void init() {
 
 // 　最速アーム実行
 void exe_QuickArm(QuickArm_state_t* hand_state, bool* hand_requested, absolute_time_t* state_start_time) {
-    uint32_t elapsed_ms = absolute_time_diff_us(*state_start_time, get_absolute_time()) / 1000;
-    switch (*hand_state) {
-        case HAND_STANDBY:
-            if (*hand_requested) {
-                printf("hand requested\n");
-                *hand_requested = false;
-                *hand_state = CATCHING_POSITON;
-                *state_start_time = get_absolute_time();
-                gpio_put(PUMP_PIN_SUB, 1);
-                control_position_multiturn(&UART0, DXL_ID5, CATCH_ANGLE);
-                printf("Hand catching position %d\n");
-            }
-            break;
-
-        case CATCHING_POSITON:
-            if (elapsed_ms >= 500) {  // 500
-                *hand_state = HAND_DROPPING;
-                *state_start_time = get_absolute_time();
-                printf("Hand dropping...\n");
-                control_position_multiturn(&UART0, DXL_ID6, LOWER_ANGLE);
-            }
-            break;
-
-        case HAND_DROPPING:
-            if (elapsed_ms >= 300) {
-                *hand_state = CATCHING_WAIT;
-                *state_start_time = get_absolute_time();
-            }
-            break;
-
-        case CATCHING_WAIT:
-            if (elapsed_ms >= 150) {
-                *hand_state = HAND_LIFTING;
-                *state_start_time = get_absolute_time();
-                control_position_multiturn(&UART0, DXL_ID6, UPPER_ANGLE);
-                printf("Hand raising...\n");
-            }
-            break;
-
-        case HAND_LIFTING:
-            if (elapsed_ms >= 500) {
-                control_position_multiturn(&UART0, DXL_ID5, SHOOTING_ANGLE);
-                printf("Hand raised, work done.\n");
-                *state_start_time = get_absolute_time();
-                *hand_state = SHOOTING_POSITION;
-            }
-            break;
-
-        case SHOOTING_POSITION:
-            if (elapsed_ms >= 500) {
-                *hand_state = HAND_FOLD;
-                *state_start_time = get_absolute_time();
-                gpio_put(PUMP_PIN_SUB, 0);      // ポンプ停止
-                gpio_put(SOLENOID_PIN_SUB, 1);  // ソレノイドを非吸着状態にする
-                printf("Hand in shooting position, pump off.\n");
-            }
-            break;
-
-        case HAND_FOLD:
-            if (elapsed_ms >= 100) {
-                *state_start_time = get_absolute_time();
-                control_position_multiturn(&UART0, DXL_ID5, INTER_POINT);
-                printf("Hand folding...\n");
-                *hand_state = HAND_FINISH;
-            }
-
-        case HAND_FINISH:
-            if (elapsed_ms >= 500) {
-                control_position_multiturn(&UART0, DXL_ID5, FOLD_ANGLE);
-                printf("Hand folded, work done.\n");
-            }
-            break;
+    if (*hand_requested) {
+        printf("quickArm\n");
+        // control_position_multiturn(&UART1, DXL_ID2, SHOOT_LOW);
+        // sleep_ms(2000);
+        // control_position_multiturn(&UART1, DXL_ID2, CATCH);
+        // sleep_ms(2000);
+        // control_position_multiturn(&UART1, DXL_ID2, SHOOT_UP);
+        // sleep_ms(2000);
+        control_position(&UART1, DXL_ID4, SHOOT_YAW);
+        sleep_ms(1000);
+        control_position(&UART1, DXL_ID4, CATCH_YAW);
+        sleep_ms(1000);
     }
+    // uint32_t elapsed_ms = absolute_time_diff_us(*state_start_time, get_absolute_time()) / 1000;
+    // switch (*hand_state) {
+    //     case HAND_STANDBY:
+    //         if (*hand_requested) {
+    //             printf("hand requested\n");
+    //             *hand_requested = false;
+    //             *hand_state = CATCHING_POSITON;
+    //             *state_start_time = get_absolute_time();
+    //             gpio_put(PUMP_PIN_SUB, 1);
+    //             control_position_multiturn(&UART1, DXL_ID2, CATCH_ANGLE);
+    //             printf("Hand catching position %d\n");
+    //         }
+    //         break;
+
+    //     case CATCHING_POSITON:
+    //         if (elapsed_ms >= 500) {  // 500
+    //             *hand_state = HAND_DROPPING;
+    //             *state_start_time = get_absolute_time();
+    //             printf("Hand dropping...\n");
+    //             control_position_multiturn(&UART1, DXL_ID4, LOWER_ANGLE);
+    //         }
+    //         break;
+
+    //     case HAND_DROPPING:
+    //         if (elapsed_ms >= 300) {
+    //             *hand_state = CATCHING_WAIT;
+    //             *state_start_time = get_absolute_time();
+    //         }
+    //         break;
+
+    //     case CATCHING_WAIT:
+    //         if (elapsed_ms >= 150) {
+    //             *hand_state = HAND_LIFTING;
+    //             *state_start_time = get_absolute_time();
+    //             control_position_multiturn(&UART1, DXL_ID4, UPPER_ANGLE);
+    //             printf("Hand raising...\n");
+    //         }
+    //         break;
+
+    //     case HAND_LIFTING:
+    //         if (elapsed_ms >= 500) {
+    //             control_position_multiturn(&UART1, DXL_ID2, SHOOTING_ANGLE);
+    //             printf("Hand raised, work done.\n");
+    //             *state_start_time = get_absolute_time();
+    //             *hand_state = SHOOTING_POSITION;
+    //         }
+    //         break;
+
+    //     case SHOOTING_POSITION:
+    //         if (elapsed_ms >= 500) {
+    //             *hand_state = HAND_FOLD;
+    //             *state_start_time = get_absolute_time();
+    //             gpio_put(PUMP_PIN_SUB, 0);      // ポンプ停止
+    //             gpio_put(SOLENOID_PIN_SUB, 1);  // ソレノイドを非吸着状態にする
+    //             printf("Hand in shooting position, pump off.\n");
+    //         }
+    //         break;
+
+    //     case HAND_FOLD:
+    //         if (elapsed_ms >= 100) {
+    //             *state_start_time = get_absolute_time();
+    //             control_position_multiturn(&UART1, DXL_ID2, INTER_POINT);
+    //             printf("Hand folding...\n");
+    //             *hand_state = HAND_FINISH;
+    //         }
+
+    //     case HAND_FINISH:
+    //         if (elapsed_ms >= 500) {
+    //             control_position_multiturn(&UART1, DXL_ID2, FOLD_ANGLE);
+    //             printf("Hand folded, work done.\n");
+    //         }
+    //         break;
+    // }
 }
 
 // Core 1: 通信・デバッグ出力担当
