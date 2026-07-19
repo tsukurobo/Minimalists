@@ -35,6 +35,20 @@ void init() {
     init_crc();
     configure_uart(&UART1, BAUD_RATE);
     sleep_ms(100);
+    // モータ電源が入って応答が返るまで待つ（電源投入順に依存しないための起動ガード）
+    // 待機中はオンボードLEDが速く点滅する
+    gpio_init(PICO_DEFAULT_LED_PIN);
+    gpio_set_dir(PICO_DEFAULT_LED_PIN, GPIO_OUT);
+    printf("Waiting for Dynamixel ID=%d ...\n", DXL_ID4);
+    bool wait_led = false;
+    while (!dxl_ping(&UART1, DXL_ID4)) {
+        wait_led = !wait_led;
+        gpio_put(PICO_DEFAULT_LED_PIN, wait_led);
+        sleep_ms(200);
+    }
+    gpio_put(PICO_DEFAULT_LED_PIN, 0);
+    sleep_ms(500);  // モータ起動直後の安定化待ち
+    printf("Dynamixel ID=%d detected. Configuring...\n", DXL_ID4);
     write_statusReturnLevel(&UART1, DXL_ID2, 0x00);
     write_statusReturnLevel(&UART1, DXL_ID4, 0x00);
     sleep_ms(100);

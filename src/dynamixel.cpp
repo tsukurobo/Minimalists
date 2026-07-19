@@ -111,6 +111,70 @@ int receive_packet(const uart_config_t* config, uint8_t* rx_buf, size_t expected
     return expected_len;
 }
 
+// 1バイトをタイムアウト付きで読む（uart_read_blockingは相手が無応答だと永久に待つため使わない）
+static int read_byte_timeout(uart_inst_t* u, uint32_t timeout_us) {
+    absolute_time_t deadline = make_timeout_time_us(timeout_us);
+    while (!time_reached(deadline)) {
+        if (uart_is_readable(u)) {
+            return uart_getc(u);
+        }
+        tight_loop_contents();
+    }
+    return -1;
+}
+
+// PING (instruction 0x01) を送り、ステータスパケット(14byte)を待つ
+// 応答: FF FF FD 00 | ID | LEN_L=7 LEN_H=0 | 0x55 | ERR | MODEL_L MODEL_H FW | CRC_L CRC_H
+bool dxl_ping(const uart_config_t* config, uint8_t id) {
+    uint8_t tx[10];
+    tx[0] = 0xFF;
+    tx[1] = 0xFF;
+    tx[2] = 0xFD;
+    tx[3] = 0x00;
+    tx[4] = id;
+    tx[5] = 0x03;  // LEN_L = instruction(1) + CRC(2)
+    tx[6] = 0x00;  // LEN_H
+    tx[7] = 0x01;  // Instruction: PING
+    uint16_t crc = update_crc(0, tx, 8);
+    tx[8] = crc & 0xFF;
+    tx[9] = (crc >> 8) & 0xFF;
+
+    send_packet(config, tx, 10);
+
+    // ヘッダ同期（最大20ms待ち）
+    uint8_t h[4] = {0, 0, 0, 0};
+    absolute_time_t deadline = make_timeout_time_ms(20);
+    bool sync = false;
+    while (!time_reached(deadline)) {
+        if (!uart_is_readable(config->uart_number)) {
+            tight_loop_contents();
+            continue;
+        }
+        h[0] = h[1];
+        h[1] = h[2];
+        h[2] = h[3];
+        h[3] = (uint8_t)uart_getc(config->uart_number);
+        if (h[0] == 0xFF && h[1] == 0xFF && h[2] == 0xFD && h[3] == 0x00) {
+            sync = true;
+            break;
+        }
+    }
+    if (!sync) return false;
+
+    uint8_t full[14] = {0xFF, 0xFF, 0xFD, 0x00};
+    for (int i = 4; i < 14; i++) {
+        int c = read_byte_timeout(config->uart_number, 5000);
+        if (c < 0) return false;
+        full[i] = (uint8_t)c;
+    }
+
+    if (full[4] != id || full[7] != 0x55) return false;
+    uint16_t received_crc = full[12] | (full[13] << 8);
+    if (received_crc != update_crc(0, full, 12)) return false;
+
+    return true;
+}
+
 int write_operatingMode(const uart_config_t* config, uint8_t id, bool currentControlEnable) {
     uint8_t packet[13];
     uint16_t crc;

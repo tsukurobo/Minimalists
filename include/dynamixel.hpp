@@ -60,6 +60,8 @@ void set_rx_mode(const uart_config_t* config);
 void send_packet(const uart_config_t* config, const uint8_t* data, size_t length);
 
 int receive_packet(const uart_config_t* config, uint8_t* rx_buf, size_t expected_len);
+// PING (Status Return Level=0 でも必ず応答が返る)。応答があれば true
+bool dxl_ping(const uart_config_t* config, uint8_t id);
 int write_operatingMode(const uart_config_t* config, uint8_t id, bool currentControlEnable);
 int write_torqueEnable(const uart_config_t* config, uint8_t id, bool on);
 int write_dxl_led(const uart_config_t* config, uint8_t id, uint8_t on);
